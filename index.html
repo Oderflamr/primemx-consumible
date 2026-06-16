@@ -301,14 +301,6 @@ tbody tr:hover td{background:var(--surface2)}
 .ac-wrap{position:relative}
 .ac-input{width:100%;height:38px;border:1px solid var(--border2);border-radius:var(--r);padding:0 12px;font-size:13px;background:var(--surface);color:var(--text);outline:none}
 .ac-input:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(26,86,219,.1)}
-.ac-dropdown{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:500;max-height:240px;overflow-y:auto;display:none;min-width:300px}
-.ac-dropdown.open{display:block}
-.ac-item{padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.ac-item:last-child{border-bottom:none}
-.ac-item:hover,.ac-item.selected{background:var(--blue-bg)}
-.ac-ceco{font-size:11px;font-weight:700;color:var(--blue-text);background:var(--blue-bg);padding:2px 7px;border-radius:100px;flex-shrink:0}
-.ac-nombre{font-size:13px;color:var(--text)}
-.ac-empty{padding:12px;font-size:13px;color:var(--text3);text-align:center}
 
 /* ── RESPONSIVE ──────────────────────────────────── */
 @media(max-width:768px){
@@ -810,8 +802,9 @@ function openModal(id) {
       <div class="fg form-full">
         <label>Tienda / PDV * <span style="font-size:10px;color:var(--text3);font-weight:400">— escribe nombre o CECO para buscar</span></label>
         <div class="ac-wrap">
-          <input class="ac-input" id="m-tienda" value="${t?t.tienda:''}" placeholder="Buscar por nombre o CECO..." autocomplete="off">
-          <div class="ac-dropdown" id="m-tienda-dd"></div>
+          <input class="ac-input" id="m-tienda-search" value="${t?t.ceco+' — '+t.tienda:''}" placeholder="Escribe CECO o nombre de tienda..." autocomplete="off" list="tienda-list">
+          <datalist id="tienda-list"></datalist>
+          <input type="hidden" id="m-tienda" value="${t?t.tienda:''}">
         </div>
       </div>
       <div class="fg">
@@ -858,15 +851,22 @@ function openModal(id) {
   </div>
 </div>`;
   document.body.appendChild(ov);
-  // Inicializar autocomplete de tienda con delay para asegurar DOM listo
-  setTimeout(() => initTiendaAC('m-tienda', 'm-ceco', 'm-sku'), 50);
+  setTimeout(() => initTiendaAC(), 50);
 }
 
 function closeModal() { document.getElementById("modal-overlay")?.remove(); }
 
 async function doSave() {
   const id_     = document.getElementById("m-id")?.value.trim();
-  const tienda  = document.getElementById("m-tienda")?.value.trim();
+  const tiendaHidden = document.getElementById("m-tienda")?.value.trim();
+  const tiendaSearch = document.getElementById("m-tienda-search")?.value.trim();
+  // Usar hidden si está lleno, sino intentar parsear el search
+  let tienda = tiendaHidden;
+  if(!tienda && tiendaSearch) {
+    // formato "CECO — NOMBRE"
+    const parts = tiendaSearch.split(' — ');
+    tienda = parts.length > 1 ? parts.slice(1).join(' — ') : tiendaSearch;
+  }
   if(!id_||!tienda){ toast("Ticket y tienda son obligatorios", true); return; }
   if(!editId && tickets.find(t=>t.id===id_)){ toast("Ya existe ese número de ticket", true); return; }
   const data = {
@@ -1267,78 +1267,49 @@ function initTiendaAC(inputId, cecoId, skuId) {
 
   let selIdx = -1;
 
-  function buildSKU(ceco) {
-    return '60540-' + ceco;
-  }
+function initTiendaAC() {
+  const searchEl = document.getElementById('m-tienda-search');
+  const hiddenEl = document.getElementById('m-tienda');
+  const cecoEl   = document.getElementById('m-ceco');
+  const skuEl    = document.getElementById('m-sku');
+  const dl       = document.getElementById('tienda-list');
+  if(!searchEl || !dl) return;
 
-  function positionDD() {
-    const rect = inp.getBoundingClientRect();
-    dd.style.left  = rect.left + 'px';
-    dd.style.top   = (rect.bottom + 4) + 'px';
-    dd.style.width = rect.width + 'px';
-  }
+  // Llenar datalist con todas las tiendas
+  dl.innerHTML = CATALOGO.map(t =>
+    `<option value="${t.ceco} — ${t.nombre}" data-ceco="${t.ceco}" data-nombre="${t.nombre}">`
+  ).join('');
 
-  function renderItems(q) {
-    const q2 = q.toLowerCase().trim();
-    const matches = q2.length < 1 ? [] : CATALOGO.filter(t =>
-      t.nombre.toLowerCase().includes(q2) || t.ceco.includes(q2)
-    ).slice(0, 30);
-    
-    if(matches.length === 0) {
-      dd.innerHTML = '<div class="ac-empty">Sin resultados</div>';
-    } else {
-      dd.innerHTML = matches.map((t,i) =>
-        `<div class="ac-item" data-ceco="${t.ceco}" data-nombre="${t.nombre}" data-i="${i}">
-          <span class="ac-ceco">${t.ceco}</span>
-          <span class="ac-nombre">${t.nombre}</span>
-        </div>`
-      ).join('');
-      dd.querySelectorAll('.ac-item').forEach(el => {
-        el.onmousedown = (e) => {
-          e.preventDefault();
-          selectTienda(el.dataset.ceco, el.dataset.nombre);
-        };
-      });
+  // Cuando el usuario escribe o selecciona
+  searchEl.addEventListener('input', () => {
+    const val = searchEl.value;
+    // Buscar si coincide exactamente con alguna opción del datalist
+    const match = CATALOGO.find(t =>
+      val === t.ceco + ' — ' + t.nombre || val === t.ceco || val === t.nombre
+    );
+    if(match) {
+      if(hiddenEl) hiddenEl.value = match.nombre;
+      if(cecoEl)   cecoEl.value  = match.ceco;
+      if(skuEl)    skuEl.value   = '60540-' + match.ceco;
     }
-    selIdx = -1;
-    positionDD();
-    dd.classList.add('open');
-  }
+  });
 
-  function selectTienda(ceco, nombre) {
-    inp.value = nombre;
-    const cecoEl = document.getElementById(cecoId);
-    if(cecoEl) cecoEl.value = ceco;
-    const skuEl = document.getElementById(skuId);
-    if(skuEl) skuEl.value = buildSKU(ceco);
-    dd.classList.remove('open');
-    selIdx = -1;
-  }
-
-  inp.addEventListener('input', () => renderItems(inp.value));
-  inp.addEventListener('focus', () => { if(inp.value.length >= 1) renderItems(inp.value); });
-  inp.addEventListener('blur',  () => setTimeout(() => dd.classList.remove('open'), 150));
-
-  inp.addEventListener('keydown', e => {
-    const items = dd.querySelectorAll('.ac-item');
-    if(!items.length) return;
-    if(e.key === 'ArrowDown') {
-      e.preventDefault();
-      selIdx = Math.min(selIdx + 1, items.length - 1);
-    } else if(e.key === 'ArrowUp') {
-      e.preventDefault();
-      selIdx = Math.max(selIdx - 1, 0);
-    } else if(e.key === 'Enter' && selIdx >= 0) {
-      e.preventDefault();
-      const el = items[selIdx];
-      selectTienda(el.dataset.ceco, el.dataset.nombre);
-      return;
-    } else if(e.key === 'Escape') {
-      dd.classList.remove('open');
-      return;
+  // También detectar cuando pierde el foco para limpiar si no hay match
+  searchEl.addEventListener('blur', () => {
+    const val = searchEl.value.trim();
+    const match = CATALOGO.find(t =>
+      val === t.ceco + ' — ' + t.nombre || val === t.ceco || val === t.nombre
+    );
+    if(!match && val) {
+      // Buscar coincidencia parcial por CECO numérico
+      const byCeco = CATALOGO.find(t => val === t.ceco);
+      if(byCeco) {
+        searchEl.value = byCeco.ceco + ' — ' + byCeco.nombre;
+        if(hiddenEl) hiddenEl.value = byCeco.nombre;
+        if(cecoEl)   cecoEl.value  = byCeco.ceco;
+        if(skuEl)    skuEl.value   = '60540-' + byCeco.ceco;
+      }
     }
-    items.forEach((el, i) => el.classList.toggle('selected', i === selIdx));
-    if(selIdx >= 0) items[selIdx].scrollIntoView({block:'nearest'});
   });
 }
 
