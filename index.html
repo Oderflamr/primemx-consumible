@@ -207,8 +207,9 @@ tbody tr:hover td{background:var(--surface2)}
 /* ── BADGES ──────────────────────────────────────── */
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600;white-space:nowrap}
 .b-abierto{background:var(--blue-bg);color:var(--blue-text)}
-.b-enviado{background:var(--amber-bg);color:var(--amber-text)}
+.b-pendiente{background:var(--amber-bg);color:var(--amber-text)}
 .b-entregado{background:var(--green-bg);color:var(--green-text)}
+.b-abierto2{background:var(--blue-bg);color:var(--blue-text)}
 .b-cerrado{background:var(--surface2);color:var(--text2)}
 .b-rechazado{background:var(--red-bg);color:var(--red-text)}
 .b-toner{background:var(--purple-bg);color:var(--purple-text)}
@@ -381,14 +382,7 @@ tbody tr:hover td{background:var(--surface2)}
         <svg viewBox="0 0 24 24"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
         Menos solicitudes
       </button>
-      <button class="nav-btn" id="nav-fallas" onclick="navigate('fallas')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Fallas impresora
-      </button>
-      <button class="nav-btn" id="nav-renovaciones" onclick="navigate('renovaciones')">
-        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        Renovaciones
-      </button>
+
       <div class="nav-spacer"></div>
       <div class="nav-label">Herramientas</div>
       <button class="nav-btn" onclick="exportCSV()">
@@ -453,7 +447,7 @@ let dashAnio    = "";
 let editId      = null;
 
 const TIPOS   = ["TONER","UNIDAD DE IMAGEN","KIT MANTENIMIENTO","FALLA IMPRESORA"];
-const ESTATUS = ["ABIERTO","ENVIADO","ENTREGADO","CERRADO","RECHAZADO"];
+const ESTATUS = ["ABIERTO","PENDIENTE","CERRADO"];
 const COLORES  = { TONER:"#6d28d9","UNIDAD DE IMAGEN":"#0f766e","KIT MANTENIMIENTO":"#b45309","FALLA IMPRESORA":"#b91c1c" };
 
 /* ══════════════ AUTH ════════════════════════════ */
@@ -559,7 +553,7 @@ async function deleteTicket(id) {
 /* ══════════════ ROUTING ═════════════════════════ */
 function navigate(p) {
   page = p;
-  ["tickets","dashboard","tiendas","top-tiendas","bottom-tiendas","fallas","renovaciones"].forEach(x => {
+  ["tickets","dashboard","tiendas","top-tiendas","bottom-tiendas"].forEach(x => {
     document.getElementById("nav-"+x)?.classList.toggle("active", x===p);
   });
   render();
@@ -573,8 +567,7 @@ function render() {
   else if(page==="dashboard")      { c.innerHTML = renderDashboard(); }
   else if(page==="top-tiendas")    { c.innerHTML = renderTopTiendas(); }
   else if(page==="bottom-tiendas") { c.innerHTML = renderBottomTiendas(); }
-  else if(page==="fallas")         { c.innerHTML = renderFallas(); }
-  else if(page==="renovaciones")   { c.innerHTML = renderRenovaciones(); }
+
   else                             { c.innerHTML = renderTiendas(); }
   bindEvents();
 }
@@ -596,10 +589,10 @@ function getFiltered() {
 function anios(){ return [...new Set(tickets.map(t=>t.anio).filter(Boolean))].sort().reverse(); }
 function meses(base){ 
   const src = base || tickets;
-  return [...new Set(src.map(t=>t.mes).filter(Boolean))]; 
+  return [...new Set(src.map(t=>t.mes ? t.mes.charAt(0).toUpperCase()+t.mes.slice(1).toLowerCase() : "").filter(Boolean))]; 
 }
 function tipoClass(t){ return {TONER:"toner","UNIDAD DE IMAGEN":"unidad","KIT MANTENIMIENTO":"kit","FALLA IMPRESORA":"falla"}[t]||"toner"; }
-function estatusClass(e){ return {ABIERTO:"abierto",ENVIADO:"enviado",ENTREGADO:"entregado",CERRADO:"cerrado",RECHAZADO:"rechazado"}[e]||"cerrado"; }
+function estatusClass(e){ return {ABIERTO:"abierto",PENDIENTE:"pendiente",CERRADO:"cerrado"}[e]||"cerrado"; }
 function dias(t){ if(!t.solicitud||!t.entregado)return"—"; return Math.round((new Date(t.entregado)-new Date(t.solicitud))/86400000)+" d"; }
 function svgIcon(name){
   const icons={
@@ -619,8 +612,8 @@ function svgIcon(name){
 function renderTickets() {
   const list = getFiltered();
   const ab   = tickets.filter(t=>t.estatus==="ABIERTO").length;
-  const env  = tickets.filter(t=>t.estatus==="ENVIADO").length;
-  const ent  = tickets.filter(t=>t.estatus==="ENTREGADO").length;
+  const env  = tickets.filter(t=>t.estatus==="PENDIENTE").length;
+  const ent  = 0;
   const cerr = tickets.filter(t=>t.estatus==="CERRADO").length;
   const tp   = tickets.filter(t=>t.entregado&&t.solicitud).map(t=>(new Date(t.entregado)-new Date(t.solicitud))/86400000);
   const prom = tp.length ? Math.round(tp.reduce((a,b)=>a+b,0)/tp.length) : 0;
@@ -645,7 +638,7 @@ function renderTickets() {
 </div>
 <div class="metrics">
   <div class="mc"><div class="mc-label">Total</div><div class="mc-value">${tickets.length}</div><div class="mc-sub">registros</div></div>
-  <div class="mc"><div class="mc-label" style="color:var(--blue-text)">Activos</div><div class="mc-value" style="color:var(--blue)">${ab+env}</div><div class="mc-sub">${ab} abiertos · ${env} enviados</div></div>
+  <div class="mc"><div class="mc-label" style="color:var(--blue-text)">Activos</div><div class="mc-value" style="color:var(--blue)">${ab+env}</div><div class="mc-sub">${ab} abiertos · ${env} pendientes</div></div>
   <div class="mc"><div class="mc-label" style="color:var(--green-text)">Entregados / Cerrados</div><div class="mc-value" style="color:var(--green)">${ent+cerr}</div><div class="mc-sub">${tickets.length?Math.round((ent+cerr)/tickets.length*100):0}% resolución</div></div>
   <div class="mc"><div class="mc-label">Tiempo promedio</div><div class="mc-value">${prom} d</div><div class="mc-sub">días hasta entrega</div></div>
 </div>
@@ -715,7 +708,7 @@ function renderTickets() {
 
 /* ══════════════ PROVEEDOR VIEW ══════════════════ */
 function renderProveedor() {
-  const activos = tickets.filter(t=>["ABIERTO","ENVIADO"].includes(t.estatus));
+  const activos = tickets.filter(t=>["ABIERTO","PENDIENTE"].includes(t.estatus));
   return `
 <div class="prov-header">
   ${svgIcon("warn")}
@@ -762,11 +755,11 @@ ${activos.map(t=>`
     </div>
     <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:4px;border-top:1px solid var(--border)">
       <span style="font-size:12px;color:var(--text2)">Cambiar estatus:</span>
-      <button class="btn sm" onclick="provUpdate('${t.id}','ENVIADO')" ${t.estatus==="ENVIADO"?"disabled":""}>
-        ${svgIcon("send")} Marcar como Enviado
+      <button class="btn sm" onclick="provUpdate('${t.id}','PENDIENTE')" ${t.estatus==="PENDIENTE"?"disabled":""}>
+        ${svgIcon("send")} Marcar como Pendiente
       </button>
-      <button class="btn sm success" onclick="provUpdate('${t.id}','ENTREGADO')" ${t.estatus==="ENTREGADO"?"disabled":""}>
-        ${svgIcon("check")} Marcar como Entregado
+      <button class="btn sm success" onclick="provUpdate('${t.id}','CERRADO')" ${t.estatus==="CERRADO"?"disabled":""}>
+        ${svgIcon("check")} Marcar como Cerrado
       </button>
       <button class="btn sm primary" style="margin-left:auto" onclick="provSaveObs('${t.id}')">
         Guardar observaciones
@@ -780,8 +773,8 @@ ${activos.map(t=>`
     <div class="tbl-wrap"><table>
       <thead><tr><th>Ticket</th><th>Tienda</th><th>Tipo</th><th>Guía</th><th>Estatus</th><th>Entregado</th></tr></thead>
       <tbody>
-      ${tickets.filter(t=>!["ABIERTO","ENVIADO"].includes(t.estatus)).length===0?`<tr><td colspan="6"><div class="empty" style="padding:24px">${svgIcon("inbox")}<p>Sin historial</p></div></td></tr>`:""}
-      ${tickets.filter(t=>!["ABIERTO","ENVIADO"].includes(t.estatus)).map(t=>`<tr>
+      ${tickets.filter(t=>!["ABIERTO","PENDIENTE"].includes(t.estatus)).length===0?`<tr><td colspan="6"><div class="empty" style="padding:24px">${svgIcon("inbox")}<p>Sin historial</p></div></td></tr>`:""}
+      ${tickets.filter(t=>!["ABIERTO","PENDIENTE"].includes(t.estatus)).map(t=>`<tr>
         <td style="font-weight:700;font-size:12px">${t.id}</td>
         <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.tienda}</td>
         <td><span class="badge b-${tipoClass(t.tipo)}">${t.tipo}</span></td>
@@ -800,7 +793,7 @@ async function provUpdate(id, newEstatus) {
   const obs  = document.getElementById("obs-"+id)?.value.trim() || "";
   const patch = { estatus: newEstatus, observaciones: obs };
   if(guia) patch.guia = guia;
-  if(newEstatus==="ENTREGADO") patch.entregado = new Date().toISOString().split("T")[0];
+  if(newEstatus==="CERRADO") patch.entregado = new Date().toISOString().split("T")[0];
   const ok = await updateTicketPartial(id, patch);
   if(ok) toast("Estatus actualizado a " + newEstatus);
 }
@@ -925,7 +918,7 @@ function renderDashboard() {
   const top = Object.entries(porTienda).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const maxTi = top[0]?top[0][1]:1;
   const cerr = base.filter(t=>["CERRADO","ENTREGADO"].includes(t.estatus)).length;
-  const activos = base.filter(t=>["ABIERTO","ENVIADO"].includes(t.estatus)).length;
+  const activos = base.filter(t=>["ABIERTO","PENDIENTE"].includes(t.estatus)).length;
   const tiempos = base.filter(t=>t.entregado&&t.solicitud).map(t=>(new Date(t.entregado)-new Date(t.solicitud))/86400000);
   const prom = tiempos.length ? Math.round(tiempos.reduce((a,b)=>a+b,0)/tiempos.length) : 0;
   const MES_COLORS=["#1a56db","#0f766e","#b45309","#6d28d9","#b91c1c","#166534","#0369a1","#7c3aed"];
@@ -1340,10 +1333,10 @@ function initTiendaAC() {
 const DEMO_DATA = [
   {id:"T-4986",tienda:"PRM TDA MONTERREY PASEO LA FE 3008",ceco:"3008",sku:"60540-3008",tipo:"TONER",solicitud:"2024-01-25",entregado:"2024-01-30",estatus:"CERRADO",falla:"",observaciones:"",guia:"",mes:"Enero"},
   {id:"T-5002",tienda:"PRM TDA VERACRUZ ANDAMAR 5010",ceco:"5010",sku:"60540-5010",tipo:"UNIDAD DE IMAGEN",solicitud:"2024-01-25",entregado:"2024-01-29",estatus:"CERRADO",falla:"Problema Fusor",observaciones:"Entregada impresora de reemplazo",guia:"1Z999AA1012345678",mes:"Enero"},
-  {id:"T-5014",tienda:"PRM TDA TERRAZA LOMAS VERDES 1015",ceco:"1015",sku:"60540-1015",tipo:"TONER",solicitud:"2024-02-01",entregado:"",estatus:"ENVIADO",falla:"Tóner agotado",observaciones:"Paquete enviado, en tránsito",guia:"FX123456789MX",mes:"Febrero"},
+  {id:"T-5014",tienda:"PRM TDA TERRAZA LOMAS VERDES 1015",ceco:"1015",sku:"60540-1015",tipo:"TONER",solicitud:"2024-02-01",entregado:"",estatus:"PENDIENTE",falla:"Tóner agotado",observaciones:"Paquete enviado, en tránsito",guia:"FX123456789MX",mes:"Febrero"},
   {id:"T-5048",tienda:"PRM TDA ZACATECAS 4021",ceco:"4021",sku:"60540-4021",tipo:"TONER",solicitud:"2024-02-03",entregado:"",estatus:"ABIERTO",falla:"Falla de impresión",observaciones:"",guia:"",mes:"Febrero"},
   {id:"T-5451",tienda:"PRM TDA CDMX CENTRO 1002",ceco:"1002",sku:"60540-1002",tipo:"KIT MANTENIMIENTO",solicitud:"2024-02-05",entregado:"",estatus:"ABIERTO",falla:"",observaciones:"",guia:"",mes:"Febrero"},
-  {id:"T-5566",tienda:"PRM TDA SALTILLO SORIANA ECHEVERRIA 3029",ceco:"3029",sku:"60540-3029",tipo:"TONER",solicitud:"2024-02-10",entregado:"2024-02-14",estatus:"ENTREGADO",falla:"",observaciones:"Kit instalado correctamente",guia:"GU987654321",mes:"Febrero"},
+  {id:"T-5566",tienda:"PRM TDA SALTILLO SORIANA ECHEVERRIA 3029",ceco:"3029",sku:"60540-3029",tipo:"TONER",solicitud:"2024-02-10",entregado:"2024-02-14",estatus:"CERRADO",falla:"",observaciones:"Kit instalado correctamente",guia:"GU987654321",mes:"Febrero"},
 ];
 
 // Expose functions for inline onclick handlers
