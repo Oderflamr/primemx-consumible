@@ -859,6 +859,15 @@ function openModal(id) {
         <label>Estatus</label>
         <select id="m-est">${ESTATUS.map(e=>`<option value="${e}"${t&&t.estatus===e?" selected":(!t&&e==="ABIERTO"?" selected":"")}>${e}</option>`).join("")}</select>
       </div>
+      <div class="fg form-full">
+        <label>Observaciones <span style="font-size:10px;color:var(--text3);font-weight:400">— selecciona una respuesta predefinida o escribe una personalizada</span></label>
+        <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+          <button type="button" class="btn sm" style="font-size:11px;height:26px" onclick="setObs(1)">📦 Envío de consumible</button>
+          <button type="button" class="btn sm" style="font-size:11px;height:26px" onclick="setObs(2)">🔧 Visita técnica</button>
+          <button type="button" class="btn sm" style="font-size:11px;height:26px;color:var(--text3)" onclick="setObs(0)">✕ Limpiar</button>
+        </div>
+        <textarea id="m-obs" rows="4" style="width:100%;border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;line-height:1.5">${t?t.observaciones||"":""}</textarea>
+      </div>
     </div>
   </div>
   <div class="modal-footer">
@@ -870,35 +879,129 @@ function openModal(id) {
   setTimeout(() => initTiendaAC(), 50);
 }
 
+const OBS_PRESETS = [
+  "",
+  "Se ha solicitado el envío del consumible requerido. Le informamos que el servicio de mensajería tiene un tiempo estimado de entrega de 3 a 7 días hábiles. En caso de no recibir el paquete dentro de este plazo, le pedimos dar seguimiento a través de este mismo medio. Asimismo, al momento de recibir el consumible, le solicitamos confirmarlo por este canal para dar cierre al ticket.",
+  "Se ha levantado la solicitud de soporte técnico con el proveedor. Un técnico se comunicará con usted vía telefónica para coordinar la revisión de la falla reportada. Le pedimos estar al pendiente de la llamada. Cualquier actualización o acuerdo al que lleguen, favor de reportarlo a través de este medio para mantener el seguimiento correspondiente."
+];
+
+window.setObs = function(idx) {
+  const el = document.getElementById("m-obs");
+  if(el) el.value = OBS_PRESETS[idx] || "";
+}
+
 function closeModal() { document.getElementById("modal-overlay")?.remove(); }
 
 async function doSave() {
   const id_     = document.getElementById("m-id")?.value.trim();
   const tiendaHidden = document.getElementById("m-tienda")?.value.trim();
   const tiendaSearch = document.getElementById("m-tienda-search")?.value.trim();
-  // Usar hidden si está lleno, sino intentar parsear el search
   let tienda = tiendaHidden;
   if(!tienda && tiendaSearch) {
-    // formato "CECO — NOMBRE"
     const parts = tiendaSearch.split(' — ');
     tienda = parts.length > 1 ? parts.slice(1).join(' — ') : tiendaSearch;
   }
   if(!id_||!tienda){ toast("Ticket y tienda son obligatorios", true); return; }
   if(!editId && tickets.find(t=>t.id===id_)){ toast("Ya existe ese número de ticket", true); return; }
+
+  const ceco   = document.getElementById("m-ceco")?.value.trim()||"";
+  const tipo   = document.getElementById("m-tipo")?.value||"TONER";
+  const mes    = document.getElementById("m-mes")?.value.trim()||"";
+  const anio   = (document.getElementById("m-sol")?.value||"").slice(0,4);
+
+  // ── REGLA 1: No duplicar mismo tipo en mismo mes para misma tienda ──
+  if(!editId) {
+    const duplicado = tickets.find(t =>
+      t.ceco === ceco &&
+      t.tipo === tipo &&
+      t.mes  === mes  &&
+      t.anio === anio &&
+      t.estatus !== "RECHAZADO"
+    );
+    if(duplicado) {
+      showAlertaDuplicado(duplicado, `Ya existe un ticket de <strong>${tipo}</strong> para esta tienda en <strong>${mes} ${anio}</strong>.`);
+      return;
+    }
+  }
+
+  // ── REGLA 2: Unidad de imagen — mínimo 2 meses entre solicitudes ──
+  if(!editId && tipo === "UNIDAD DE IMAGEN") {
+    const solFecha = new Date(document.getElementById("m-sol")?.value||"");
+    if(!isNaN(solFecha)) {
+      const dosAtras = new Date(solFecha);
+      dosAtras.setMonth(dosAtras.getMonth() - 2);
+
+      const prevUnidad = tickets.find(t =>
+        t.ceco === ceco &&
+        t.tipo === "UNIDAD DE IMAGEN" &&
+        t.solicitud &&
+        new Date(t.solicitud) >= dosAtras &&
+        new Date(t.solicitud) <= solFecha &&
+        t.estatus !== "RECHAZADO"
+      );
+      if(prevUnidad) {
+        const diasDesde = Math.round((solFecha - new Date(prevUnidad.solicitud)) / 86400000);
+        showAlertaDuplicado(prevUnidad, `La <strong>Unidad de Imagen</strong> tiene una vigencia mínima de <strong>2 meses</strong>.<br>Esta tienda ya solicitó una hace <strong>${diasDesde} días</strong> (ticket ${prevUnidad.id}).`);
+        return;
+      }
+    }
+  }
+
   const data = {
-    id: id_, tienda,
-    ceco:   document.getElementById("m-ceco")?.value.trim()||"",
-    sku:    "60540-"+(document.getElementById("m-ceco")?.value.trim()||""),
-    tipo:   document.getElementById("m-tipo")?.value||"TONER",
+    id: id_, tienda, ceco,
+    sku:    "60540-"+ceco,
+    tipo,
     solicitud: document.getElementById("m-sol")?.value||"",
     entregado: document.getElementById("m-ent")?.value||"",
-    mes:    document.getElementById("m-mes")?.value.trim()||"",
+    mes, anio,
     estatus:document.getElementById("m-est")?.value||"ABIERTO",
-    anio:   (document.getElementById("m-sol")?.value||"").slice(0,4),
-    falla:"", observaciones:"", guia:"",
+    observaciones: document.getElementById("m-obs")?.value.trim()||"",
+    falla:"", guia:"",
   };
   const ok = await saveTicket(data);
   if(ok){ toast(editId?"Ticket actualizado":"Ticket creado"); closeModal(); }
+}
+
+function showAlertaDuplicado(ticket, mensaje) {
+  // Cerrar modal actual
+  closeModal();
+  // Mostrar alerta con detalle del ticket existente
+  const ov = document.createElement("div");
+  ov.className = "modal-overlay";
+  ov.id = "modal-overlay";
+  ov.onclick = e => { if(e.target===ov) ov.remove(); };
+  ov.innerHTML = `
+<div class="modal" onclick="event.stopPropagation()" style="max-width:520px">
+  <div class="modal-hdr" style="background:var(--amber-bg);border-bottom:1px solid rgba(180,83,9,.2)">
+    <h3 style="color:var(--amber-text);display:flex;align-items:center;gap:8px">
+      ${svgIcon("warn")} Solicitud bloqueada
+    </h3>
+    <button class="btn sm" onclick="document.getElementById('modal-overlay').remove()">&times;</button>
+  </div>
+  <div class="modal-body">
+    <p style="font-size:14px;margin-bottom:16px;line-height:1.6">${mensaje}</p>
+    <div style="background:var(--surface2);border-radius:var(--r);padding:14px 16px;border:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Ticket existente</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+        <div><span style="color:var(--text2)">Ticket:</span> <strong>${ticket.id}</strong></div>
+        <div><span style="color:var(--text2)">Estatus:</span> <span class="badge b-${estatusClass(ticket.estatus)}">${ticket.estatus}</span></div>
+        <div style="grid-column:1/-1"><span style="color:var(--text2)">Tienda:</span> ${ticket.tienda}</div>
+        <div><span style="color:var(--text2)">Tipo:</span> <span class="badge b-${tipoClass(ticket.tipo)}">${ticket.tipo}</span></div>
+        <div><span style="color:var(--text2)">Solicitud:</span> ${ticket.solicitud||'—'}</div>
+        <div><span style="color:var(--text2)">Mes:</span> ${ticket.mes} ${ticket.anio||''}</div>
+        ${ticket.observaciones?`<div style="grid-column:1/-1"><span style="color:var(--text2)">Observaciones:</span> ${ticket.observaciones.slice(0,120)}${ticket.observaciones.length>120?'…':''}</div>`:''}
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--text3);margin-top:12px">Si la solicitud es correcta, puedes editar el ticket existente o consultarlo en la lista de tickets.</p>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="document.getElementById('modal-overlay').remove()">Cerrar</button>
+    <button class="btn primary" onclick="document.getElementById('modal-overlay').remove(); filt.busq='${ticket.id}'; navigate('tickets');">
+      ${svgIcon("edit")} Ver ticket existente
+    </button>
+  </div>
+</div>`;
+  document.body.appendChild(ov);
 }
 
 function confirmDel(id) {
