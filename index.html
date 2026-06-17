@@ -908,31 +908,41 @@ async function doSave() {
   const tipo   = document.getElementById("m-tipo")?.value||"TONER";
   const mes    = document.getElementById("m-mes")?.value.trim()||"";
   const anio   = (document.getElementById("m-sol")?.value||"").slice(0,4);
+  const solVal = document.getElementById("m-sol")?.value||"";
+
+  // Función para comparar si dos tickets son de la misma tienda
+  // Usa CECO si está disponible, sino compara por nombre de tienda
+  function mismaTienda(t) {
+    if(ceco && t.ceco) return t.ceco === ceco;
+    return t.tienda.trim().toLowerCase() === tienda.trim().toLowerCase();
+  }
 
   // ── REGLA 1: No duplicar mismo tipo en mismo mes para misma tienda ──
   if(!editId) {
     const duplicado = tickets.find(t =>
-      t.ceco === ceco &&
+      mismaTienda(t) &&
       t.tipo === tipo &&
       t.mes  === mes  &&
       t.anio === anio &&
       t.estatus !== "RECHAZADO"
     );
     if(duplicado) {
-      showAlertaDuplicado(duplicado, `Ya existe un ticket de <strong>${tipo}</strong> para esta tienda en <strong>${mes} ${anio}</strong>.`);
+      showAlertaDuplicado(
+        duplicado,
+        `⚠️ La tienda <strong>${tienda}</strong> ya tiene un ticket de <strong>${tipo}</strong> en <strong>${mes} ${anio}</strong>.`
+      );
       return;
     }
   }
 
   // ── REGLA 2: Unidad de imagen — mínimo 2 meses entre solicitudes ──
-  if(!editId && tipo === "UNIDAD DE IMAGEN") {
-    const solFecha = new Date(document.getElementById("m-sol")?.value||"");
+  if(!editId && tipo === "UNIDAD DE IMAGEN" && solVal) {
+    const solFecha = new Date(solVal);
     if(!isNaN(solFecha)) {
       const dosAtras = new Date(solFecha);
       dosAtras.setMonth(dosAtras.getMonth() - 2);
-
       const prevUnidad = tickets.find(t =>
-        t.ceco === ceco &&
+        mismaTienda(t) &&
         t.tipo === "UNIDAD DE IMAGEN" &&
         t.solicitud &&
         new Date(t.solicitud) >= dosAtras &&
@@ -941,7 +951,10 @@ async function doSave() {
       );
       if(prevUnidad) {
         const diasDesde = Math.round((solFecha - new Date(prevUnidad.solicitud)) / 86400000);
-        showAlertaDuplicado(prevUnidad, `La <strong>Unidad de Imagen</strong> tiene una vigencia mínima de <strong>2 meses</strong>.<br>Esta tienda ya solicitó una hace <strong>${diasDesde} días</strong> (ticket ${prevUnidad.id}).`);
+        showAlertaDuplicado(
+          prevUnidad,
+          `⚠️ La <strong>Unidad de Imagen</strong> tiene vigencia mínima de <strong>2 meses</strong>.<br>Esta tienda ya solicitó una hace <strong>${diasDesde} días</strong>.`
+        );
         return;
       }
     }
