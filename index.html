@@ -637,10 +637,10 @@ function renderTickets() {
   <button class="btn primary" id="btn-nuevo">${svgIcon("plus")} Nuevo ticket</button>
 </div>
 <div class="metrics">
-  <div class="mc"><div class="mc-label">Total</div><div class="mc-value">${tickets.length}</div><div class="mc-sub">registros</div></div>
-  <div class="mc"><div class="mc-label" style="color:var(--blue-text)">Activos</div><div class="mc-value" style="color:var(--blue)">${ab+env}</div><div class="mc-sub">${ab} abiertos · ${env} pendientes</div></div>
-  <div class="mc"><div class="mc-label" style="color:var(--green-text)">Entregados / Cerrados</div><div class="mc-value" style="color:var(--green)">${ent+cerr}</div><div class="mc-sub">${tickets.length?Math.round((ent+cerr)/tickets.length*100):0}% resolución</div></div>
-  <div class="mc"><div class="mc-label">Tiempo promedio</div><div class="mc-value">${prom} d</div><div class="mc-sub">días hasta entrega</div></div>
+  <div class="mc"><div class="mc-label">Total tickets 2026</div><div class="mc-value">${tickets.length}</div><div class="mc-sub">registros</div></div>
+  <div class="mc"><div class="mc-label" style="color:var(--blue-text)">Abiertos</div><div class="mc-value" style="color:var(--blue)">${ab}</div><div class="mc-sub">pendientes de atender</div></div>
+  <div class="mc"><div class="mc-label" style="color:var(--green-text)">Cerrados</div><div class="mc-value" style="color:var(--green)">${ent+cerr}</div><div class="mc-sub">${tickets.length?Math.round((ent+cerr)/tickets.length*100):0}% resolución</div></div>
+  <div class="mc"><div class="mc-label">Tiempo promedio de entrega</div><div class="mc-value">${prom} d</div><div class="mc-sub">días hasta entrega</div></div>
 </div>
 <div style="margin-bottom:8px;font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">
   📅 Lo que va de ${mesActual} ${anioActual}
