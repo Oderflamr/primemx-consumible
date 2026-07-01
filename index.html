@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com; style-src 'self' 'unsafe-inline';">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -423,8 +424,8 @@ const FIREBASE_CONFIG = {
    CREDENCIALES  (cambia las contraseñas)
 ═══════════════════════════════════════════════════ */
 const USERS = {
-  admin:     { pass: "Admin2024!", role: "admin",     display: "Administrador" },
-  proveedor: { pass: "Prov2024!",  role: "proveedor", display: "Proveedor"     }
+  admin:     { pass: "c4d9cVrCN&x%lb#T", role: "admin",     display: "Administrador" },
+  proveedor: { pass: "Pq5hH1T3#pdKTp&d",  role: "proveedor", display: "Proveedor"     }
 };
 
 /* ─── Init Firebase ─── */
@@ -451,22 +452,49 @@ const ESTATUS = ["ABIERTO","PENDIENTE","CERRADO"];
 const COLORES  = { TONER:"#6d28d9","UNIDAD DE IMAGEN":"#0f766e","KIT MANTENIMIENTO":"#b45309","FALLA IMPRESORA":"#b91c1c" };
 
 /* ══════════════ AUTH ════════════════════════════ */
+// Control de intentos fallidos
+let loginAttempts = 0;
+let loginBlockedUntil = 0;
+
 function doLogin() {
+  const now = Date.now();
+  if(now < loginBlockedUntil) {
+    const secsLeft = Math.ceil((loginBlockedUntil - now) / 1000);
+    const errEl = document.getElementById("login-error");
+    errEl.textContent = "Demasiados intentos. Espera " + secsLeft + " segundos.";
+    errEl.style.display = "block";
+    return;
+  }
   const user = document.getElementById("inp-user").value.trim().toLowerCase();
   const pass = document.getElementById("inp-pass").value;
   const err  = document.getElementById("login-error");
   const btn  = document.getElementById("btn-login");
   err.style.display = "none";
   if (!USERS[user] || USERS[user].pass !== pass) {
-    err.textContent = "Usuario o contraseña incorrectos.";
+    loginAttempts++;
+    if(loginAttempts >= 5) {
+      loginBlockedUntil = Date.now() + 30000;
+      loginAttempts = 0;
+      err.textContent = "Demasiados intentos fallidos. Espera 30 segundos.";
+      const iv = setInterval(() => {
+        const left = Math.ceil((loginBlockedUntil - Date.now()) / 1000);
+        if(left <= 0) { clearInterval(iv); err.style.display = "none"; }
+        else err.textContent = "Demasiados intentos. Espera " + left + " segundos.";
+      }, 1000);
+    } else {
+      const rem = 5 - loginAttempts;
+      err.textContent = "Usuario o contraseña incorrectos. (" + rem + " intento" + (rem===1?"":"s") + " restante" + (rem===1?"":"s") + ")";
+    }
     err.style.display = "block";
     return;
   }
+  loginAttempts = 0;
   btn.disabled = true;
   currentUser = { id: user, ...USERS[user] };
   sessionStorage.setItem("pmx_user", JSON.stringify(currentUser));
   startApp();
 }
+
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-login").addEventListener("click", doLogin);
   document.getElementById("inp-pass").addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
