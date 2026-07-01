@@ -678,10 +678,10 @@ function renderTickets() {
     📅 ${esMesActual?'Lo que va de':'Resumen de'} ${mesVer} ${anioVer}
   </span>
   <div style="display:flex;gap:6px;align-items:center">
-    <select id="ms-anio" style="height:28px;font-size:12px" onchange="filt.anio=this.value;render()">
+    <select id="ms-anio" style="height:28px;font-size:12px">
       ${anios().map(a=>`<option value="${a}"${anioVer===a?' selected':''}>${a}</option>`).join('')}
     </select>
-    <select id="ms-mes" style="height:28px;font-size:12px" onchange="filt.mes=this.value;render()">
+    <select id="ms-mes" style="height:28px;font-size:12px">
       ${['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map(m=>`<option value="${m}"${mesVer===m?' selected':''}>${m}</option>`).join('')}
     </select>
   </div>
@@ -1184,6 +1184,9 @@ function bindEvents() {
   on("d-mes", "change", e=>{ dashMes=e.target.value;   render(); });
   on("d-anio","change", e=>{ dashAnio=e.target.value; dashMes=""; render(); });
   on("btn-nuevo","click",()=> openModal(null));
+  // Selectores rápidos de mes en la sección de métricas
+  on("ms-anio","change", e=>{ filt.anio=e.target.value; render(); });
+  on("ms-mes", "change", e=>{ filt.mes=e.target.value;  render(); });
 }
 
 /* ══════════════ HELPERS TIENDAS ════════════════ */
