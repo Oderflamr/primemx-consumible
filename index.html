@@ -445,6 +445,10 @@ let page        = "tickets";
 let filt        = { mes:"", tipo:"", estatus:"", busq:"", anio:"" };
 let dashMes     = "";
 let dashAnio    = "";
+// Estado independiente para los selectores de métricas rápidas
+const MESES_ES_G = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+let metricsMes  = MESES_ES_G[new Date().getMonth()];
+let metricsAnio = String(new Date().getFullYear());
 let editId      = null;
 
 const TIPOS   = ["TONER","UNIDAD DE IMAGEN","KIT MANTENIMIENTO","FALLA IMPRESORA"];
@@ -646,12 +650,11 @@ function renderTickets() {
   const tp   = tickets.filter(t=>t.entregado&&t.solicitud).map(t=>(new Date(t.entregado)-new Date(t.solicitud))/86400000);
   const prom = tp.length ? Math.round(tp.reduce((a,b)=>a+b,0)/tp.length) : 0;
 
-  // Métricas del mes seleccionado (o mes actual si no hay filtro)
-  const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const mesActual  = MESES_ES[new Date().getMonth()];
+  // Métricas del mes seleccionado (estado independiente de los filtros de tabla)
+  const mesActual  = MESES_ES_G[new Date().getMonth()];
   const anioActual = String(new Date().getFullYear());
-  const mesVer  = filt.mes  || mesActual;
-  const anioVer = filt.anio || anioActual;
+  const mesVer  = metricsMes;
+  const anioVer = metricsAnio;
   const delMes = tickets.filter(t=>t.mes===mesVer && t.anio===anioVer);
   const mesToner  = delMes.filter(t=>t.tipo==="TONER").length;
   const mesUnidad = delMes.filter(t=>t.tipo==="UNIDAD DE IMAGEN").length;
@@ -1185,8 +1188,8 @@ function bindEvents() {
   on("d-anio","change", e=>{ dashAnio=e.target.value; dashMes=""; render(); });
   on("btn-nuevo","click",()=> openModal(null));
   // Selectores rápidos de mes en la sección de métricas
-  on("ms-anio","change", e=>{ filt.anio=e.target.value; render(); });
-  on("ms-mes", "change", e=>{ filt.mes=e.target.value;  render(); });
+  on("ms-anio","change", e=>{ metricsAnio=e.target.value; render(); });
+  on("ms-mes", "change", e=>{ metricsMes=e.target.value;  render(); });
 }
 
 /* ══════════════ HELPERS TIENDAS ════════════════ */
