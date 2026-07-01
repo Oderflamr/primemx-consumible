@@ -646,15 +646,18 @@ function renderTickets() {
   const tp   = tickets.filter(t=>t.entregado&&t.solicitud).map(t=>(new Date(t.entregado)-new Date(t.solicitud))/86400000);
   const prom = tp.length ? Math.round(tp.reduce((a,b)=>a+b,0)/tp.length) : 0;
 
-  // Métricas del mes actual
+  // Métricas del mes seleccionado (o mes actual si no hay filtro)
   const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const mesActual = MESES_ES[new Date().getMonth()];
+  const mesActual  = MESES_ES[new Date().getMonth()];
   const anioActual = String(new Date().getFullYear());
-  const delMes = tickets.filter(t=>t.mes===mesActual && t.anio===anioActual);
+  const mesVer  = filt.mes  || mesActual;
+  const anioVer = filt.anio || anioActual;
+  const delMes = tickets.filter(t=>t.mes===mesVer && t.anio===anioVer);
   const mesToner  = delMes.filter(t=>t.tipo==="TONER").length;
   const mesUnidad = delMes.filter(t=>t.tipo==="UNIDAD DE IMAGEN").length;
   const mesKit    = delMes.filter(t=>t.tipo==="KIT MANTENIMIENTO").length;
   const mesTotal  = delMes.length;
+  const esMesActual = mesVer===mesActual && anioVer===anioActual;
 
   return `
 <div class="page-hdr">
@@ -670,24 +673,25 @@ function renderTickets() {
   <div class="mc"><div class="mc-label" style="color:var(--green-text)">Cerrados</div><div class="mc-value" style="color:var(--green)">${ent+cerr}</div><div class="mc-sub">${tickets.length?Math.round((ent+cerr)/tickets.length*100):0}% resolución</div></div>
   <div class="mc"><div class="mc-label">Tiempo promedio de entrega</div><div class="mc-value">${prom} d</div><div class="mc-sub">días hasta entrega</div></div>
 </div>
-<div style="margin-bottom:8px;font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">
-  📅 Lo que va de ${mesActual} ${anioActual}
+<div style="margin-bottom:8px;font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;justify-content:space-between">
+  <span>📅 ${esMesActual?'Lo que va de':'Resumen de'} ${mesVer} ${anioVer}</span>
+  ${!esMesActual?`<span style="font-size:11px;font-weight:400;color:var(--text3)">Filtrado por mes seleccionado</span>`:''}
 </div>
-<div class="metrics" style="margin-bottom:20px">
+<div class="metrics" style="margin-bottom:12px">
   <div class="mc" style="border-top:3px solid var(--purple)">
     <div class="mc-label" style="color:var(--purple-text)">Tóner</div>
     <div class="mc-value" style="color:var(--purple)">${mesToner}</div>
-    <div class="mc-sub">solicitudes del mes</div>
+    <div class="mc-sub">solicitudes</div>
   </div>
   <div class="mc" style="border-top:3px solid var(--teal)">
     <div class="mc-label" style="color:var(--teal-text)">Unidad de imagen</div>
     <div class="mc-value" style="color:var(--teal)">${mesUnidad}</div>
-    <div class="mc-sub">solicitudes del mes</div>
+    <div class="mc-sub">solicitudes</div>
   </div>
   <div class="mc" style="border-top:3px solid var(--amber)">
     <div class="mc-label" style="color:var(--amber-text)">Kit mantenimiento</div>
     <div class="mc-value" style="color:var(--amber)">${mesKit}</div>
-    <div class="mc-sub">solicitudes del mes</div>
+    <div class="mc-sub">solicitudes</div>
   </div>
   <div class="mc" style="border-top:3px solid var(--blue)">
     <div class="mc-label" style="color:var(--blue-text)">Total del mes</div>
@@ -695,6 +699,17 @@ function renderTickets() {
     <div class="mc-sub">todos los tipos</div>
   </div>
 </div>
+${(()=>{
+  // Tiendas activas sin solicitudes en el mes seleccionado
+  const cecosConTicket = new Set(delMes.map(t=>t.ceco).filter(Boolean));
+  const sinPedido = CATALOGO.filter(t=>!cecosConTicket.has(t.ceco));
+  return `<div style="background:var(--green-bg);border:1px solid rgba(59,109,17,.15);border-radius:var(--rl);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div style="font-size:13px;color:var(--green-text)">
+      <strong>${sinPedido.length} tiendas</strong> de ${CATALOGO.length} activas no han solicitado consumibles en <strong>${mesVer} ${anioVer}</strong>
+    </div>
+    <button class="btn sm" style="font-size:12px" onclick="navigate('bottom-tiendas')">Ver tiendas →</button>
+  </div>`;
+})()}
 <div class="card">
   <div class="card-header">
     <div class="filters">
