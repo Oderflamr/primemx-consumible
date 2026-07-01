@@ -673,9 +673,18 @@ function renderTickets() {
   <div class="mc"><div class="mc-label" style="color:var(--green-text)">Cerrados</div><div class="mc-value" style="color:var(--green)">${ent+cerr}</div><div class="mc-sub">${tickets.length?Math.round((ent+cerr)/tickets.length*100):0}% resolución</div></div>
   <div class="mc"><div class="mc-label">Tiempo promedio de entrega</div><div class="mc-value">${prom} d</div><div class="mc-sub">días hasta entrega</div></div>
 </div>
-<div style="margin-bottom:8px;font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;justify-content:space-between">
-  <span>📅 ${esMesActual?'Lo que va de':'Resumen de'} ${mesVer} ${anioVer}</span>
-  ${!esMesActual?`<span style="font-size:11px;font-weight:400;color:var(--text3)">Filtrado por mes seleccionado</span>`:''}
+<div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+  <span style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">
+    📅 ${esMesActual?'Lo que va de':'Resumen de'} ${mesVer} ${anioVer}
+  </span>
+  <div style="display:flex;gap:6px;align-items:center">
+    <select id="ms-anio" style="height:28px;font-size:12px" onchange="filt.anio=this.value;render()">
+      ${anios().map(a=>`<option value="${a}"${anioVer===a?' selected':''}>${a}</option>`).join('')}
+    </select>
+    <select id="ms-mes" style="height:28px;font-size:12px" onchange="filt.mes=this.value;render()">
+      ${['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map(m=>`<option value="${m}"${mesVer===m?' selected':''}>${m}</option>`).join('')}
+    </select>
+  </div>
 </div>
 <div class="metrics" style="margin-bottom:12px">
   <div class="mc" style="border-top:3px solid var(--purple)">
