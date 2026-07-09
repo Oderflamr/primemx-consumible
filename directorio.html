@@ -502,6 +502,11 @@ function fieldLabelMap(){
     region:'Región', gerente_regional:'Gerente Regional', director:'Director'
   };
 }
+// Campos que se muestran en el detalle de solo-lectura (cc se usa internamente para
+// identificar/buscar tiendas, pero no se despliega como fila en el detalle)
+const DETAIL_FIELDS = ['plaza','hostname','cve_pdv','pos_id','carrier','primario',
+  'tecnologia','clasificacion','vigencia_servicio','cve_inventario','origen','activo','direccion',
+  'region','gerente_regional','director'];
 
 /* ══════════════════ LOGIN ══════════════════ */
 document.getElementById('login-form').addEventListener('submit', function(e){
@@ -699,9 +704,7 @@ function openDetail(id){
   const s = allStores.find(x=>x.id===id);
   if(!s) return;
   const labels = fieldLabelMap();
-  const order = ['plaza','cc','hostname','cve_pdv','pos_id','carrier','primario',
-                 'tecnologia','clasificacion','vigencia_servicio','cve_inventario','origen','activo','direccion',
-                 'region','gerente_regional','director'];
+  const order = DETAIL_FIELDS;
 
   const rowsHtml = order.map(key=>{
     let val = s[key];
@@ -894,7 +897,7 @@ function confirmDelete(id){
 document.getElementById('export-btn').addEventListener('click', ()=>{
   if(filtered.length===0){ toast('No hay datos para exportar','error'); return; }
   const labels = fieldLabelMap();
-  const keys = Object.keys(labels);
+  const keys = DETAIL_FIELDS;
   const header = keys.map(k=>labels[k]).join(',');
   const rows = filtered.map(s=> keys.map(k=>{
     let v = k==='activo' ? (String(s.activo)==='1'?'Activo':'Inactivo') : (s[k]||'');
