@@ -495,7 +495,7 @@ function esc(v){
 }
 function fieldLabelMap(){
   return {
-    plaza:'Plaza', cc:'No. Tienda', hostname:'HostName', cve_pdv:'Clave PDV', pos_id:'POS ID',
+    plaza:'Plaza', cc:'Centro de Costo', hostname:'HostName', cve_pdv:'Clave PDV', pos_id:'POS ID',
     carrier:'Carrier', primario:'Enlace primario', tecnologia:'Tecnología', clasificacion:'Clasificación',
     vigencia_servicio:'Vigencia del servicio', cve_inventario:'Clave inventario',
     origen:'Origen', activo:'Estatus', direccion:'Dirección',
@@ -505,7 +505,7 @@ function fieldLabelMap(){
 }
 // Campos que se muestran en el detalle de solo-lectura (cc se usa internamente para
 // identificar/buscar tiendas, pero no se despliega como fila en el detalle)
-const DETAIL_FIELDS = ['plaza','hostname','cve_pdv','pos_id','carrier','primario',
+const DETAIL_FIELDS = ['plaza','cc','hostname','cve_pdv','pos_id','carrier','primario',
   'tecnologia','clasificacion','vigencia_servicio','cve_inventario','origen','activo','direccion',
   'region','gerente_regional','director','gerente_tienda','correo_gerente'];
 
@@ -726,7 +726,7 @@ function openDetail(id){
 
   document.getElementById('modal-content').innerHTML = `
     <h2>${esc(s.plaza||'Detalle de tienda')}</h2>
-    <p class="modal-sub">No. de tienda ${esc(s.cc||'—')}</p>
+    <p class="modal-sub">Centro de Costo ${esc(s.cc||'—')}</p>
     <div>${rowsHtml}</div>
     ${adminActions}
   `;
