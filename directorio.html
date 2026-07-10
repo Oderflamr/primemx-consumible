@@ -501,15 +501,27 @@ function fieldLabelMap(){
     origen:'Origen', activo:'Estatus', direccion:'Dirección',
     region:'Región', gerente_regional:'Gerente Regional', director:'Director',
     gerente_tienda:'Gerente de Tienda', correo_gerente:'Correo', fecha_apertura:'Fecha Apertura',
-    latitud:'Latitud', longitud:'Longitud'
+    latitud:'Latitud', longitud:'Longitud', observaciones:'Observaciones'
   };
 }
 // Campos que se muestran en el detalle de solo-lectura (cc se usa internamente para
 // identificar/buscar tiendas, pero no se despliega como fila en el detalle)
 const DETAIL_FIELDS = ['plaza','cc','hostname','cve_pdv','pos_id','carrier',
-  'tecnologia','clasificacion','vigencia_servicio','origen','activo','direccion',
+  'tecnologia','clasificacion','observaciones','vigencia_servicio','origen','activo','direccion',
   'region','gerente_regional','director','gerente_tienda','correo_gerente','fecha_apertura',
   'latitud','longitud'];
+
+// Observaciones de acceso según la clasificación de la tienda
+function getObservaciones(clasificacion){
+  const c = String(clasificacion||'').toUpperCase();
+  if(c === 'POWER CENTER' || c === 'CENTRO COMERCIAL'){
+    return 'En esta tienda es necesario pedir el permiso a la administración para que el proveedor pueda ir a revisar la falla, se requiere acceso a azotea, pasillos, ductos, escaleras, estacionamientos, etc.';
+  }
+  if(c === 'PIE DE CALLE'){
+    return 'No se necesitan permisos para el acceso.';
+  }
+  return '—';
+}
 
 /* ══════════════════ LOGIN ══════════════════ */
 document.getElementById('login-form').addEventListener('submit', function(e){
@@ -710,7 +722,7 @@ function openDetail(id){
   const order = DETAIL_FIELDS;
 
   const rowsHtml = order.map(key=>{
-    let val = s[key];
+    let val = key==='observaciones' ? getObservaciones(s.clasificacion) : s[key];
     if(key==='activo') val = String(val)==='1' ? 'Activo' : 'Inactivo';
     const mono = ['cc','hostname','cve_pdv','pos_id','latitud','longitud'].includes(key);
     return `<div class="detail-row"><span class="k">${labels[key]}</span><span class="v ${mono?'mono':''}">${esc(val)||'—'}</span></div>`;
@@ -905,7 +917,8 @@ document.getElementById('export-btn').addEventListener('click', ()=>{
   const keys = DETAIL_FIELDS;
   const header = keys.map(k=>labels[k]).join(',');
   const rows = filtered.map(s=> keys.map(k=>{
-    let v = k==='activo' ? (String(s.activo)==='1'?'Activo':'Inactivo') : (s[k]||'');
+    let v = k==='activo' ? (String(s.activo)==='1'?'Activo':'Inactivo') :
+            k==='observaciones' ? getObservaciones(s.clasificacion) : (s[k]||'');
     v = String(v).replace(/"/g,'""');
     return `"${v}"`;
   }).join(','));
