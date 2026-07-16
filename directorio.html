@@ -441,6 +441,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
@@ -457,19 +458,20 @@ const firebaseConfig = {
   appId: "1:796822637748:web:7e8db90898618d26079be1"
 };
 firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 const db = firebase.firestore();
 const COLLECTION = "tiendas";
+const ROLES_COLLECTION = "usuarios";
 
 /* ══════════════════ USUARIOS Y ROLES ══════════════════
-   admin       → puede crear, editar y eliminar registros
-   consulta*   → solo puede ver y buscar
-   Cambia estos usuarios/contraseñas antes de compartir la URL.        */
-const USERS = {
-  "admin":     { password: "PrimeAdmin2026!",  role: "admin",    label: "Administrador" },
-  "consulta1": { password: "PrimeConsulta1#",   role: "consulta", label: "Consulta 1" },
-  "consulta2": { password: "PrimeConsulta2#",   role: "consulta", label: "Consulta 2" },
-  "consulta3": { password: "PrimeConsulta3#",   role: "consulta", label: "Consulta 3" }
-};
+   Las contraseñas YA NO viven en este archivo: se dan de alta en
+   Firebase Authentication (Consola → Authentication → Users).
+   El usuario escribe solo su nombre de usuario (ej. "asanchez"); la app
+   arma el correo internamente como usuario@AUTH_DOMAIN para iniciar sesión.
+   El rol (admin/consulta) de cada usuario se lee de la colección
+   "usuarios" en Firestore, usando el nombre de usuario como ID de documento.
+   Ver el README para el paso a paso de cómo dar de alta cada persona.     */
+const AUTH_DOMAIN = "primecommsmx.com";
 
 /* ══════════════════ DATOS INICIALES (SEMILLA) ══════════════════
    Se cargan una sola vez a Firestore si la colección está vacía.     */
@@ -493,6 +495,16 @@ function toast(msg, type=""){
 function esc(v){
   return (v===undefined||v===null) ? '' : String(v).replace(/</g,'&lt;');
 }
+// Color de contorno de la tarjeta según el proveedor de servicio (carrier)
+function getCarrierBorderColor(carrier){
+  const c = String(carrier||'').toUpperCase();
+  if(c.includes('TELMEX')) return '#93C5FD';               // azul claro
+  if(c.includes('TOTALPLAY')) return '#C4B5FD';            // morado claro
+  if(c.includes('MEGA') || c.includes('METRO')) return '#86EFAC'; // verde claro
+  if(c.includes('STARLINK') || c.includes('STARLIK')) return '#000000'; // negro
+  return null; // sin contorno especial
+}
+
 function fieldLabelMap(){
   return {
     plaza:'Plaza', cc:'Centro de Costo', hostname:'HostName', cve_pdv:'Clave PDV', pos_id:'POS ID',
@@ -524,27 +536,53 @@ function getObservaciones(clasificacion){
 }
 
 /* ══════════════════ LOGIN ══════════════════ */
-document.getElementById('login-form').addEventListener('submit', function(e){
+document.getElementById('login-form').addEventListener('submit', async function(e){
   e.preventDefault();
   const u = document.getElementById('login-user').value.trim().toLowerCase();
   const p = document.getElementById('login-pass').value;
-  const match = USERS[u];
   const errEl = document.getElementById('login-error');
-  if(match && match.password === p){
-    currentUser = { username:u, role:match.role, label:match.label };
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  try{
+    await auth.signInWithEmailAndPassword(u + '@' + AUTH_DOMAIN, p);
     errEl.classList.remove('show');
-    document.getElementById('login-screen').style.display='none';
+    // el resto (mostrar la app, cargar el rol) lo dispara onAuthStateChanged
+  }catch(err){
+    console.error(err);
+    errEl.textContent = 'Usuario o contraseña incorrectos.';
+    errEl.classList.add('show');
+  }
+  submitBtn.disabled = false;
+});
+
+document.getElementById('logout-btn').addEventListener('click', function(){
+  auth.signOut();
+});
+
+// Se dispara automáticamente al iniciar sesión, cerrar sesión, o al cargar
+// la página si Firebase recuerda una sesión activa.
+auth.onAuthStateChanged(async function(user){
+  if(user){
+    const username = (user.email || '').split('@')[0];
+    let roleInfo = { role: 'consulta', label: username };
+    try{
+      const doc = await db.collection(ROLES_COLLECTION).doc(username).get();
+      if(doc.exists){
+        roleInfo = { role: doc.data().role || 'consulta', label: doc.data().label || username };
+      }
+    }catch(err){
+      console.error('No se pudo leer el rol del usuario', err);
+    }
+    currentUser = { username, role: roleInfo.role, label: roleInfo.label };
+    document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').classList.add('show');
     initApp();
   } else {
-    errEl.classList.add('show');
+    currentUser = null;
+    document.getElementById('app').classList.remove('show');
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-pass').value = '';
   }
-});
-document.getElementById('logout-btn').addEventListener('click', function(){
-  currentUser = null;
-  document.getElementById('app').classList.remove('show');
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('login-pass').value='';
 });
 
 /* ══════════════════ INIT APP ══════════════════ */
@@ -684,8 +722,11 @@ function renderGrid(){
   const start = (page-1) * PAGE_SIZE;
   const pageItems = filtered.slice(start, start+PAGE_SIZE);
 
-  grid.innerHTML = pageItems.map(s=>`
-    <div class="store-card" data-id="${s.id}">
+  grid.innerHTML = pageItems.map(s=>{
+    const borderColor = getCarrierBorderColor(s.carrier);
+    const borderStyle = borderColor ? `style="border:2px solid ${borderColor};"` : '';
+    return `
+    <div class="store-card" data-id="${s.id}" ${borderStyle}>
       <div class="row-top">
         <span class="cc">${esc(s.cc||'—')}</span>
         <span class="status-dot ${String(s.activo)==='1' ? 'on':'off'}" title="${String(s.activo)==='1'?'Activo':'Inactivo'}"></span>
@@ -697,8 +738,8 @@ function renderGrid(){
         ${s.clasificacion ? `<span class="meta-tag">${esc(s.clasificacion)}</span>`:''}
         ${s.hostname ? `<span class="meta-tag">${esc(s.hostname)}</span>`:''}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   grid.querySelectorAll('.store-card').forEach(card=>{
     card.addEventListener('click', ()=> openDetail(card.dataset.id));
