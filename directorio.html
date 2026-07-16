@@ -409,6 +409,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
         <input type="text" id="search-input" placeholder="Buscar por tienda, plaza, dirección, host o clave...">
       </div>
       <select class="filter-select" id="filter-carrier"><option value="">Carrier: todos</option></select>
+      <select class="filter-select" id="filter-tecnologia"><option value="">Tecnología: todas</option></select>
       <select class="filter-select" id="filter-clasif"><option value="">Clasificación: todas</option></select>
       <select class="filter-select" id="filter-origen"><option value="">Origen: todos</option></select>
       <select class="filter-select" id="filter-region"><option value="">Región: todas</option></select>
@@ -648,6 +649,7 @@ function populateFilterOptions(){
     sel.value = current;
   };
   fill('filter-carrier','carrier');
+  fill('filter-tecnologia','tecnologia');
   fill('filter-clasif','clasificacion');
   fill('filter-origen','origen');
   fill('filter-region','region');
@@ -672,13 +674,14 @@ function renderStats(){
 ['search-input'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{page=1; applyFilters();});
 });
-['filter-carrier','filter-clasif','filter-origen','filter-activo','filter-region','filter-director'].forEach(id=>{
+['filter-carrier','filter-tecnologia','filter-clasif','filter-origen','filter-activo','filter-region','filter-director'].forEach(id=>{
   document.getElementById(id).addEventListener('change', ()=>{page=1; applyFilters();});
 });
 
 function applyFilters(){
   const q = document.getElementById('search-input').value.trim().toLowerCase();
   const fCarrier = document.getElementById('filter-carrier').value;
+  const fTecnologia = document.getElementById('filter-tecnologia').value;
   const fClasif = document.getElementById('filter-clasif').value;
   const fOrigen = document.getElementById('filter-origen').value;
   const fActivo = document.getElementById('filter-activo').value;
@@ -687,6 +690,7 @@ function applyFilters(){
 
   filtered = allStores.filter(s=>{
     if(fCarrier && s.carrier !== fCarrier) return false;
+    if(fTecnologia && s.tecnologia !== fTecnologia) return false;
     if(fClasif && s.clasificacion !== fClasif) return false;
     if(fOrigen && s.origen !== fOrigen) return false;
     if(fActivo !== '' && String(s.activo) !== fActivo) return false;
