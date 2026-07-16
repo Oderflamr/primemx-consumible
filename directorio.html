@@ -498,9 +498,9 @@ function esc(v){
 // Color de contorno de la tarjeta según el proveedor de servicio (carrier)
 function getCarrierBorderColor(carrier){
   const c = String(carrier||'').toUpperCase();
-  if(c.includes('TELMEX')) return '#93C5FD';               // azul claro
-  if(c.includes('TOTALPLAY')) return '#C4B5FD';            // morado claro
-  if(c.includes('MEGA') || c.includes('METRO')) return '#86EFAC'; // verde claro
+  if(c.includes('TELMEX')) return '#3B82F6';               // azul
+  if(c.includes('TOTALPLAY')) return '#9333EA';            // morado
+  if(c.includes('MEGA') || c.includes('METRO')) return '#22C55E'; // verde
   if(c.includes('STARLINK') || c.includes('STARLIK')) return '#000000'; // negro
   return null; // sin contorno especial
 }
@@ -724,7 +724,7 @@ function renderGrid(){
 
   grid.innerHTML = pageItems.map(s=>{
     const borderColor = getCarrierBorderColor(s.carrier);
-    const borderStyle = borderColor ? `style="border:2px solid ${borderColor};"` : '';
+    const borderStyle = borderColor ? `style="border:3px solid ${borderColor};"` : '';
     return `
     <div class="store-card" data-id="${s.id}" ${borderStyle}>
       <div class="row-top">
