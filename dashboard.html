@@ -1,0 +1,1799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Caídas · PrimeMX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* ===== Portal: variables, login, shell y header (igual que directorio.html) ===== */
+<style>
+:root{
+  --bg:#F4F6F5;
+  --panel:#FFFFFF;
+  --ink:#122031;
+  --ink-soft:#4B5A6B;
+  --line:#DCE3E2;
+  --signal:#0C8599;
+  --signal-dark:#0A6B79;
+  --signal-soft:#E3F1F2;
+  --ok:#1E8E5A;
+  --ok-soft:#E6F5EC;
+  --warn:#C6421B;
+  --warn-soft:#FBE9E4;
+  --radius:10px;
+  --font-ui:'IBM Plex Sans',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-ui);
+  min-height:100vh;
+}
+button{font-family:inherit;cursor:pointer;}
+input,select{font-family:inherit;}
+
+/* ===== LOGIN ===== */
+#login-screen{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(12,133,153,0.10), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(12,133,153,0.08), transparent 45%),
+    var(--bg);
+}
+.login-card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:40px 36px;
+  width:100%;
+  max-width:380px;
+  box-shadow:0 12px 40px rgba(18,32,49,0.08);
+}
+.login-signal{
+  display:flex;
+  gap:4px;
+  align-items:flex-end;
+  height:22px;
+  margin-bottom:18px;
+}
+.login-signal span{
+  width:6px;
+  background:var(--signal);
+  border-radius:2px;
+  animation:pulseBar 1.6s ease-in-out infinite;
+}
+.login-signal span:nth-child(1){height:30%;animation-delay:0s;}
+.login-signal span:nth-child(2){height:55%;animation-delay:.15s;}
+.login-signal span:nth-child(3){height:80%;animation-delay:.3s;}
+.login-signal span:nth-child(4){height:100%;animation-delay:.45s;}
+@keyframes pulseBar{0%,100%{opacity:.4;}50%{opacity:1;}}
+.login-card h1{
+  font-size:20px;
+  margin:0 0 2px;
+  letter-spacing:-0.01em;
+}
+.login-card .sub{
+  color:var(--ink-soft);
+  font-size:13px;
+  margin:0 0 26px;
+}
+.field{margin-bottom:14px;}
+.field label{
+  display:block;
+  font-size:12px;
+  font-weight:600;
+  color:var(--ink-soft);
+  margin-bottom:6px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.field input, .field select{
+  width:100%;
+  padding:11px 12px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  font-size:14px;
+  background:#FAFBFB;
+  color:var(--ink);
+}
+.field input:focus, .field select:focus{
+  outline:2px solid var(--signal);
+  outline-offset:1px;
+  border-color:var(--signal);
+}
+.btn{
+  border:none;
+  border-radius:8px;
+  padding:11px 18px;
+  font-size:14px;
+  font-weight:600;
+  transition:transform .05s ease, opacity .15s ease;
+}
+.btn:active{transform:scale(0.98);}
+.btn-primary{background:var(--signal);color:#fff;width:100%;}
+.btn-primary:hover{background:var(--signal-dark);}
+.btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line);}
+.btn-ghost:hover{background:#F0F2F1;}
+.btn-danger{background:var(--warn);color:#fff;}
+.btn-danger:hover{opacity:.9;}
+.login-error{
+  background:var(--warn-soft);
+  color:var(--warn);
+  font-size:13px;
+  padding:9px 12px;
+  border-radius:8px;
+  margin-bottom:14px;
+  display:none;
+}
+.login-error.show{display:block;}
+.login-hint{
+  margin-top:18px;
+  font-size:11.5px;
+  color:#8B9AA5;
+  line-height:1.5;
+}
+
+/* ===== APP SHELL ===== */
+#app{display:none;min-height:100vh;flex-direction:column;}
+#app.show{display:flex;}
+header.topbar{
+  background:var(--panel);
+  border-bottom:1px solid var(--line);
+  padding:14px 22px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  position:sticky;
+  top:0;
+  z-index:20;
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand .mark{
+  width:30px;height:30px;border-radius:8px;
+  background:var(--signal);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-family:var(--font-mono);font-weight:600;font-size:13px;
+}
+.brand h1{font-size:15px;margin:0;font-weight:700;}
+.brand .brand-sub{font-size:11px;color:var(--ink-soft);margin:0;}
+.user-chip{
+  display:flex;align-items:center;gap:10px;
+  font-size:13px;color:var(--ink-soft);
+}
+.role-tag{
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  padding:3px 8px;
+  border-radius:20px;
+  background:var(--signal-soft);
+  color:var(--signal-dark);
+}
+.role-tag.admin{background:#FDEBD8;color:#A6560F;}
+
+main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
+
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(10px);
+  background:var(--ink);color:#fff;padding:11px 20px;border-radius:8px;
+  font-size:13px;opacity:0;transition:all .25s ease;z-index:200;pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.error{background:var(--warn);}
+.toast.ok{background:var(--ok);}
+
+</style>
+<style>
+/* ===== Estilos propios del dashboard de caídas ===== */
+  :root{
+    --tp:#6600CC; --tm:#00B0F0; --mg:#92D050; --st:#212121;
+    --ink:#1A1A1F; --sub:#6B7280; --line:#E5E7EB;
+    --crit:#C00000; --med:#B8860B; --good:#00B050;
+    --bg:#FFFFFF;
+    font-family:'Segoe UI','Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  #app{background:var(--bg); color:var(--ink); padding:24px 30px 40px; max-width:1180px; margin:0 auto;}
+  .topbar{display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:16px;}
+  .brand{font-weight:800; font-size:22px;}
+  .brand span{color:var(--tm);}
+  .status-line{font-size:12px; color:var(--sub); display:flex; gap:8px; align-items:center;}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--good); display:inline-block;}
+
+  .tabs{display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:20px; overflow-x:auto;}
+  .tab{padding:9px 14px; font-size:13px; font-weight:600; color:var(--sub); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap;}
+  .tab.active{color:var(--tp); border-color:var(--tp);}
+  .tab:hover{color:var(--ink);}
+
+  .title{font-size:19px; font-weight:700; margin-bottom:2px;}
+  .subtitle{color:var(--sub); font-size:13px; margin-bottom:18px;}
+
+  .cards{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px;}
+  @media (max-width:900px){ .cards{grid-template-columns:repeat(2,1fr);} }
+  .card{border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff;}
+  .card .head{padding:9px 14px; font-weight:700; color:#fff; font-size:14px;}
+  .card .body{padding:14px;}
+  .card .big{font-size:27px; font-weight:800; line-height:1;}
+  .card .lbl{font-size:11px; color:var(--sub); margin-top:2px;}
+  .card .rule{border-top:1px solid var(--line); margin:8px 0;}
+  .pill{display:inline-block; margin-top:8px; font-size:10.5px; font-weight:700; padding:2px 9px; border-radius:20px; border:1.5px solid;}
+  .pill.crit{color:var(--crit); border-color:var(--crit);}
+  .pill.med{color:var(--med); border-color:var(--med);}
+  .pill.good{color:var(--good); border-color:var(--good);}
+
+  .panel{border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:18px;}
+  .panel h3{margin:0 0 10px; font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--sub);}
+  canvas{max-height:320px;}
+
+  .editbar{display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px;}
+  button{font-family:inherit; font-size:13px; font-weight:600; padding:7px 14px; border-radius:7px; border:1px solid var(--line); background:#fff; cursor:pointer; color:var(--ink);}
+  button.primary{background:var(--tp); color:#fff; border-color:var(--tp);}
+  button.primary:hover{background:#5400a8;}
+  button:hover{background:#f7f7f8;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th,td{padding:6px 7px; text-align:center; border-bottom:1px solid var(--line);}
+  th{color:var(--sub); font-weight:600; font-size:11px; text-transform:uppercase;}
+  td:first-child, th:first-child{text-align:left; font-weight:600;}
+  input[type=number],input[type=text]{width:56px; padding:4px; border:1px solid var(--line); border-radius:5px; text-align:center; font-size:12.5px;}
+  input[type=text]{width:190px; text-align:left;}
+  .status-badge{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:10px;}
+  .status-badge.critica{background:#FDECEC; color:var(--crit);}
+  .status-badge.alerta{background:#FFF3D6; color:#A15C00;}
+  .status-badge.atencion{background:#FFF9DB; color:var(--med);}
+  .status-badge.estable{background:#E7F7EC; color:var(--good);}
+
+  .servicios-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:6px;}
+  .sv-field label{font-size:11px; color:var(--sub); display:block; margin-bottom:4px;}
+  .sv-field input{width:100%;}
+
+  .placeholder{border:1.5px dashed var(--line); border-radius:12px; padding:32px 26px; text-align:center; color:var(--sub);}
+  .placeholder h3{color:var(--ink); font-size:16px; margin-bottom:8px;}
+  .placeholder ul{text-align:left; max-width:460px; margin:16px auto 0; font-size:13px; line-height:1.7;}
+
+  .toast{position:fixed; bottom:20px; right:20px; background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; opacity:0; transform:translateY(8px); transition:.25s; z-index:99;}
+  .toast.show{opacity:1; transform:translateY(0);}
+  .foot{font-size:11px; color:var(--sub); margin-top:6px;}
+
+  .uploadbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin-bottom:16px; background:#FAFAFB;}
+  .uploadbar .txt{font-size:12px; color:var(--sub); flex:1; min-width:220px;}
+  .uploadbar .txt b{color:var(--ink);}
+  button.upload{background:var(--tm); color:#fff; border-color:var(--tm);}
+  button.upload:hover{background:#0090c8;}
+  button.upload:disabled{opacity:.55; cursor:default;}
+  .upload-summary{font-size:11.5px; color:var(--good); margin-top:2px;}
+  .upload-error{font-size:11.5px; color:var(--crit); margin-top:2px;}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-signal"><span></span><span></span><span></span><span></span></div>
+    <h1>Caídas · Internet</h1>
+    <p class="sub">PrimeMX · Acceso al portal</p>
+    <div class="login-error" id="login-error">Usuario o contraseña incorrectos.</div>
+    <form id="login-form">
+      <div class="field">
+        <label>Usuario</label>
+        <input type="text" id="login-user" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="login-pass" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Ingresar</button>
+    </form>
+    <p class="login-hint">Acceso restringido. Usa el mismo usuario y contraseña que en el Directorio de Tiendas.</p>
+  </div>
+</div>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">PX</div>
+      <div>
+        <h1>Caídas · Internet</h1>
+        <p class="brand-sub">PrimeMX</p>
+      </div>
+    </div>
+    <nav style="font-size:13px;">
+      <a href="directorio.html" style="color:var(--signal-dark); text-decoration:none; font-weight:600;">← Directorio de tiendas</a>
+    </nav>
+    <div class="user-chip">
+      <span id="user-label"></span>
+      <span class="role-tag" id="role-tag">consulta</span>
+      <button class="btn btn-ghost" id="logout-btn" style="padding:7px 12px;font-size:12.5px;">Salir</button>
+    </div>
+  </header>
+  <main style="max-width:1180px;">
+    <div id="caidas-root"></div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- Firebase (mismo proyecto que Directorio de Tiendas) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCIQGZGwNEw3vA1L4cLGVbCLLYCcUy3CYU",
+  authDomain: "primemx-consumibles.firebaseapp.com",
+  projectId: "primemx-consumibles",
+  storageBucket: "primemx-consumibles.firebasestorage.app",
+  messagingSenderId: "796822637748",
+  appId: "1:796822637748:web:7e8db90898618d26079be1"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const ROLES_COLLECTION = "usuarios";
+const AUTH_DOMAIN = "primecommsmx.com";
+let currentUser = null;
+
+function toast(msg, type=""){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' '+type : '');
+  setTimeout(()=> el.className = 'toast', 2500);
+}
+
+/* LOGIN (mismo mecanismo que Directorio de Tiendas: usuario+contraseña de Firebase Auth) */
+document.getElementById('login-form').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const u = document.getElementById('login-user').value.trim().toLowerCase();
+  const p = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  try{
+    await auth.signInWithEmailAndPassword(u + '@' + AUTH_DOMAIN, p);
+    errEl.classList.remove('show');
+  }catch(err){
+    console.error(err);
+    errEl.textContent = 'Usuario o contraseña incorrectos.';
+    errEl.classList.add('show');
+  }
+  submitBtn.disabled = false;
+});
+
+document.getElementById('logout-btn').addEventListener('click', function(){
+  auth.signOut();
+});
+
+auth.onAuthStateChanged(async function(user){
+  if(user){
+    const username = (user.email || '').split('@')[0];
+    let roleInfo = { role: 'consulta', label: username };
+    try{
+      const doc = await db.collection(ROLES_COLLECTION).doc(username).get();
+      if(doc.exists){
+        roleInfo = { role: doc.data().role || 'consulta', label: doc.data().label || username };
+      }
+    }catch(err){
+      console.error('No se pudo leer el rol del usuario', err);
+    }
+    currentUser = { username, role: roleInfo.role, label: roleInfo.label };
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').classList.add('show');
+    document.getElementById('user-label').textContent = currentUser.label;
+    const roleTag = document.getElementById('role-tag');
+    roleTag.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Consulta';
+    roleTag.className = 'role-tag' + (currentUser.role === 'admin' ? ' admin' : '');
+    window.initCaidasApp(currentUser.role);
+  } else {
+    currentUser = null;
+    document.getElementById('app').classList.remove('show');
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-pass').value = '';
+  }
+});
+</script>
+
+<!-- Dashboard de caídas (lógica propia) -->
+<script>
+(function(){
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Sep.','Octubre','Nov.','Dic.'];
+  const FIRESTORE_COLLECTION = 'caidas_dashboard';
+  const FIRESTORE_DOC = 'estado';
+  const COLOR = { TotalPlay:'#6600CC', Telmex:'#00B0F0', Metrocarrier:'#66BB6A' };
+  const CARD_COLOR = { TotalPlay:'#6600CC', Telmex:'#00B0F0', Megacable:'#92D050', Starlink:'#212121' };
+  // Catálogo de tiendas: nombre canónico (empieza con "PRM") -> carrier/tecnología de internet asignada.
+  // Se usa para (a) limpiar el alias que trae el nombre de "Cliente" en los tickets y (b) mostrar Carrier/Tecnología en los Top 15.
+  const CATALOGO_TIENDAS = {"PRM TDA CULIACAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA PENINSULA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TORREON": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA NAVIA OBREGON": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA URUAPAN CENTRO": {"carrier": "MEGA CABLE", "tecnologia": "FIBRA"}, "PRM TDA MADERO CENTRO": {"carrier": "MEGA CABLE", "tecnologia": "FIBRA"}, "PRM TDA HEB GUADALUPE LIVAS NL": {"carrier": "MEGA CABLE", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY PLAZA VILLAS LINCOLN": {"carrier": "MEGA CABLE", "tecnologia": "FIBRA"}, "PRM TDA CULIACAN PLAZA VERONA": {"carrier": "MEGA CABLE", "tecnologia": "FIBRA"}, "PRM TDA TOLUCA ZINACANTEPEC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TOLUCA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TOLUCA PLAZA LERMA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CDMX PASEO VENTURA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CDMX CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA CDMX PLAZA VICTORIA I": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CDMX LUNA PARC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ROSARITO ROSARITO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA MAZATLAN GRAN PLAZA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA PLAZA PACIFICO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA HERMOSILLO PLAZA TERSA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA HERMOSILLO PLAZA EL PATIO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA ENSENADA PLAZA CALAFIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ENSENADA MISION": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA PLAZA CUAH": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MEXICALI VILLAFONTANA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA OBREGON SONORA PUERTA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CULIACAN PASEO SAN ISIDRO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA PLAZA CARRUSEL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA PLAZA LAS BRISAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MAZATLAN GALERIAS": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA HERMOSILLO SENDERO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA OBREGON GUERRERO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MEXICALI PLAZA RESIDENCIAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MEXICALI PLAZA LA GRAN VIA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY SUN MALL VIP": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA MONTERREY PASEO LA FE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA AV GUERRERO NUEVO LAREDO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TORREON PLAZA TRIANA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA TORREON PLAZA 4 CAMINOS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA JUAREZ PLAZA SENDERO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY PLAZA HERRADURA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY MADERO NORTE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SALTILLO PLAZA PATIO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA REYNOSA PLAZA PERIFERICO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA REYNOSA PLAZA CITADINA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY ALLENDE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY PLAZA FIESTA ANAHUAC I": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTEMORELOS PASEO FUNDADORES": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY PLAZA CUMBRES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA JUAREZ SENDERO LAS TORRES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA JUAREZ PLAZA GRAN PATIO ZARAGOZA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MARIANO ESCOBEDO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA QUERETARO SORIANA CIMATARIO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA AGUASCALIENTES VELARIA MALL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SILAO PLAZA LA JOYA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SAN LUIS POTOSI HIMALAYA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SAN LUIS POTOSI ORIENTE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA QUERETARO SORIANA QUINTANA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ZACATECAS": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA LA PIEDAD HERIBERTO JARA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA URUAPAN URUAPAN": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA MORELIAMI PLAZA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TEPIC PLAZA FORUM": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA GUADALAJARA PLAZA BELENES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MORELIA PLAZA ANDADOR": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GUADALAJARA CIRCUNVALACION": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA URUAPAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GUADALAJARA FAHO PABLO CASALS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PUEBLA CAMINO REAL FRESCURA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA OAXACA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CUERNAVACA PLAZA NORTE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA VERACRUZ EL DORADO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PUEBLA JUAN PABLO II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA VERACRUZ ANDAMAR": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA OAXACA PABELLON VIOLETAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA XALAPA URBANCENTER": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TEHUACAN PORTALES PUEBLA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PUEBLA SAN MANUEL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CORDOBA PLAZA ONCE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LA PAZ PLAZA PASEO LA PAZ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA LA PAZ PLAZA NAUTICA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CDMX FUENTE DE CIBELES ROMA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM SAN ESTEBAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TERRAZA LOMAS VERDES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CDMX PLAZA DESTINO AZCAPOTZALCO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM CHIHUAHUA PLAZA BELLA DELICIAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHIHUAHUA PLAZA GALERIAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM CDMX FLORENCIA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM CDMX SAN FERNANDO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TOLUCA WALMART": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA PLAZA CALIMAX FIESTA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GUADALAJARA LA GRAN PLAZA GUAD": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SATILLO DISTRITO V": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CDMX CHEDRAUI POLANCO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CHEDRAUI MUNDO E": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TEPIC CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PLAZA MISION SOLER": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LEON CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA LAS AMERICAS MORELIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHEDRAUI COACALCO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ALESSIA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA SENTURA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PUNTA ANAHUAC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA METROCENTRO HERMOSILLO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TOLUCA 5 DE MAYO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA QUERETARO MILENIUM": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA WALMART SAN ROQUE": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PLAZA CITADINA QUERETARO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA 20 DE NOVIEMBRE": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA FRESNILLO CENTRO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CENTRO SILAO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA CDMX CHEDRAUI AJUSCO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ARGANIA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PALMAS": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA SATELITE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CITADINA CONCORDIA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA FAHO CHAPULTEPEC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MULTIPLAZA VALLE DORADO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LAGOS DE MORENO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA BLANCARTE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA DEL PARQUE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PORTALES ROSALES ZACATECAS": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PABELLON TECNOLOGICO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CDMX CHEDRAUI EDUARDO MOLINA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CALLE 31 SUR": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SORIANA VILLA ALVAREZ": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA ZENTRALIA COLIMA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MANZANILLO CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PLAZA ARCADIA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA MULTIPLAZA SAN MATEO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA CRISTAL MINATITLAN": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA SORIANA ABASTOS CULIACAN": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ZINA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA VILLAS CAMARGO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SORIANA SAN JOAQUIN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA GARZA FLORES": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA AGUASCALIENTES FAHO ACUEDUCTO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PORTICO ENSENADA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA EJERCITO MEXICANO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA AGUASCALIENTES CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CRYSTAL CORDOBA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA FAHO SOLIDARIDAD": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA UBIKA PACIFICO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA CACHANILLAS": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA LERMA II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GALERIAS SAN VICENTE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PASEO MONCLOVA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PASEO INTERLOMAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PATIO GUANAJUATO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PINOCELLI": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHEDRAUI TEJERIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA EUROPLAZA VILLAHERMOSA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA CUAUTLA PLAZA CINEMUNDO II": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA CRYSTAL COATZACOALCOS": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA SENDERO CULIACAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA VALSEQUILLO PUEBLA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA NIO GUASAVE": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA GUADALAJARA CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA LAS PALMAS TAMPICO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PABELLON REFORMA HERMOSILLO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PARQUE CELAYA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA MI PLAZA LIBRAMIENTO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SORIANA MUÑOZ": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA METEPEC CENTRO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SENDERO MEXICALI": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SENDERO OBREGON": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ALAMEDA OTAY": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA HEB SAN PATRICIO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA HEB REVOLUCION": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA HEB LAS PUENTES": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA HEB LA PUERTA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SORIANA ECHEVERRIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SORIANA ORIENTE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SORIANA HIPER ENCINAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GALERIAS LA PAZ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CITY CENTER PITIC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PATIO OBREGON": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PARQUES POLANCO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PASEO ALTOZANO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA JARDIN COR": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SENDERO TIJ": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA 2000 TIJ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SENDERO LA FE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SUN MALL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA CITICEL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LA VICTORIA QRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CANAL VERACRUZ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CUERNAVACA VISTAHERMOSA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA VERACRUZ CRYSTAL XALAPA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA EL DORADO BOCA DEL RIO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PATIO CUAUTITLAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA BENITO JUAREZ": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA FRANCISCO DE LOS ROMO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CALIMAX LOMA BONITA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA LA ESTACION": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA EL REFUGIO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA URBAN CENTER GUADALAJARA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHEDRAUI COLOSIO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA VILLAHERMOSA AMERICAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA CRYSTAL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CD DEL CARMEN PLAZA REAL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SORIANA CD DEL CARMEN": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA LAS AMERICAS XALAPA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CENTRO CUAUHTEMOC": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA NUEVA ESPAÑA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PUERTA BAJIO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA MONTEVERDE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ARROYO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA BONITA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SAN CRISTOBAL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA FAHO APODACA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MULTIPLAZA LINDAVISTA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA LA LOMITA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA HUMAYA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TEPATITLAN CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA EXPLANADA CULIACAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA HERMOSILLO CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA QUERETARO SAN JOSE": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA COLON TORREON": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA FIESTA LAS PALMAS": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SENDERO SAN ROQUE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA FAHO ENSUEÑO QRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM SORIANA FORJADORES": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA SENDERO SANTA CATARINA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MULTIPLAZA CD MADERO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA FAHO TAMPICO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CULIACAN CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ALMANARA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MANZANILLO MIGUEL DE LA MADRID": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA COLIMA AV MADERO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TECNOLOGICO COLIMA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MULTIPLAZA VERGEL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ACAYA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA FORD OBREGON": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ZAMORA CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PLAZA BELMART HERMOSILLO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA 450 DGO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PLAZA ALLENDE GTO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PASEO MORELOS LEON": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA HOTEL PANORAMA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ANIMOL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MULTIPLAZA ARBOLEDAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CENTRO LOS MOCHIS I": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MULTIPLAZA REAL TAMPICO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GALERIAS METROPOLITAN LA PIEDAD": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA GRAN D LA ESTACION": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA ALSUPER MEZQUITAL": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PROVIDENCIA CUU CHIHUAHUA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GARCIA DE LEON MORELIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA OUTLET LERMA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PANORAMAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PORTAL VALLEJO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SENDERO VILLAHERMOSA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA GUADALAJARA MEDRANO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM PLAZA FRAGARIA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PLAZA RAZA AVENUE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA URBAN CENTER BOCA DEL RIO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PRADERA DORADA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA RIO GRANDE CD JUAREZ": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MIRASIERRA SALTILLO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA AGUASCALIENTES 515": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ZOCALO CDMX": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PASEO ALMENARES MTY": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CDMX AMERICAS ECATEPEC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CDMX CITY SHOPS VALLE DORADO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CDMX CUAJIMALPA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CDMX PLAZA INN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CDMX REFORMA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CDMX TECAMACHALCO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA TK": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PRADOS CAMELINAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PUEBLA TEZIUTLAN SUR": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA QUERETARO CONSTITUYENTES 2": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA UBIKA UNIVERSIDAD QRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SAN JUAN DEL RIO II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SAN JUAN DEL RIO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LEON ALTACIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LEON FLAGSHIP": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA MANDARINAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ROSSINI": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA IRAPUATO PLAZA CIBELES": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PLAZA CIBELES IRA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA GALEREÑA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA MS SILAO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHAPULTEPEC JARDIN SLP": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA TAHONA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SORIANA GAVILANES ZACATECAS": {"carrier": "TELMEX", "tecnologia": "MICROONDA"}, "PRM TDA EL PARIAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MADERO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA AGUASCALIENTES ALTARIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA AGUASCALIENTES EL DORADO II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA VILLA ASUNCION AGS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA LA LOMA 1": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PALMAS I": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA UNIVERSIDAD AGUASCALIENTES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LA CIMA GLA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GRAN PATIO PATRIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA LA REINA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA TESISTAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA AMECA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA AJIJIC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SANTA TERE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GUADALAJARA COUNTRY": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHAPULTEPEC SUR": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GLORIETA JARDINES DEL BOSQUE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA LA FUENTE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHIHUAHUA PLAZA FASHION MALL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY VALLE ORIENTE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ABRAHAM LINCON": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA INTERPLAZA MTY": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA HEB CERRADAS DE ANAHUAC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SORIANA HIPER SAN PEDRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA HEB CIUDADELA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PORTAL LAGOS DE MORENO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LA BARCA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA APODACA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MACRO PLAZA VALLARTA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PAROTA CENTER": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PTO VALLARTA DORADO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA SAN FERNANDO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MEGA BUCERIAS NAYARIT": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PATIO SANTA FE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GLORIETA CHAPALITA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHEDRAUI CENTRO SUR": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PROL DIVISION DEL NORTE XOCHIMILCO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA XOCHIMILCO CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA NUEVO MEXICALI": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA AGUASCALIENTES PLAZA GUADALUPE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ENSENADA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA PLAZA PAJARITA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA TECATE PLAZA ENCINOS": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA ENSENADA PLAZA MARE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LOS CABOS PLAZA SENDERO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CABO SAN LUCAS PLAZA PUERTO PARAISO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA CHIHUAHUA PLAZA VALLARTA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA DELICIAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHIHUAHUA PLAZA SAUCITO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CHIHUAHUA PLAZA TRES VIAS": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CD CUAUHTEMOC PLAZA SIERRA MADRE": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CHIHUAHUA PLAZA VICTORIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHIHUAHUA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA JUAREZ II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA JUAREZ PLAZA TEC 1800": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONCLOVA HAROLD PAPE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CD ACUNA PLAZA ALASKA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA TORREON SORIANA FUNDADORES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONCLOVA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SALTILLO SORIANA RAMOS ARIZPE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SALTILLO PLAZA NOVVA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SALTILLO PLAZA CASA GRANDE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PIEDRAS NEGRAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PIEDRAS NEGRAS PLAZA INOVA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA TORREON GOMEZ PALACIO LAS ROSAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TECOMAN COLIMA 18 DE JULIO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA COLIMA FILOMENO MEDINA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA DURANGO I": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA DURANGO PLAZA PASEO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA DURANGO LAZARO CARDENAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA METEPEC PLAZA TOWN SQUARE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TOLUCA AV INDEPENDENCIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA NAUCALPAN GREEN PLAZA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TOLUCA CHEDRAUI": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ACAPULCO II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ACAPULCO AV COSTERA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ACAPULCO PLAZA UNIVERSIDAD": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TAXCO BENITO JUAREZ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA GUADALAJARA CHAPULTEPEC II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CUAUTLA LOS ATRIOS": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA MONTERREY PLAZA CLOUTHIER": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY PLAZA ALTEA LINCOLN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY MI PLAZA ESCOBEDO II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY PLAZA ALTEA HUINALA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY SORIANA LA PUERTA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY PLAZA LA JOYA DE LA ANAHUAC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MONTERREY SENDERO LINCOLN": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA TEZIUTLAN PUEBLA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA TEHUACAN PLAZA PASEO": {"carrier": "TELMEX", "tecnologia": "MICROONDA"}, "PRM TDA SAN MARTIN TEXMELUCAN PLAZA CRYSTAL": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA TEHUACAN": {"carrier": "TELMEX", "tecnologia": "MICROONDA"}, "PRM TDA SAN LUIS POTOSI ARMAS II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MAZATLAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LOS MOCHIS PLAZA SENDERO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LOS MOCHIS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LOS MOCHIS PLAZA PANAMA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LOS MOCHIS PLAZA DECO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GUASAVE": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA LOS MOCHIS PLAZA PASEO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA NAVOJOA ALVARO OBREGON CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA NOGALES PLAZA NOGALES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA NOGALES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA HERMOSILLO PLAZA CATALUNYA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GUAYMAS SERDAN": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA NAVOJOA PLAZA MAYO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CD OBREGON": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA OBREGON CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA GUAYMAS PLAZA PATIO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA VILLAHERMOSA SORIANA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA VILLAHERMOSA DEPORTIVA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA TAMPICO II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TAMPICO HEB MADERO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MATAMOROS PLAZA PATIO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA TAMPICO ALTAMIRA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CD VICTORIA PLAZA PASEO AVENTA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA REYNOSA PLAZA REAL": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA NUEVO LAREDO NARCISO MENDOZA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TAMPICO PLAZA LA HERRADURA": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA TAMPICO PLAZA RONDINELLA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA REYNOSA AV MORELOS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA REYNOSA REYNOSA PARIS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA APIZACO TLAXCALA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA HUAMANTLA PLAZA TLAX": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA ORIZABA PONIENTE 3": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA M DE LA TORRE VERACRUZ IGNACIO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA ORIZABA I": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA POZA RICA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA VERACRUZ PLAZA CUAUHTEMOC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MINATITLAN SORIANA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA XALAPA LAS ANIMAS": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA ORIZABA PLAZA VALLE ORIZABA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA ZACATECAS PLAZA PORTAL FRESNILLO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA CENTRO SUR TLAQUEPAQUE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA  MULTICENTER EL SALTO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PASAJE FERRERIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHEDRAUI EL DORADO SLP": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA TESISTAN II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA FRAY SERVANDO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MI PLAZA LOS CABOS": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SAN MATEO ATENCO I": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PORTAL QUERETARO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PORTAL DURANGO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ALAMEDA IGLESIAS CD JUAREZ": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ZACATECAS AL SUPER DISTRITO 925": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA SORIANA PEÑUELAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PATIO QUERETARO I": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA URBAN CENTER JURIQUILLA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA PLAZA MONARCA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SORIANA EL PASEO SLP": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MORELIA RIO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA IZTAPALAPA LAS TORRES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ARBIDE LEON": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA CHAPULTEPEC MTY": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MACRO PLAZA MORELIA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CD GUZMAN JALISCO": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA VALLE DE BRAVO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MALINTZIN COYOACAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA TRES TORRES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA LA ESTACION": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA PLAYAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ANTONIO ROSALES GUAMUCHIL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA INSURGENTES CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SORIANA LOURDES SALTILLO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SORIANA HIPER SAN JUAN DEL RIO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA STA LUCIA CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA THE PARK SAN LUIS POTOSI": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PASEO DEL MORAL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MACROPLAZA OAXACA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MI PLAZA BARRANCOS": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA CADEREYTA CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA GIRASOL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA REVOLUCION 67": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PORTAL TULTITLAN": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA 4 RIOS CULIACAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA VIA PLAZA PEREZ TREVIÑO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MONUMENTO REVOLUCION CDMX": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA LIBRAMIENTO PUEBLA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA DE HIERRO NAVOJOA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA LANDMARK TIJUANA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TLAXCALA BENITO JUAREZ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA IRAPUATO DE BERRIOZABAL": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA RIVAPALACIO TOLUCA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA IGUALA CENTRO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA REVOLUCION MTY": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA EL PORVENIR": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MOCTEZUMA TUXTLA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PATIO COLOSIO MAZATLAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TIJUANA PLAZA RIO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SORIANA JUCHITAN": {"carrier": "TELMEX", "tecnologia": "MICROONDA"}, "PRM TDA HEB BERNARDO QUINTANA QRO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CALZADA LAS AMERICAS SAN CRISTOBAL": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PLAZA ZAPAMUNDI COAPA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA HEB LOS MORALES NICOLAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PASEO SANTA CATARINA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA TUXTLA CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TEHUANTEPEC AV JUAREZ OAX": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CHILPANCINGO ACA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CARMEL TUXTLA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA UNIVERSIDAD PACHUCA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA NUEVO SUR MTY": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA INSURGENTES BAJIO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PATIO ACAPULCO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA VASCO DE QUIROGA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA HOTEL SARA ZAPOTLANEJO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA MONTECARLO NOGALES": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA ACAPULCO LAS PALMAS": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA DEL MONTE CUAJIMALPA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PITHAYAS PACHUCA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA COL DEL VALLE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA NOGAL LEON": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA SUN MALL HERMOSILLO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA MIVIA LOLA CULIACAN": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA 1500 GUADALUPE NL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA LA CANTERA TEPIC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA 5 DE FEBRERO CDMX": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PABELLON CULIACAN": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA FRANCISCO I MADERO TONALA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA UBIKA MARIANO OTERO ZAPOPAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA SOTELO TOREO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA AV OBREGON GUASAVE": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA GANTE ZUMPANGO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA LA VIGA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA HOTEL OVIEDO ACAPULCO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PROVIDENCIA GDL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ARANDAS JALISCO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA AVIANA ESCOBEDO NL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SABINAS COAHUILA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA VICTORIA CD JUAREZ": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA SANTA ROSA MAZATLAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA V-1818 MTY": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHEDRAUI TUXPAN VER": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA POZOS SLP": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA EL PARRAL CHIHUAHUA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA ALSUPER ROBINSON CHIH": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ZIBATA QRO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PUNTO TIJUANA MISIONES": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHEDRAUI NEZAHUALCOYOTL II": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA VIA FRANCISCO I MADERO COAH": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA TELURIO CD JUAREZ": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA FRANCISCO MEDINA PTO VALLARTA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA FORUM CULIACAN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TEXCOCO CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TECAMACHALCO PUEBLA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA MUZQUIZ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CENTRO TAMPICO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MAZATLAN CENTRO 2": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA R ALMADA CHIHUAHUA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CENTRO HISTORICO CD MADERO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MI PLAZA CHIHUAHUA I": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA HUMBERTO LOBO MTY": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA KALITEA NOGALES": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA NOVENA MEXICALI BC": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PASEO QUERETARO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA MARGOL CUERNAVACA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LAS PLAZAS CUERNAVACA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SORIANA VIA MORELOS ECATEPEC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ALAMEDA LA PAZ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PUERTO CAOBA VER": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA CHEDRAHUI TLAJOMULCO JAL": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA SORIANA LOS MOCHIS": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA ALSUPER CAROLINAS CHIH": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA COL DOCTORES CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CUERNAVACA CENTRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ESPACIO 629 CHIHUAHUA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA MANITOBA": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PALMAS HAMBURGO DGO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PRESIDENTE CARRANZA COAH": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CHEDRAUI PALOMAS ECATEPEC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA CONCORDIA CD JUAREZ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MACROPLAZA DEL VALLE MEXICALI": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA BELLA RAMOS ARIZPE": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA VILLAHERMOSA CENTRO TABASCO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA ESFERA QUERETARO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TALAMAS CD JUAREZ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA VILLAFLORESTA TIJUANA BC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA BLVD NACIONES AEROPUERTO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PIRULES TIZAYUCA HGO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA VIVEROS CVA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA ALSUPER FILADELFIA DGO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA BELLA MEXIQUENSE MEX": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA OBRERO MUNDIAL CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA FRONTERA SAN ANGEL CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MANEADERO ENSENADA BC": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA ARBOLEDAS CELAYA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA MILLENIUM TOLTECAS MX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA CEDROS TIJUANA BC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LOMAS DEL PARQUE DGO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MAZATLAN BICENTENARIO SIN": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GLORIETA NEZA MEX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CITADINA ESCOBEDO": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PILARES IXTAPALUCA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SORIANA ROJO GOMEZ CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA CAFETALES COYOACAN CDMX": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA INDEPENDENCIA JAL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA URBAN VILLAGE JAL": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA HIPER CORDILLERAS JAL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TAXQUEÑA COYOACAN CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA KABS BCS": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA MIRAMONTES CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MIGUEL A DE QUEVEDO CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PESTALOZZI DEL VALLE CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA VALENTINOS CD JUAREZ": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PASEO SAN PATRICIO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA JUAREZ 70 TOLUCA MEX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA TUTULI CD OBREGON SON": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA COAPA CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA NICOLAS COPERNICO JAL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA 5 DE MAYO HUEXOTITLA PUE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA SERVIPLAZA IZTAPALAPA CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GALERIAS SALAMANCA GTO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA ZARAGOZA CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA FAHO MISIONES ESTACION PUE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA AV JUAREZ PUE": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PUERTA GRANDE I TAM": {"carrier": "TOTALPLAY", "tecnologia": "MICROONDA"}, "PRM TDA PLAZA LAS HACIENDAS": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MOLINOS MIXCOAC CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA TEPEYAC CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA JUAREZ MALL CHIH": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA PUNTO PONIENTE MCH": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA XOCHIMILCO CENTRO II CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA TECOYOTITLA CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GLORIETA G BONFIL PACHUCA": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PASEO AKIA MCH": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PLAZA VIVEROS MEX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA LA JOYA CDMX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA GIRAMAR ROSARITO BC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA GRAN PLAZA LOS SOLES MCH": {"carrier": "STARLIK", "tecnologia": "FIBRA"}, "PRM TDA SERVIPLAZA ARAGON MEX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA HUEHUETOCA EDOMEX": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA MULTIPLAZA SANTA FE BC": {"carrier": "TELMEX", "tecnologia": "FIBRA"}, "PRM TDA PUNTO SAUZAL ENSENADA BC": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PLAZA DEL PARQUE QRO": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA UBIKA INDEPENDENCIA JAL": {"carrier": "TOTALPLAY", "tecnologia": "FIBRA"}, "PRM TDA PTO VALLARTA CENTRO JAL": {"carrier": "TELMEX", "tecnologia": "FIBRA"}};
+
+  const DEFAULTS = {
+    anio: 2026,
+    periodo_actual: 'Julio',
+    tendencia: {
+      data: {
+        TotalPlay:    [52,55,64,77,72,85,60,0,0,0,0,0],
+        Telmex:       [11,14,13,7,8,7,8,0,0,0,0,0],
+        Metrocarrier: [0,1,0,0,0,2,0,0,0,0,0,0]
+      },
+      servicios: { TotalPlay:478, Telmex:138, Megacable:5, Starlink:2 },
+      caidas_extra: { Megacable:1, Starlink:0 }
+    },
+    yoy_2025: {
+      TotalPlay: [38,41,49,58,81,71,64,53,70,70,32,29],
+      Telmex:    [17,17,15,5,5,11,4,12,3,7,4,13]
+    },
+    yoy_notas: {
+      TotalPlay: [ {anio:2025, mes:'Abril', nota:'Migración de servicios'}, {anio:2026, mes:'Abril', nota:'Caídas masivas'} ],
+      Telmex: [ {anio:2025, mes:'Abril', nota:'Migración de servicios'} ],
+      Metrocarrier: []
+    },
+    resumen: {
+      peer: { TotalPlay:0.71, Telmex:0.39, Megacable:0.27, Starlink:0.00 },
+      atn:  { TotalPlay:'12 hrs', Telmex:'24-48h', Megacable:'8 hrs', Starlink:'8 hrs' },
+      clw: 15, lw: 17
+    },
+    atencion: {
+      TotalPlay:    { tickets:402, avg:22.9, dias:0.95, min:0,   mediana:18.7, max:310.3,  dist:[93,89,76,128,16], pct24:64,  pct48:89 },
+      Telmex:       { tickets:57,  avg:90.3, dias:3.76, min:1.3, mediana:31.2, max:2464.5, dist:[10,7,2,21,17],    pct24:33,  pct48:61 },
+      Metrocarrier: { tickets:1,   avg:6.5,  dias:0.27, min:6.5, mediana:6.5,  max:6.5,    dist:[0,1,0,0,0],       pct24:100, pct48:100 }
+    },
+    top_totalplay: [
+      {nombre:'PRM TDA SAN JUAN DEL RIO II', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA MULTIPLAZA VALLE DORADO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,1,0,0]},
+      {nombre:'PRM TDA TORREON PLAZA TRIANA', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[1,1,0,1,0,1,0]},
+      {nombre:'PRM TDA SAHUAYO', carrier:'—', tecnologia:'—', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA CHAPULTEPEC SUR', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA GRAN D LA ESTACION', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[4,0,0,0,0,1,0]},
+      {nombre:'PRM TDA HEB LOS MORALES NICOLAS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,1,0,1,0,0,1]},
+      {nombre:'PRM TDA TOLUCA WALMART', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[2,0,0,0,0,0,0]},
+      {nombre:'PRM TDA IRAPUATO DE BERRIOZABAL', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[2,1,0,0,1,1,5]},
+      {nombre:'PRM TDA SERVIPLAZA ARAGON MEX', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA TIJUANA PLAZA CARRUSEL', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,1,0,0,1,0,0]},
+      {nombre:'PRM TDA PLAZA FRAY SERVANDO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA PALMAS HAMBURGO DGO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA PROVIDENCIA GDL', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA CITADINA QUERETARO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[2,0,1,0,0,0,0]},
+      {nombre:'PRM TDA SILAO PLAZA LA JOYA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA SALTILLO PLAZA PATIO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA QUERETARO SAN JOSE', carrier:'TELMEX', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA OBREGON CENTRO', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[1,0,1,0,0,0,0]},
+      {nombre:'PRM TDA CULIACAN', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,1,1,1,0]},
+      {nombre:'PRM TDA NAVOJOA PLAZA MAYO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA SENDERO OBREGON', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA CDMX TECAMACHALCO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[2,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PATIO COLOSIO MAZATLAN', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA TIJUANA PLAZA LAS BRISAS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA PIRULES TIZAYUCA HGO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[2,0,0,0,0,0,0]},
+      {nombre:'PRM TDA MOCTEZUMA TUXTLA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA LA JOYA CDMX', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA ARBIDE LEON', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA NAUCALPAN GREEN PLAZA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[2,1,0,1,0,0,0]},
+      {nombre:'PRM TDA PLAZA ACAYA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,1,0,0,0,0]},
+      {nombre:'PRM TDA MEGA BUCERIAS NAYARIT', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,1,0,0]},
+      {nombre:'PRM TDA IRAPUATO PLAZA CIBELES', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[1,0,0,0,0,0,1]},
+      {nombre:'PRM TDA MACROPLAZA MORELIA', carrier:'—', tecnologia:'—', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA SUN MALL MTY', carrier:'—', tecnologia:'—', meses:[1,0,2,0,0,0,0]},
+      {nombre:'PRM TDA MEXICALI VILLAFONTANA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA BELMART HERMOSILLO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA CDMX SAN FERNANDO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,1,0,0,0,0]},
+      {nombre:'PRM TDA CDMX PLAZA VICTORIA I', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,1,1,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA NAVIA OBREGON', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA NUEVO LAREDO NARCISO MENDOZA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA ZACATECAS', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[1,1,0,1,1,0,1]},
+      {nombre:'PRM TDA PLAZA LERMA II', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA CABO SAN LUCAS PLAZA PUERTO PA', carrier:'—', tecnologia:'—', meses:[0,2,0,0,0,1,0]},
+      {nombre:'PRM TDA CHIHUAHUA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,1]},
+      {nombre:'PRM TDA SORIANA LOURDES SALTILLO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,1]},
+      {nombre:'PRM TDA PLAZA TK', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,5,0,1,0,0,0]},
+      {nombre:'PRM TDA TOLUCA AV INDEPENDENCIA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA JUAREZ PLAZA SENDERO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA MULTIPLAZA LINDAVISTA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA SENTURA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,1,1,0,0,0,0]},
+      {nombre:'PRM TDA VASCO DE QUIROGA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,2,0,1,0,0,0]},
+      {nombre:'PRM TDA PLAZA CIBELES IRA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,1,1,1,1,0]},
+      {nombre:'PRM TDA NOGALES', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,2,0,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA UBIKA UNIVERSIDAD QRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,1,0,0,0,0]},
+      {nombre:'PRM TDA MIGUEL ANGEL DE QUEVEDO CDMX', carrier:'—', tecnologia:'—', meses:[0,3,1,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA ANIMOL', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA GUADALAJARA FAHO LEGALIDAD', carrier:'—', tecnologia:'—', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA CUAUTLA PLAZA CINEMUNDO II', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,1,1,2,0,0,0]},
+      {nombre:'PRM TDA SENDERO VILLAHERMOSA', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,1,1,0,0,0,0]},
+      {nombre:'PRM TDA VILLAHERMOSA SORIANA', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,1,1,1,0,0,0]},
+      {nombre:'PRM TDA HOTEL PANORAMA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,2,1,0,0,0,0]},
+      {nombre:'PRM TDA JUAREZ PLAZA GRAN PATIO ZARAGOZA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA LA ESTACION', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA TAMPICO II', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA LEON FLAGSHIP', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,2,0,1,0,0,0]},
+      {nombre:'PRM TDA FAHO ENSUEÑO QRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,1,0]},
+      {nombre:'PRM TDA MULTIPLAZA REAL TAMPICO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,1,0,0]},
+      {nombre:'PRM TDA LAGOS DE MORENO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,2,0,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA PORTAL QUERETARO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,1,1,0]},
+      {nombre:'PRM TDA PATIO QUERETARO I', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,1,0]},
+      {nombre:'PRM TDA CD GUZMAN JALISCO', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA PAROTA CENTER', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,1,1,0]},
+      {nombre:'PRM TDA ABRAHAM LINCON', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA ACAPULCO AV COSTERA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA SORIANA ECHEVERRIA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA TEPEYAC CDMX', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA TIJUANA PLAZA PAJARITA', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA GUAYMAS SERDAN', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA TAMPICO ALTAMIRA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,2,0,0,0,0]},
+      {nombre:'PRM PLAZA SANTA ROSA MAZATLAN', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA LA REINA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,1,1]},
+      {nombre:'PRM TDA SENDERO LA FE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,1]},
+      {nombre:'PRM TDA SALTILLO PLAZA NOVVA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA MINATITLAN SORIANA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,1]},
+      {nombre:'PRM TDA CDMX CHEDRAUI EDUARDO MOLINA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,1]},
+      {nombre:'PRM TDA FAHO SOLIDARIDAD', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,2,0,1,0,0]},
+      {nombre:'PRM TDA PASEO DEL MORAL', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA ARCADIA', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,1,1,0,0,0]},
+      {nombre:'PRM TDA TIJUANA PLAZA CUAH', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA SOTELO TOREO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PORTAL DURANGO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,1,0,0,1]},
+      {nombre:'PRM TDA URUAPAN', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,3,0,1,0,1]},
+      {nombre:'PRM TDA THE PARK SAN LUIS POTOSI', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA JUAREZ SENDERO LAS TORRES', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,2,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA 1500 GUADALUPE NL', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA MONTERREY PASEO LA FE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA VILLAHERMOSA DEPORTIVA', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,2,1,0,0,0]},
+      {nombre:'PRM TDA SORIANA ORIENTE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,1,0]},
+      {nombre:'PRM TDA PUNTO TIJUANA MISIONES', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA SORIANA EL PASEO SLP', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,2,0,0,2,0]},
+      {nombre:'PRM TDA XOCHIMILCO CENTRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA BENITO JUAREZ', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,1,1,1,0]},
+      {nombre:'PRM TDA XALAPA URBANCENTER', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA MIRAMONTES CDMX', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA TERRAZA LOMAS VERDES', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,2,0,0,0,0]},
+      {nombre:'PRM TDA SORIANA ROJO GOMEZ', carrier:'—', tecnologia:'—', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA TIJUANA PLAZA CALIMAX FIESTA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PUERTA GRANDE I TAM', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,1,1,0,1,1]},
+      {nombre:'PRM TDA GOMEZ PALACIO LAS ROSAS', carrier:'—', tecnologia:'—', meses:[0,0,1,2,0,0,1]},
+      {nombre:'PRM TDA PRADOS CAMELINAS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,2,1,0,0]},
+      {nombre:'PRM TDA MONTEMORELOS PASEO FUNDADORES', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PASEO QUERETARO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,1,0]},
+      {nombre:'PRM TDA QUERETARO MILENIUM', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA ZAMORA CENTRO', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,2,0,1,1,1]},
+      {nombre:'PRM TDA NICOLAS COPERNICO JAL', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA PALMAS I', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,1,0]},
+      {nombre:'PRM TDA PLAZA UBIKA PACIFICO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA COL DEL VALLE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA LOMAS DEL PARQUE DGO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA DURANGO PLAZA PASEO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,2,0,0,0]},
+      {nombre:'PRM TDA ALSUPER MEZQUITAL', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA TORREON', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA DURANGO LAZARO CARDENAS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA PORTAL VALLEJO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,2,1,1,0]},
+      {nombre:'PRM TDA CITADINA CONCORDIA', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA PLAZA LA LOMA 1', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,2,0,0,0]},
+      {nombre:'PRM TDA PLAZA ROSSINI', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA MAZATLAN GRAN PLAZA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA MAZATLAN GALERIAS', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,2,0,0,0]},
+      {nombre:'PRM TDA NUEVA ESPAÑA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,1]},
+      {nombre:'PRM TDA POZOS SLP', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,3,0,3,0]},
+      {nombre:'PRM TDA TOLUCA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA AGUASCALIENTES EL DORADO II', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,1,0,0]},
+      {nombre:'PRM TDA SAN LUIS POTOSI ORIENTE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,1,0]},
+      {nombre:'PRM TDA MONTERREY PLAZA ALTEA HUINALA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,2,0,0,0]},
+      {nombre:'PRM TDA EL PARIAN', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,2,0,0]},
+      {nombre:'PRM TDA INSURGENTES CENTRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA SORIANA HIPER SAN JUAN DEL RIO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA LOS MOCHIS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA PLAZA MARGOL CUERNAVACA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,1]},
+      {nombre:'PRM TDA IZTAPALAPA LAS TORRES', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA CHAPULTEPEC JARDIN SLP', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA TIJUANA PLAZA MONARCA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA MALINTZIN COYOACAN', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,4,0,2]},
+      {nombre:'PRM TDA MIRASIERRA SALTILLO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA PROL DIVISION DEL NORTE XOCHIMILCO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA PASAJE FERRERIA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA SORIANA PENUELAS QUERETARO', carrier:'—', tecnologia:'—', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA CDMX CITY SHOPS VALLE DORADO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,1,0,0]},
+      {nombre:'PRM TDA CALIMAX LOMA BONITA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA TECOYOTITLA CDMX', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA CHEDRAUI PALOMAS ECATEPEC', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA PLAZA CHAPULTEPEC MTY', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,1,1,0]},
+      {nombre:'PRM TDA GARCIA DE LEON MORELIA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA M DE LA TORRE VERACRUZ IGNACIO', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA MACROPLAZA DEL VALLE MEXICALI', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,1,2,0]},
+      {nombre:'PRM TDA SANTA TERE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,4,0]},
+      {nombre:'PRM TDA PLAZA CRYSTAL', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA PLAZA MONTEVERDE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA GUADALAJARA LA GRAN PLAZA GUAD', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,1,0]},
+      {nombre:'PRM TDA MAZATLAN BICENTENARIO SIN', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA SORIANA HIPER ENCINAS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,2,0,1]},
+      {nombre:'PRM TDA CD VICTORIA PLAZA PASEO AVENTA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA LA PIEDAD HERIBERTO JARA', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,1,0,1,0]},
+      {nombre:'PRM TDA PLAZA LA FUENTE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA FAHO TAMPICO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,1,0]},
+      {nombre:'PRM TDA OAXACA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA PUEBLA TEZIUTLAN SUR', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA PLAZA RIO GRANDE CD JUAREZ', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,1,0]},
+      {nombre:'PRM TDA PUNTA ANAHUAC', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,2,2,0]},
+      {nombre:'PRM TDA LA VICTORIA QRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA PORTALES ROSALES ZACATECAS', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,1,0,2]},
+      {nombre:'PRM TDA GALERIAS SALAMANCA GTO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA PLAZA ALAMEDA IGLESIAS CD JUAREZ', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA PLAZA PRADERA DORADA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA AV JUAREZ PUE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA GRAN PATIO PATRIA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,3,0,1]},
+      {nombre:'PRM TDA NUEVO SUR MTY', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA LEON CENTRO', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,1,0,1]},
+      {nombre:'PRM TDA URBAN CENTER GUADALAJARA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA ESFERA QUERETARO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA PLAZA GIRASOL', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA MORELIA RIO', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA AGUASCALIENTES PLAZA GUADALUPE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,1,1]},
+      {nombre:'PRM TDA MORELIA PLAZA ANDADOR', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA QUERETARO CONSTITUYENTES 2', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA MORELIAMI PLAZA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA AGUASCALIENTES ALTARIA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA TEPATITLAN CENTRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,1,0]},
+      {nombre:'PRM TDA NOGALES PLAZA NOGALES', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA PITHAYAS PACHUCA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA MONTERREY PLAZA HERRADURA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,2,0,0]},
+      {nombre:'PRM TDA TOLUCA PLAZA LERMA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,1,1]},
+      {nombre:'PRM TDA ACAPULCO II', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,1,0]},
+      {nombre:'PRM TDA 20 DE NOVIEMBRE', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,2,1,2]},
+      {nombre:'PRM TDA PLAZA GIRAMAR ROSARITO BC', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA PLAZA TESISTAN', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,1,0]},
+      {nombre:'PRM TDA CHEDRAUI CENTRO SUR', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA GUADALAJARA CENTRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,3]},
+      {nombre:'PRM TDA ALSUPER CAROLINAS CHIH', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA MI PLAZA BARRANCOS', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,2,3,0]},
+      {nombre:'PRM TDA CDMX CUAJIMALPA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA MEXICALI PLAZA RESIDENCIAS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA MONTERREY SUN MALL VIP', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA VILLAHERMOSA AMERICAS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA SORIANA MUÑOZ', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA CDMX AMERICAS ECATEPEC', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA SAN LUIS POTOSI ARMAS II', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA EUROPLAZA VILLAHERMOSA', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA TOLUCA ZINACANTEPEC', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,1]},
+      {nombre:'PRM TDA TECOMAN COLIMA 18 DE JULIO', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,1,1]},
+      {nombre:'PRM TDA VALLE DE BRAVO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA PLAZA GANTE ZUMPANGO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA CRYSTAL COATZACOALCOS', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA HEB CIUDADELA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,2,0]},
+      {nombre:'PRM TDA MONTERREY SORIANA LA PUERTA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA CHEDRAUI EL DORADO SLP', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA MULTIPLAZA VERGEL', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,2]},
+      {nombre:'PRM TDA HEB CERRADAS DE ANAHUAC', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA JUAREZ PLAZA TEC 1800', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA PLAZA INDEPENDENCIA JAL', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA CHEDRAUI TEJERIA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA LA CIMA GLA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA URUAPAN URUAPAN', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,1,1]},
+      {nombre:'PRM TDA GUADALAJARA CHAPULTEPEC II', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA MANZANILLO CENTRO', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,2,0]},
+      {nombre:'PRM TDA MONTERREY PLAZA LA JOYA DE LA ANAHUAC', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA PATIO OBREGON', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,2,0]},
+      {nombre:'PRM TDA DELICIAS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA GALERIAS SAN VICENTE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA CUAUTLA LOS ATRIOS', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,1,1]},
+      {nombre:'PRM SORIANA FORJADORES', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,1,2]},
+      {nombre:'PRM TDA PIEDRAS NEGRAS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA GUADALAJARA MEDRANO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA TAMPICO PLAZA LA HERRADURA', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA PLAZA UNIVERSIDAD AGUASCALIENTES', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA REYNOSA AV MORELOS', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA TEPIC CENTRO', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,1,1]},
+      {nombre:'PRM TDA TUXTLA CENTRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,2]},
+      {nombre:'PRM TDA EL DORADO BOCA DEL RIO', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA CUERNAVACA PLAZA NORTE', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA PLAZA V-1818 MTY', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA CUERNAVACA CENTRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA ZACATECAS AL SUPER DISTRITO 925', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA HUMBERTO LOBO MTY', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA CDMX CHEDRAUI AJUSCO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,2]},
+      {nombre:'PRM TDA MULTIPLAZA CD MADERO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA PATIO GUANAJUATO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA AGUASCALIENTES 515', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA LAS PLAZAS CUERNAVACA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA PLAZA CARMEL TUXTLA', carrier:'—', tecnologia:'—', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA TIJUANA LA ESTACION', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]}
+    ],
+    top_telmex: [
+      {nombre:'PRM TDA PLAZA PUNTO PONIENTE MCH', carrier:'TELMEX', tecnologia:'FIBRA', meses:[3,0,0,1,0,0,0]},
+      {nombre:'PRM TDA SORIANA CD DEL CARMEN', carrier:'TELMEX', tecnologia:'FIBRA', meses:[1,1,0,0,0,0,0]},
+      {nombre:'PRM TDA ARANDAS JALISCO', carrier:'TELMEX', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA FRESNILLO CENTRO', carrier:'TELMEX', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA HUAMANTLA PLAZA TLAX', carrier:'TELMEX', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM SORIANA FORJADORES', carrier:'TOTALPLAY', tecnologia:'MICROONDA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA XALAPA LAS ANIMAS', carrier:'TELMEX', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA METEPEC CENTRO', carrier:'TELMEX', tecnologia:'FIBRA', meses:[1,0,0,0,1,0,0]},
+      {nombre:'PRM TDA NOGALES', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[1,0,0,0,0,0,0]},
+      {nombre:'PRM TDA TOLUCA AV INDEPENDENCIA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA CHIHUAHUA PLAZA VILLAS CAMARGO', carrier:'—', tecnologia:'—', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA GALERIAS LA PAZ', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA TIJUANA PENINSULA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA CHILPANCINGO ACA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA CDMX PLAZA VICTORIA I', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,1,3,0,0,0,0]},
+      {nombre:'PRM TDA ZENTRALIA COLIMA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA TAXCO BENITO JUAREZ', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA MONTERREY SENDERO LINCOLN', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA VILLAHERMOSA CENTRO TABASCO', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA LA BARCA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,1,0,0,1,0,1]},
+      {nombre:'PRM TDA MEXICALI PLAZA LA GRAN VIA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,1,0,0,0,0,0]},
+      {nombre:'PRM TDA CHEDRAHUI TLAJOMULCO JAL', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,1,0,2,0,0,0]},
+      {nombre:'PRM TDA PLAZA BELLA MEXIQUENSE MEX', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA NOGAL LEON', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA TEHUACAN PORTALES PUEBLA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,1,0,2,0,1]},
+      {nombre:'PRM TDA TERRAZA LOMAS VERDES', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,2,0,0,0,0]},
+      {nombre:'PRM TDA TECAMACHALCO PUEBLA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,2,0,0,0,0]},
+      {nombre:'PRM TDA SORIANA EL PASEO SLP', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA CENTRO TAMPICO', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA PLAZA V-1818 MTY', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,1,0,0,0,0]},
+      {nombre:'PRM TDA GALERIAS METROPOLITAN LA PIEDAD', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,1,2,0,0]},
+      {nombre:'PRM TDA FRANCISCO I MADERO TONALA', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA HOTEL SARA ZAPOTLANEJO', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA PLAZA ALMANARA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,1,0,0,0]},
+      {nombre:'PRM TDA INSURGENTES BAJIO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,1,0,0]},
+      {nombre:'PRM TDA PORTAL TULTITLAN', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,1,1,0]},
+      {nombre:'PRM TDA CULIACAN PLAZA VERONA', carrier:'MEGA CABLE', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA SORIANA MUÑOZ', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA PLAZA ARGANIA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA CADEREYTA CENTRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA PLAZA CACHANILLAS', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA PLAZA VALENTINOS CD JUAREZ', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,1,0]},
+      {nombre:'PRM TDA CHEDRAUI COLOSIO', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA GUADALAJARA CENTRO', carrier:'TOTALPLAY', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA PLAZA PABELLON CULIACAN', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,2]},
+      {nombre:'PRM TDA PLAZA ALESSIA', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
+      {nombre:'PRM TDA TEHUACAN', carrier:'TELMEX', tecnologia:'MICROONDA', meses:[0,0,0,0,0,0,1]}
+    ],
+    carga: { archivo: 'reporte_tickets.xlsx', tickets_caidas: 536, fecha: '2026-07-22T17:30:00.000Z' },
+    expansion: { tiendas: [
+      {numero:58, clave:'PRMDTSTIJ026', nombre:'PRM TDA MULTIPLAZA SANTA FE BC', mes:'Mayo 2026', region:'NOROESTE I', pc:'6', lap:'1', hc:'-', pinpad:'7', dif_pinpad:'-', biometricos:'7', dif_biometricos:'-', prep_equipo:'2026-01-15', envio_mac:'-', internet:'TELMEX', solicitud_arq:'-', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
+      {numero:59, clave:'PRMDTSQRO024', nombre:'PRM TDA PLAZA DEL PARQUE QRO', mes:'Mayo 2026', region:'BAJIO', pc:'4', lap:'1', hc:'5', pinpad:'5', dif_pinpad:'-', biometricos:'5', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTAL', solicitud_arq:'-', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
+      {numero:60, clave:'PRMDTSGLA049', nombre:'PRM TDA UBIKA INDEPENDENCIA JAL', mes:'Mayo 2026', region:'PACIFICO', pc:'5', lap:'1', hc:'6', pinpad:'6', dif_pinpad:'-', biometricos:'6', dif_biometricos:'-', prep_equipo:'2026-05-14', envio_mac:'-', internet:'TOTAL', solicitud_arq:'2026-05-20', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
+      {numero:61, clave:'PRMDTSGLA050', nombre:'PRM TDA PTO VALLARTA CENTRO JAL', mes:'Mayo 2026', region:'PACIFICO', pc:'5', lap:'1', hc:'6', pinpad:'6', dif_pinpad:'-', biometricos:'6', dif_biometricos:'-', prep_equipo:'2026-05-14', envio_mac:'-', internet:'TELMEX', solicitud_arq:'2026-05-20', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
+      {numero:null, clave:'PRMDTSTIJ025', nombre:'PRM TDA PUNTO SAUZAL ENSENADA BC', mes:'Junio', region:'NOROESTE I', pc:'7', lap:'1', hc:'8', pinpad:'8', dif_pinpad:'-', biometricos:'8', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTAL', solicitud_arq:'2026-06-24', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
+      {numero:null, clave:'PRMDTSQRO025', nombre:'PRM TDA JUAREZ CENTRO QRO', mes:'Junio', region:'BAJIO', pc:'5', lap:'1', hc:'6', pinpad:'6', dif_pinpad:'-', biometricos:'6', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TELMEX', solicitud_arq:'2026-06-24', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
+      {numero:null, clave:'PRMDTSCOA010', nombre:'PRM TDA ALSUPER SATELITE COA', mes:'Julio', region:'Centro II', pc:'5', lap:'1', hc:'6', pinpad:'6', dif_pinpad:'-', biometricos:'6', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'NADA', solicitud_arq:'2026-06-20', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
+      {numero:null, clave:'PRMDTSCMX041', nombre:'PRM TDA INSURGENTES 4222', mes:'Julio', region:'NORTE 1', pc:'5', lap:'1', hc:'6', pinpad:'6', dif_pinpad:'-', biometricos:'6', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'NADA', solicitud_arq:'2026-07-13', entregado_arq:'Pendiente', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'En proceso', nota:''},
+      {numero:null, clave:'PRMDTSMXL010', nombre:'PRM TDA ALBORA MEXICALI', mes:'EN PROCESO', region:'NOROESTE I', pc:'6', lap:'1', hc:'7', pinpad:'7', dif_pinpad:'-', biometricos:'7', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'NADA', solicitud_arq:'-', entregado_arq:'Pendiente', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'En proceso', nota:''},
+      {numero:null, clave:'', nombre:'PRM TDA SORIANA SAN NICOLÁS NL', mes:'EN PROCESO', region:'NORTE 1', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'NADA', solicitud_arq:'-', entregado_arq:'Pendiente', entrega_impresora:'Pendiente', modelo_impresora:'Pendiente', estatus:'En proceso', nota:''},
+      {numero:null, clave:'', nombre:'Pabellon Altamira', mes:'', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'-', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Prospecto', nota:''},
+      {numero:null, clave:'', nombre:'UMMI', mes:'', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'-', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Prospecto', nota:''},
+      {numero:null, clave:'', nombre:'Chalco', mes:'', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'-', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Prospecto', nota:''},
+      {numero:null, clave:'', nombre:'PRM TDA CDMX CITY SHOPS VALLE DORADO', mes:'Cierre Agosto', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTALPLAY', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Cerrada', nota:'Entrega: 15 ago · Cierre operación: 01 ago · Recolección de equipo (cómputo, impresora, gabinete, switch, AP, módem) y cancelación Internet: 02 ago · Vigencia del servicio: 20/05/2027'},
+      {numero:null, clave:'', nombre:'PRM TDA REVOLUCION MTY', mes:'Cierre Agosto', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTALPLAY', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Cerrada', nota:'Entrega: 19 ago · Cierre operación: lunes 03 ago · Recolección de equipo (cómputo, impresora, gabinete, switch, AP, módem) y cancelación Internet: 01 ago · Vigencia del servicio: 15/02/2028'},
+      {numero:null, clave:'', nombre:'PRM TDA PLAZA RAZA AVENUE', mes:'Cierre Agosto', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTALPLAY', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Cerrada', nota:'Entrega: 31 ago · Cierre operación: lunes 17 ago · Recolección de equipo (cómputo, impresora, gabinete, switch, AP, módem) y cancelación Internet: 18 ago · Vigencia del servicio: 10/11/2026'},
+      {numero:null, clave:'', nombre:'PRM TDA OBREGON SONORA PUERTA', mes:'Cierre Agosto', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTALPLAY', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Cerrada', nota:'Entrega: 23 ago · Cierre operación: 08 ago · Recolección de equipo (cómputo, impresora, gabinete, switch, AP, módem) y cancelación Internet: 09 ago · Vigencia del servicio: 14/11/2026'}
+    ], notas_generales: '', carga: { archivo: 'NVO_EXPANSION_2025.xlsx', fecha: '2026-07-22T17:57:29.394Z' } },
+    updated_at: '2026-07-22T17:30:00.000Z'
+  };
+
+  const TABS = [
+    {id:'tendencia', label:'Tendencia mensual'},
+    {id:'yoy_tp', label:'TotalPlay YoY'},
+    {id:'yoy_tm', label:'Telmex YoY'},
+    {id:'resumen', label:'Resumen 2026'},
+    {id:'atencion', label:'Atención'},
+    {id:'top_tp', label:'Top 15 TotalPlay'},
+    {id:'top_tm', label:'Top 15 Telmex'},
+    {id:'expansion', label:'Plan de expansión'}
+  ];
+
+  let state = null;
+  let tab = 'tendencia';
+  let editing = false;
+  let charts = {};
+  let canEdit = false;
+  let cargaPendiente = null;
+  let cargaPendienteExpansion = null;
+
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function idxMes(n){ return MESES.indexOf(n); }
+  function fmtFecha(iso){
+    if(!iso) return 'aún no se ha guardado';
+    return new Date(iso).toLocaleString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  }
+  // toast(msg, type) se reutiliza del portal (definida en el shell de login/Firebase)
+  function fmtPct(n,total){ return total ? `${(n/total*100).toFixed(1)}%` : '0.0%'; }
+
+  async function load(){
+    try{
+      const snap = await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).get();
+      state = (snap.exists && snap.data().payload) ? JSON.parse(snap.data().payload) : clone(DEFAULTS);
+      if(!state.carga) state.carga = clone(DEFAULTS.carga);
+      if(!state.expansion) state.expansion = clone(DEFAULTS.expansion);
+      if(!state.yoy_notas) state.yoy_notas = clone(DEFAULTS.yoy_notas);
+      if(state.expansion.notas_generales === undefined) state.expansion.notas_generales = '';
+    }catch(e){ console.error(e); state = clone(DEFAULTS); }
+    render();
+  }
+  async function save(){
+    if(!canEdit){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
+    state.updated_at = new Date().toISOString();
+    try{
+      await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).set({
+        payload: JSON.stringify(state),
+        updated_at: state.updated_at,
+        updated_by: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : null
+      });
+      toast('Cambios guardados');
+    }catch(e){ toast('No se pudo guardar. Intenta de nuevo.', 'error'); console.error(e); }
+    editing = false;
+    render();
+  }
+
+  // ---------- Carga de archivo de tickets (Excel) ----------
+  const DIST_LABELS = ['<4h','4-12h','12-24h','1-3d','>3d'];
+
+  function parseFechaTicket(v){
+    if(!v) return null;
+    if(v instanceof Date) return isNaN(v.getTime()) ? null : v;
+    const s = String(v).trim();
+    const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})/);
+    if(!m) return null;
+    const [,d,mo,y,h,mi] = m.map(Number);
+    const dt = new Date(y, mo-1, d, h, mi);
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+  // A qué proveedor y si cuenta como "caída" según la categoría del ticket
+  // El campo "Cliente" de los tickets trae un alias pegado antes del nombre real de la tienda
+  // (ej. "CDMX FLORENCIA PRM TDA CDMX FLORENCIA"). El nombre correcto es lo que empieza en la ÚLTIMA
+  // aparición de "PRM TDA" (o "PRM " si esa tienda no usa "TDA"), para no cortar a la mitad si el
+  // propio alias también arranca con "PRM TDA".
+  // Correcciones manuales de nombre: cuando el ticket trae un alias distinto al nombre real de catálogo.
+  // Clave = nombre tal como sale de extraerNombreCanonico(); valor = nombre correcto (el del catálogo).
+  const CORRECCIONES_NOMBRE = {
+    'PRM TDA IRAPUATO BERRIOZABAL CENTRO': 'PRM TDA IRAPUATO DE BERRIOZABAL',
+    'PRM TDA HEB LOS MORALES SAN NICOLAS': 'PRM TDA HEB LOS MORALES NICOLAS'
+  };
+
+  function extraerNombreCanonico(cliente){
+    if(!cliente) return '';
+    const c = String(cliente).trim();
+    const up = c.toUpperCase();
+    let idx = up.lastIndexOf('PRM TDA');
+    if(idx === -1) idx = up.lastIndexOf('PRM ');
+    if(idx === -1) return c;
+    const nombre = c.slice(idx).trim();
+    return CORRECCIONES_NOMBRE[nombre.toUpperCase()] || nombre;
+  }
+  // Busca Carrier/Tecnología en el catálogo por nombre canónico exacto (mayúsculas), con un
+  // segundo intento quitando/agregando "TDA" (el catálogo no siempre lo incluye).
+  function buscarCatalogo(nombreCanonico){
+    const up = String(nombreCanonico).toUpperCase();
+    let info = CATALOGO_TIENDAS[up];
+    if(!info){
+      const alt = up.includes('PRM TDA ') ? up.replace('PRM TDA ', 'PRM ') : up.replace('PRM ', 'PRM TDA ');
+      info = CATALOGO_TIENDAS[alt];
+    }
+    return info ? { carrier: info.carrier, tecnologia: info.tecnologia } : { carrier: '—', tecnologia: '—' };
+  }
+
+  function proveedorCaida(categoria){
+    if(!categoria) return null;
+    const c = String(categoria);
+    if(!c.startsWith('Internet y telefonia')) return null;
+    const esCaida = c.includes('Sin servicio') || c.includes('Problemas con velocidad');
+    if(!esCaida) return null;
+    if(c.includes('Totalplay')) return 'TotalPlay';
+    if(c.includes('Telmex')) return 'Telmex';
+    if(c.includes('Metro Carrier')) return 'Metrocarrier';
+    return null;
+  }
+  function median(sortedArr){
+    const n = sortedArr.length;
+    if(n===0) return 0;
+    const mid = Math.floor(n/2);
+    return n%2 ? sortedArr[mid] : (sortedArr[mid-1]+sortedArr[mid])/2;
+  }
+  function statsFromDurations(durations){
+    if(!durations.length) return {tickets:0,avg:0,dias:0,min:0,mediana:0,max:0,dist:[0,0,0,0,0],pct24:0,pct48:0};
+    const sorted = [...durations].sort((a,b)=>a-b);
+    const tickets = durations.length;
+    const sum = durations.reduce((a,b)=>a+b,0);
+    const dist = [0,0,0,0,0];
+    let c24=0, c48=0;
+    durations.forEach(h=>{
+      if(h<4) dist[0]++; else if(h<12) dist[1]++; else if(h<24) dist[2]++; else if(h<72) dist[3]++; else dist[4]++;
+      if(h<24) c24++;
+      if(h<48) c48++;
+    });
+    return {
+      tickets,
+      avg: Math.round((sum/tickets)*10)/10,
+      dias: Math.round((sum/tickets/24)*100)/100,
+      min: Math.round(sorted[0]*10)/10,
+      mediana: Math.round(median(sorted)*10)/10,
+      max: Math.round(sorted[sorted.length-1]*10)/10,
+      dist,
+      pct24: Math.round(100*c24/tickets),
+      pct48: Math.round(100*c48/tickets)
+    };
+  }
+
+  // Calcula los datos a partir de las filas del Excel SIN tocar el estado (para poder confirmar antes de aplicar)
+  function calcularDatosTickets(rows, fileName){
+    const monthCounts = { TotalPlay:new Array(12).fill(0), Telmex:new Array(12).fill(0), Metrocarrier:new Array(12).fill(0) };
+    const durations   = { TotalPlay:[], Telmex:[], Metrocarrier:[] };
+    const storeMonth  = { TotalPlay:{}, Telmex:{} };
+    let maxMonthIdx = -1, totalCaidas = 0;
+
+    rows.forEach(row=>{
+      const prov = proveedorCaida(row['Categoría']);
+      if(!prov) return;
+      const fc = parseFechaTicket(row['Fecha de creación']);
+      if(!fc) return;
+      const mIdx = fc.getMonth();
+      monthCounts[prov][mIdx]++;
+      totalCaidas++;
+      if(mIdx > maxMonthIdx) maxMonthIdx = mIdx;
+
+      if(prov==='TotalPlay' || prov==='Telmex'){
+        const store = extraerNombreCanonico(row['Cliente']) || 'Sin nombre';
+        if(!storeMonth[prov][store]) storeMonth[prov][store] = new Array(12).fill(0);
+        storeMonth[prov][store][mIdx]++;
+      }
+      if(String(row['Estado']).trim()==='Cerrado'){
+        const fcierre = parseFechaTicket(row['Fecha de cierre']);
+        if(fcierre){
+          const hrs = (fcierre - fc)/3600000;
+          if(hrs >= 0) durations[prov].push(hrs);
+        }
+      }
+    });
+
+    if(maxMonthIdx < 0){
+      throw new Error('No se encontraron tickets con categoría "Internet y telefonia" (Sin servicio / Problemas con velocidad) en el archivo.');
+    }
+
+    const hasta = maxMonthIdx;
+    const provs = ['TotalPlay','Telmex','Metrocarrier'];
+    const atencion = {};
+    provs.forEach(p=>{ atencion[p] = statsFromDurations(durations[p]); });
+    const tops = {};
+    ['TotalPlay','Telmex'].forEach(p=>{
+      tops[p] = Object.entries(storeMonth[p]).map(([nombre,meses])=>{
+        const cat = buscarCatalogo(nombre);
+        return { nombre, meses: meses.slice(0,hasta+1), carrier: cat.carrier, tecnologia: cat.tecnologia };
+      });
+    });
+
+    return {
+      fileName,
+      periodo_actual: MESES[hasta],
+      tendencia_data: { TotalPlay: monthCounts.TotalPlay, Telmex: monthCounts.Telmex, Metrocarrier: monthCounts.Metrocarrier },
+      atencion,
+      top_totalplay: tops.TotalPlay,
+      top_telmex: tops.Telmex,
+      resumen: {
+        totalCaidas, mesesCubiertos: hasta+1,
+        tiendasTP: Object.keys(storeMonth.TotalPlay).length,
+        tiendasTM: Object.keys(storeMonth.Telmex).length,
+        criticasTP: tops.TotalPlay.filter(r=>r.meses.reduce((a,b)=>a+b,0)>=5).length,
+        criticasTM: tops.Telmex.filter(r=>r.meses.reduce((a,b)=>a+b,0)>=5).length
+      }
+    };
+  }
+
+  function aplicarDatosTickets(datos){
+    state.tendencia.data.TotalPlay = datos.tendencia_data.TotalPlay;
+    state.tendencia.data.Telmex = datos.tendencia_data.Telmex;
+    state.tendencia.data.Metrocarrier = datos.tendencia_data.Metrocarrier;
+    state.periodo_actual = datos.periodo_actual;
+    state.atencion.TotalPlay = datos.atencion.TotalPlay;
+    state.atencion.Telmex = datos.atencion.Telmex;
+    state.atencion.Metrocarrier = datos.atencion.Metrocarrier;
+    state.top_totalplay = datos.top_totalplay;
+    state.top_telmex = datos.top_telmex;
+    state.carga = { archivo: datos.fileName, tickets_caidas: datos.resumen.totalCaidas, fecha: new Date().toISOString() };
+    cargaPendiente = null;
+    save();
+  }
+
+  function handleFileUpload(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadError');
+    errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+        cargaPendiente = calcularDatosTickets(rows, file.name);
+        render();
+      }catch(err){
+        console.error(err);
+        errBox.innerHTML = `<div class="upload-error">No se pudo procesar el archivo: ${err.message}</div>`;
+      }finally{
+        e.target.value = '';
+      }
+    };
+    reader.onerror = ()=>{ errBox.innerHTML = '<div class="upload-error">No se pudo leer el archivo.</div>'; };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // ---------- Carga de archivo de expansión (Excel) ----------
+  function normalizeMes(v){
+    if(v === null || v === undefined || v === '') return '';
+    if(v instanceof Date){
+      return MESES[v.getMonth()] + ' ' + v.getFullYear();
+    }
+    return String(v).trim();
+  }
+  function fmtCellExp(v){
+    if(v === null || v === undefined || v === '') return '-';
+    if(v instanceof Date) return v.toISOString().slice(0,10);
+    return String(v).trim();
+  }
+  function numOrDashExp(v){
+    if(v === null || v === undefined || v === '') return '-';
+    return v;
+  }
+  function computeEstatusExpansion(clave, region, mes, entregadoArq, entregaImpresora){
+    const sinDatos = !clave && (!region || region==='-');
+    if(sinDatos) return 'Prospecto';
+    const mesStr = String(mes).toUpperCase();
+    const arq = String(entregadoArq).toUpperCase();
+    const imp = String(entregaImpresora).toUpperCase();
+    if(mesStr.includes('PROCESO') || arq.includes('PENDIENTE') || imp.includes('PENDIENTE')) return 'En proceso';
+    return 'Abierta';
+  }
+  function estatusExpClass(estatus){
+    if(estatus==='Abierta') return 'estable';
+    if(estatus==='En proceso') return 'alerta';
+    if(estatus==='Cerrada') return 'critica';
+    return 'atencion';
+  }
+
+  function calcularDatosExpansion(rows2d, fileName){
+    let headerIdx = -1;
+    for(let i=0;i<Math.min(10,rows2d.length);i++){
+      if(String((rows2d[i]||[])[0]).trim()==='#Tienda'){ headerIdx = i; break; }
+    }
+    if(headerIdx < 0) throw new Error('No se encontró el encabezado "#Tienda" en la hoja. Verifica que sea el archivo de expansión correcto.');
+
+    const tiendas = [];
+    for(let i=headerIdx+1; i<rows2d.length; i++){
+      const row = rows2d[i] || [];
+      const isBlank = row.slice(0,19).every(v=> v===undefined || v===null || v==='');
+      if(isBlank){
+        if(tiendas.length>0) break; else continue;
+      }
+      const pdv = row[3];
+      if(!pdv || String(pdv).trim()==='') continue;
+      const clave = row[2] ? String(row[2]).trim() : '';
+      const region = row[4] ? String(row[4]).trim() : '';
+      const mes = normalizeMes(row[1]);
+      const entregadoArq = row[16];
+      const entregaImpresora = row[17];
+      tiendas.push({
+        numero: (row[0]!==undefined && row[0]!==null && row[0]!=='') ? Number(row[0]) : null,
+        clave,
+        nombre: String(pdv).trim(),
+        mes,
+        region: region || '-',
+        pc: numOrDashExp(row[5]),
+        lap: numOrDashExp(row[6]),
+        hc: numOrDashExp(row[7]),
+        pinpad: numOrDashExp(row[8]),
+        dif_pinpad: numOrDashExp(row[9]),
+        biometricos: numOrDashExp(row[10]),
+        dif_biometricos: numOrDashExp(row[11]),
+        prep_equipo: fmtCellExp(row[12]),
+        envio_mac: fmtCellExp(row[13]),
+        internet: row[14] ? String(row[14]).trim() : '-',
+        solicitud_arq: fmtCellExp(row[15]),
+        entregado_arq: entregadoArq ? String(entregadoArq).trim() : '-',
+        entrega_impresora: fmtCellExp(entregaImpresora),
+        modelo_impresora: row[18] ? String(row[18]).trim() : '-',
+        estatus: computeEstatusExpansion(clave, region, mes, entregadoArq, entregaImpresora),
+        nota: ''
+      });
+    }
+    if(tiendas.length===0) throw new Error('No se encontraron filas de tiendas después del encabezado.');
+
+    const abiertas = tiendas.filter(t=>t.estatus==='Abierta').length;
+    const enProceso = tiendas.filter(t=>t.estatus==='En proceso').length;
+    const prospecto = tiendas.filter(t=>t.estatus==='Prospecto').length;
+    const esteMes = tiendas.filter(t=>t.estatus==='Abierta' && t.mes.startsWith(state.periodo_actual)).length;
+
+    return { fileName, tiendas, resumen:{ total:tiendas.length, abiertas, enProceso, prospecto, esteMes } };
+  }
+
+  // Acumula (no reemplaza): las tiendas del archivo nuevo se agregan o actualizan por Clave PDV
+  // (o por nombre si no tienen clave); las tiendas que ya estaban y no vienen en este archivo
+  // se quedan tal cual (así funciona la carga semanal de "solo lo nuevo de esta semana").
+  // Las notas manuales (por tienda y generales) nunca se tocan aquí.
+  function aplicarDatosExpansion(datos){
+    const existentes = state.expansion.tiendas || [];
+    const keyOf = t => t.clave ? ('clave:'+t.clave) : ('nombre:'+t.nombre);
+    const indexPorKey = {};
+    existentes.forEach((t,i)=>{ indexPorKey[keyOf(t)] = i; });
+
+    let agregadas = 0, actualizadas = 0;
+    datos.tiendas.forEach(nuevo=>{
+      const key = keyOf(nuevo);
+      if(indexPorKey.hasOwnProperty(key)){
+        const i = indexPorKey[key];
+        const notaPrevia = existentes[i].nota || '';
+        existentes[i] = { ...nuevo, nota: notaPrevia };
+        actualizadas++;
+      } else {
+        existentes.push({ ...nuevo });
+        indexPorKey[key] = existentes.length - 1;
+        agregadas++;
+      }
+    });
+
+    state.expansion.tiendas = existentes;
+    state.expansion.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregadas, actualizadas };
+    cargaPendienteExpansion = null;
+    save();
+  }
+
+  function handleFileUploadExpansion(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadErrorExp');
+    if(errBox) errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const sheetName = wb.SheetNames.find(n=>/hoja ?1|expansi/i.test(n)) || wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const rows2d = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        cargaPendienteExpansion = calcularDatosExpansion(rows2d, file.name);
+        render();
+      }catch(err){
+        console.error(err);
+        if(errBox) errBox.innerHTML = `<div class="upload-error">No se pudo procesar el archivo: ${err.message}</div>`;
+      }finally{
+        e.target.value = '';
+      }
+    };
+    reader.onerror = ()=>{ if(errBox) errBox.innerHTML = '<div class="upload-error">No se pudo leer el archivo.</div>'; };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function cumulativo(prov){
+    const hasta = idxMes(state.periodo_actual);
+    const arr = state.tendencia.data[prov] || [];
+    let s = 0; for(let i=0;i<=hasta;i++) s += Number(arr[i]||0);
+    return s;
+  }
+  function estatusProveedor(caidas){
+    if(caidas >= 150) return {cls:'crit', label:'CRÍTICO'};
+    if(caidas >= 20) return {cls:'med', label:'MEDIO'};
+    return {cls:'good', label:'BUENO'};
+  }
+  function estatusTienda(total){
+    if(total >= 5) return {cls:'critica', label:'CRÍTICA'};
+    if(total === 4) return {cls:'alerta', label:'ALERTA'};
+    if(total >= 2) return {cls:'atencion', label:'ATENCIÓN'};
+    if(total === 1) return {cls:'estable', label:'ESTABLE'};
+    return {cls:'estable', label:'—'};
+  }
+
+  function render(){
+    const app = document.getElementById('caidas-root');
+    app.innerHTML = `
+      <div class="status-line" style="margin-bottom:14px;"><span class="dot"></span> Última actualización: ${fmtFecha(state.updated_at)}</div>
+      ${canEdit ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar reporte de tickets (.xlsx, año completo)</b> — recalcula Tendencia, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier) a partir de las categorías "Internet y telefonia".
+          ${state.carga.archivo ? `<div class="upload-summary">Último archivo: ${state.carga.archivo} · ${state.carga.tickets_caidas} tickets de caídas procesados · ${fmtFecha(state.carga.fecha)}</div>` : ''}
+          <div id="uploadError"></div>
+        </div>
+        <input type="file" id="fileTickets" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUpload">Cargar archivo</button>
+      </div>` : ''}
+      ${cargaPendiente ? `
+      <div class="panel" style="border-color:var(--tm);">
+        <h3 style="color:var(--tm);">Confirmar carga · ${cargaPendiente.fileName}</h3>
+        <div style="font-size:13px; line-height:1.8;">
+          Tickets de caídas identificados: <b>${cargaPendiente.resumen.totalCaidas}</b> (Ene–${cargaPendiente.periodo_actual})<br>
+          Tiendas con caídas — TotalPlay: <b>${cargaPendiente.resumen.tiendasTP}</b> (${cargaPendiente.resumen.criticasTP} críticas) ·
+          Telmex: <b>${cargaPendiente.resumen.tiendasTM}</b> (${cargaPendiente.resumen.criticasTM} críticas)
+        </div>
+        <div class="foot">Esto reemplaza Tendencia mensual, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier). YoY 2025, Peer/Atn/CLW-LW y Megacable/Starlink no se tocan.</div>
+        <div class="editbar" style="margin-top:10px;">
+          <button id="btnCancelCarga">Cancelar</button>
+          <button class="primary" id="btnAplicarCarga">Aplicar datos</button>
+        </div>
+      </div>` : ''}
+      <div class="tabs">${TABS.map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}</div>
+      <div id="tabContent"></div>
+      <div class="foot">Los datos se comparten con todo tu equipo (Firebase). ${canEdit ? 'Los cambios de cada pestaña se guardan juntos.' : 'Tu usuario tiene acceso de solo consulta.'}</div>
+    `;
+    document.querySelectorAll('.tab').forEach(el=>{
+      el.onclick = () => { tab = el.dataset.tab; editing = false; render(); };
+    });
+    if(canEdit){
+      document.getElementById('btnUpload').onclick = () => document.getElementById('fileTickets').click();
+      document.getElementById('fileTickets').onchange = handleFileUpload;
+      if(cargaPendiente){
+        document.getElementById('btnCancelCarga').onclick = ()=>{ cargaPendiente = null; render(); };
+        document.getElementById('btnAplicarCarga').onclick = ()=>{ aplicarDatosTickets(cargaPendiente); };
+      }
+    }
+    renderTab();
+  }
+
+  function renderTab(){
+    const c = document.getElementById('tabContent');
+    charts = {};
+    if(tab==='tendencia') return renderTendencia(c);
+    if(tab==='yoy_tp') return renderYoy(c,'TotalPlay');
+    if(tab==='yoy_tm') return renderYoy(c,'Telmex');
+    if(tab==='resumen') return renderResumen(c);
+    if(tab==='atencion') return renderAtencion(c);
+    if(tab==='top_tp') return renderTop(c,'top_totalplay','TotalPlay');
+    if(tab==='top_tm') return renderTop(c,'top_telmex','Telmex');
+    if(tab==='expansion') return renderExpansion(c);
+  }
+
+  // ---------- Tendencia mensual ----------
+  function renderTendencia(c){
+    const tp=cumulativo('TotalPlay'), tm=cumulativo('Telmex'), mc=cumulativo('Metrocarrier');
+    const mg=Number(state.tendencia.caidas_extra.Megacable||0), sl=Number(state.tendencia.caidas_extra.Starlink||0);
+    const sv = state.tendencia.servicios;
+    function card(prov,caidas,servicios,pillCaidas){
+      const st = estatusProveedor(pillCaidas);
+      return `<div class="card"><div class="head" style="background:${CARD_COLOR[prov]}">${prov}</div>
+        <div class="body"><div class="big">${servicios}</div><div class="lbl">Servicios</div><div class="rule"></div>
+        <div class="big" style="font-size:20px">${caidas} Caídas</div><span class="pill ${st.cls}">${st.label}</span></div></div>`;
+    }
+    c.innerHTML = `
+      <div class="title">Tendencia mensual de caídas — Enero a ${state.periodo_actual} ${state.anio}</div>
+      <div class="subtitle">Internet y telefonía</div>
+      <div class="cards">
+        ${card('TotalPlay',tp,sv.TotalPlay,tp)}
+        ${card('Telmex',tm,sv.Telmex,tm)}
+        ${card('Megacable',mg,sv.Megacable,mg)}
+        ${card('Starlink',sl,sv.Starlink,sl)}
+      </div>
+      <div class="panel">
+        <div class="editbar">${editing
+          ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
+          : (canEdit ? `<button id="btnEdit">Editar datos del mes</button>` : '')}</div>
+        <h3>Caídas por mes y proveedor</h3>
+        <canvas id="chartTend"></canvas>
+      </div>
+      ${editing ? editorTendencia() : ''}
+    `;
+    if(editing) wireTendenciaEditor(); else if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
+    const hasta = idxMes(state.periodo_actual);
+    const labels = MESES.slice(0,hasta+1);
+    const datasets = ['TotalPlay','Telmex','Metrocarrier'].map(p=>({
+      label:p, data:state.tendencia.data[p].slice(0,hasta+1), borderColor:COLOR[p], backgroundColor:COLOR[p],
+      tension:.25, pointRadius:4, borderWidth:2.5
+    }));
+    charts.tend = new Chart(document.getElementById('chartTend'), {type:'line', data:{labels,datasets},
+      options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}});
+  }
+  function editorTendencia(){
+    const provs=['TotalPlay','Telmex','Metrocarrier'];
+    const rows = provs.map(p=>`<tr><td>${p}</td>${MESES.map((m,i)=>`<td><input type="number" min="0" data-prov="${p}" data-idx="${i}" value="${state.tendencia.data[p][i]}"></td>`).join('')}</tr>`).join('');
+    return `<div class="panel"><h3>Editar caídas por mes</h3>
+      <div style="overflow-x:auto;"><table><thead><tr><th>Proveedor</th>${MESES.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
+      <h3 style="margin-top:16px;">Periodo actual</h3>
+      <select id="selPeriodo">${MESES.map(m=>`<option value="${m}" ${m===state.periodo_actual?'selected':''}>${m}</option>`).join('')}</select>
+      <h3 style="margin-top:16px;">Megacable / Starlink (acumulado, sin desglose mensual)</h3>
+      <div class="servicios-grid" style="grid-template-columns:repeat(2,1fr);">
+        <div class="sv-field"><label>Megacable — Caídas</label><input type="number" min="0" id="mgExtra" value="${state.tendencia.caidas_extra.Megacable}"></div>
+        <div class="sv-field"><label>Starlink — Caídas</label><input type="number" min="0" id="slExtra" value="${state.tendencia.caidas_extra.Starlink}"></div>
+      </div>
+      <h3 style="margin-top:16px;">Servicios activos por proveedor</h3>
+      <div class="servicios-grid">${['TotalPlay','Telmex','Megacable','Starlink'].map(p=>`
+        <div class="sv-field"><label>${p}</label><input type="number" min="0" data-svc="${p}" value="${state.tendencia.servicios[p]}"></div>`).join('')}</div>
+    </div>`;
+  }
+  function wireTendenciaEditor(){
+    document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
+    document.getElementById('btnSave').onclick=()=>{
+      document.querySelectorAll('input[data-prov]').forEach(i=>{ state.tendencia.data[i.dataset.prov][Number(i.dataset.idx)] = Number(i.value||0); });
+      document.querySelectorAll('input[data-svc]').forEach(i=>{ state.tendencia.servicios[i.dataset.svc] = Number(i.value||0); });
+      state.tendencia.caidas_extra.Megacable = Number(document.getElementById('mgExtra').value||0);
+      state.tendencia.caidas_extra.Starlink = Number(document.getElementById('slExtra').value||0);
+      const sel = document.getElementById('selPeriodo'); if(sel) state.periodo_actual = sel.value;
+      save();
+    };
+  }
+
+  // ---------- YoY (TotalPlay / Telmex) ----------
+  function renderYoy(c, prov){
+    const hasta = idxMes(state.periodo_actual);
+    const serie2026 = state.tendencia.data[prov];
+    const serie2025 = state.yoy_2025[prov];
+    const cum2026 = cumulativo(prov);
+    const notas = state.yoy_notas[prov] || (state.yoy_notas[prov] = []);
+    c.innerHTML = `
+      <div class="title">Caídas ${prov} — comparativo 2025 vs 2026</div>
+      <div class="subtitle">Barras por mes, acumulado por año</div>
+      <div class="cards" style="grid-template-columns:repeat(2,1fr);">
+        <div class="card"><div class="head" style="background:${CARD_COLOR[prov]}">Año ${state.anio}</div>
+          <div class="body"><div class="big">${cum2026}</div><div class="lbl">Caídas acumuladas (a ${state.periodo_actual})</div></div></div>
+        <div class="card"><div class="head" style="background:#B39DDB">Año ${state.anio-1}</div>
+          <div class="body"><div class="big">${serie2025.reduce((a,b)=>a+Number(b||0),0)}</div><div class="lbl">Caídas acumuladas (año completo)</div></div></div>
+      </div>
+      <div class="panel">
+        <div class="editbar">${editing
+          ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
+          : (canEdit ? `<button id="btnEdit">Editar ${state.anio-1} y notas</button>` : '')}</div>
+        <h3>Comparativo mensual</h3>
+        <canvas id="chartYoy"></canvas>
+        ${notas.length ? `
+        <div style="margin-top:14px; display:flex; flex-wrap:wrap; gap:8px;">
+          ${notas.map((n,i)=>`
+            <div style="font-size:12px; padding:6px 10px; border-radius:8px; background:${n.anio===state.anio-1?'#EDE7F6':'#F3E5F5'}; border:1px solid ${n.anio===state.anio-1?'#B39DDB':CARD_COLOR[prov]}; display:flex; align-items:center; gap:6px;">
+              🚩 <b>${n.mes} ${n.anio}:</b> ${n.nota}
+              ${editing ? `<button data-yoy-nota-remove="${i}" style="padding:1px 6px; margin-left:4px;">✕</button>` : ''}
+            </div>`).join('')}
+        </div>` : (editing ? '' : `<div class="foot" style="margin-top:10px;">Sin anotaciones en este comparativo todavía.</div>`)}
+        ${editing ? `
+        <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line);">
+          <h3 style="margin-bottom:8px;">Agregar anotación</h3>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <select id="notaMes">${MESES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+            <select id="notaAnio"><option value="${state.anio-1}">${state.anio-1}</option><option value="${state.anio}">${state.anio}</option></select>
+            <input type="text" id="notaTexto" placeholder="Ej. Migración de servicios" style="flex:1; min-width:220px; padding:6px 10px; border:1px solid var(--line); border-radius:6px;">
+            <button id="btnAddNota">Agregar</button>
+          </div>
+        </div>` : ''}
+      </div>
+      ${editing ? `<div class="panel"><h3>Caídas ${prov} — año ${state.anio-1}</h3>
+        <div style="overflow-x:auto;"><table><thead><tr>${MESES.map(m=>`<th>${m}</th>`).join('')}</tr></thead>
+        <tbody><tr>${MESES.map((m,i)=>`<td><input type="number" min="0" data-yoy-idx="${i}" value="${serie2025[i]}"></td>`).join('')}</tr></tbody></table></div>
+        <div class="foot">El año ${state.anio} se toma de la pestaña "Tendencia mensual" — no se edita aquí, para que ambos siempre coincidan.</div>
+      </div>` : ''}
+    `;
+    if(editing){
+      document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
+      document.getElementById('btnSave').onclick=()=>{
+        document.querySelectorAll('input[data-yoy-idx]').forEach(i=>{ state.yoy_2025[prov][Number(i.dataset.yoyIdx)] = Number(i.value||0); });
+        save();
+      };
+      document.querySelectorAll('[data-yoy-nota-remove]').forEach(btn=>{
+        btn.onclick = ()=>{ notas.splice(Number(btn.dataset.yoyNotaRemove),1); render(); };
+      });
+      const btnAdd = document.getElementById('btnAddNota');
+      if(btnAdd) btnAdd.onclick = ()=>{
+        const mes = document.getElementById('notaMes').value;
+        const anio = Number(document.getElementById('notaAnio').value);
+        const texto = document.getElementById('notaTexto').value.trim();
+        if(!texto) return;
+        notas.push({anio, mes, nota:texto});
+        render();
+      };
+    } else {
+      if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
+    }
+    // Plugin de dibujo: pone una bandera roja arriba de la barra que tenga una nota para ese mes/año
+    const banderaPlugin = {
+      id:'banderasYoy',
+      afterDatasetsDraw(chart){
+        try{
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.font = '14px sans-serif';
+          ctx.textAlign = 'center';
+          [state.anio-1, state.anio].forEach((anio,dsIdx)=>{
+            const meta = chart.getDatasetMeta(dsIdx);
+            if(!meta || !meta.data) return;
+            MESES.forEach((mes,i)=>{
+              const tieneNota = notas.some(n=>n.anio===anio && n.mes===mes);
+              if(!tieneNota) return;
+              const el = meta.data[i];
+              if(!el) return;
+              ctx.fillText('🚩', el.x, el.y - 8);
+            });
+          });
+          ctx.restore();
+        }catch(e){ /* no bloquear el render de la gráfica por un error de dibujo */ }
+      }
+    };
+    charts.yoy = new Chart(document.getElementById('chartYoy'), {
+      type:'bar',
+      data:{ labels:MESES, datasets:[
+        {label:String(state.anio-1), data:serie2025, backgroundColor:'#CBB6E8'},
+        {label:String(state.anio), data:MESES.map((m,i)=> i<=hasta ? serie2026[i] : 0), backgroundColor:CARD_COLOR[prov]}
+      ]},
+      options:{responsive:true, plugins:{legend:{position:'bottom'}, tooltip:{ callbacks:{
+        afterLabel(ctx){
+          const anio = ctx.datasetIndex===0 ? state.anio-1 : state.anio;
+          const mes = MESES[ctx.dataIndex];
+          const n = notas.find(x=>x.anio===anio && x.mes===mes);
+          return n ? '🚩 ' + n.nota : '';
+        }
+      }}}, scales:{y:{beginAtZero:true}}},
+      plugins:[banderaPlugin]
+    });
+  }
+
+  // ---------- Resumen 2026 ----------
+  function renderResumen(c){
+    const tp=cumulativo('TotalPlay'), tm=cumulativo('Telmex');
+    const mg=Number(state.tendencia.caidas_extra.Megacable||0), sl=Number(state.tendencia.caidas_extra.Starlink||0);
+    const total = tp+tm+mg+sl;
+    const r = state.resumen;
+    function card(prov,caidas){
+      return `<div class="card"><div class="head" style="background:${CARD_COLOR[prov]}">${prov}</div>
+        <div class="body">
+          <div class="big" style="font-size:22px">${caidas}</div><div class="lbl">Caídas · ${fmtPct(caidas,total)} del total</div>
+          <div class="rule"></div>
+          <div style="font-size:12px;color:var(--sub)">Peer: <b style="color:var(--ink)">${r.peer[prov]}</b> &nbsp;·&nbsp; Atn: <b style="color:var(--ink)">${r.atn[prov]}</b></div>
+        </div></div>`;
+    }
+    c.innerHTML = `
+      <div class="title">Total de caídas ${state.anio}</div>
+      <div class="subtitle">CLW: ${r.clw} · LW: ${r.lw}</div>
+      <div class="cards">${card('TotalPlay',tp)}${card('Telmex',tm)}${card('Megacable',mg)}${card('Starlink',sl)}</div>
+      <div class="panel"><div style="font-size:15px;"><b>${total}</b> <span style="color:var(--sub);font-size:12.5px;">total caídas ${state.anio}</span></div></div>
+      <div class="panel">
+        <div class="editbar">${editing
+          ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
+          : (canEdit ? `<button id="btnEdit">Editar Peer / Atn / CLW-LW</button>` : '')}</div>
+        <h3>Caídas por proveedor</h3>
+        <canvas id="chartResumen"></canvas>
+      </div>
+      ${editing ? `<div class="panel"><h3>Campos manuales (no vienen del log de tickets)</h3>
+        <table><thead><tr><th>Proveedor</th><th>Peer</th><th>Atn</th></tr></thead><tbody>
+        ${['TotalPlay','Telmex','Megacable','Starlink'].map(p=>`<tr><td>${p}</td>
+          <td><input type="number" step="0.01" min="0" data-peer="${p}" value="${r.peer[p]}"></td>
+          <td><input type="text" data-atn="${p}" value="${r.atn[p]}" style="width:80px;"></td></tr>`).join('')}
+        </tbody></table>
+        <div class="servicios-grid" style="grid-template-columns:repeat(2,1fr); margin-top:14px;">
+          <div class="sv-field"><label>CLW (semana actual)</label><input type="number" min="0" id="clwInput" value="${r.clw}"></div>
+          <div class="sv-field"><label>LW (semana anterior)</label><input type="number" min="0" id="lwInput" value="${r.lw}"></div>
+        </div>
+        <div class="foot">"Peer" y "Atn" no se calculan solos — confírmalos con quien arma el reporte hoy y captúralos aquí.</div>
+      </div>` : ''}
+    `;
+    if(editing){
+      document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
+      document.getElementById('btnSave').onclick=()=>{
+        document.querySelectorAll('input[data-peer]').forEach(i=>{ r.peer[i.dataset.peer]=Number(i.value||0); });
+        document.querySelectorAll('input[data-atn]').forEach(i=>{ r.atn[i.dataset.atn]=i.value; });
+        r.clw = Number(document.getElementById('clwInput').value||0);
+        r.lw = Number(document.getElementById('lwInput').value||0);
+        save();
+      };
+    } else {
+      if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
+    }
+    charts.resumen = new Chart(document.getElementById('chartResumen'), {
+      type:'bar',
+      data:{ labels:['TotalPlay','Telmex','Megacable','Starlink'], datasets:[{ data:[tp,tm,mg,sl],
+        backgroundColor:[CARD_COLOR.TotalPlay,CARD_COLOR.Telmex,CARD_COLOR.Megacable,CARD_COLOR.Starlink] }] },
+      options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+    });
+  }
+
+  // ---------- Atencion ----------
+  function renderAtencion(c){
+    const a = state.atencion;
+    const provs = ['TotalPlay','Telmex','Metrocarrier'];
+    const dLabels = ['<4h','4-12h','12-24h','1-3d','>3d'];
+    c.innerHTML = `
+      <div class="title">Promedio de atención por proveedor — ${state.periodo_actual} ${state.anio}</div>
+      <div class="subtitle">Tiempos de cierre de tickets confirmados como caída</div>
+      <div class="editbar">${editing
+        ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
+        : (canEdit ? `<button id="btnEdit">Editar tiempos de atención</button>` : '')}</div>
+      <div class="cards">${provs.map(p=>{
+        const d=a[p];
+        return `<div class="card"><div class="head" style="background:${CARD_COLOR[p]||'#66BB6A'}">${p}</div>
+          <div class="body">
+            <div class="big">${d.tickets}</div><div class="lbl">tickets</div><div class="rule"></div>
+            <div style="font-size:20px;font-weight:800;color:#D2691E">${d.avg} hrs</div>
+            <div class="lbl">${d.dias} días promedio de atención</div>
+            <div class="rule"></div>
+            <div style="font-size:12px;">Mín ${d.min}h · Mediana ${d.mediana}h · Máx ${d.max}h</div>
+            <div class="rule"></div>
+            <div style="font-size:12px; color:var(--sub);">Distribución: ${dLabels.map((l,i)=>`${l}:${d.dist[i]}`).join(' · ')}</div>
+            <div class="rule"></div>
+            <div style="font-size:13px;font-weight:700;">${d.pct24}% <span style="font-weight:400;color:var(--sub);font-size:11.5px;">&lt; 24 hrs (${d.pct48}% &lt; 48 hrs)</span></div>
+          </div></div>`;
+      }).join('')}</div>
+      ${editing ? provs.map(p=>editorAtencion(p)).join('') : ''}
+    `;
+    if(editing){
+      document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
+      document.getElementById('btnSave').onclick=()=>{
+        provs.forEach(p=>{
+          const d=a[p];
+          d.tickets=Number(document.getElementById(`tk_${p}`).value||0);
+          d.avg=Number(document.getElementById(`avg_${p}`).value||0);
+          d.dias=Number(document.getElementById(`dias_${p}`).value||0);
+          d.min=Number(document.getElementById(`min_${p}`).value||0);
+          d.mediana=Number(document.getElementById(`med_${p}`).value||0);
+          d.max=Number(document.getElementById(`max_${p}`).value||0);
+          d.dist = [0,1,2,3,4].map(i=>Number(document.getElementById(`dist_${p}_${i}`).value||0));
+          d.pct24=Number(document.getElementById(`p24_${p}`).value||0);
+          d.pct48=Number(document.getElementById(`p48_${p}`).value||0);
+        });
+        save();
+      };
+    } else {
+      if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
+    }
+  }
+  function editorAtencion(p){
+    const d = state.atencion[p];
+    const dLabels = ['<4h','4-12h','12-24h','1-3d','>3d'];
+    return `<div class="panel"><h3>${p}</h3>
+      <div class="servicios-grid">
+        <div class="sv-field"><label>Tickets</label><input type="number" min="0" id="tk_${p}" value="${d.tickets}"></div>
+        <div class="sv-field"><label>Promedio (hrs)</label><input type="number" step="0.1" id="avg_${p}" value="${d.avg}"></div>
+        <div class="sv-field"><label>Promedio (días)</label><input type="number" step="0.01" id="dias_${p}" value="${d.dias}"></div>
+        <div class="sv-field"><label>Mínimo (h)</label><input type="number" step="0.1" id="min_${p}" value="${d.min}"></div>
+        <div class="sv-field"><label>Mediana (h)</label><input type="number" step="0.1" id="med_${p}" value="${d.mediana}"></div>
+        <div class="sv-field"><label>Máximo (h)</label><input type="number" step="0.1" id="max_${p}" value="${d.max}"></div>
+        <div class="sv-field"><label>% &lt; 24 hrs</label><input type="number" step="1" id="p24_${p}" value="${d.pct24}"></div>
+        <div class="sv-field"><label>% &lt; 48 hrs</label><input type="number" step="1" id="p48_${p}" value="${d.pct48}"></div>
+      </div>
+      <h3 style="margin-top:14px;">Distribución de tiempos</h3>
+      <div class="servicios-grid">${dLabels.map((l,i)=>`
+        <div class="sv-field"><label>${l}</label><input type="number" min="0" id="dist_${p}_${i}" value="${d.dist[i]}"></div>`).join('')}</div>
+    </div>`;
+  }
+
+  // ---------- Top 15 tiendas ----------
+  function renderTop(c, key, prov){
+    const rows = state[key];
+    c.innerHTML = `
+      <div class="title">Top 15 tiendas con más caídas — ${prov} — Ene-${state.periodo_actual} ${state.anio}</div>
+      <div class="subtitle">CRÍTICA ≥5 · ALERTA = 4 · ATENCIÓN 2-3 · ESTABLE = 1</div>
+      <div class="editbar">${editing
+        ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
+        : (canEdit ? `<button id="btnEdit">Editar tabla</button><button id="btnAddRow">Agregar tienda</button>` : '')}</div>
+      ${rows.length===0 && !editing ? `
+        <div class="placeholder">
+          <h3>Todavía no hay datos capturados</h3>
+          <p>No prellené esta tabla con las cifras del PPTX original porque, al extraer el archivo, el texto de esa tabla vino aplanado y no pude garantizar que cada número quedara en la fila/mes correcto — prefiero dejarla vacía a arriesgar un dato mal capturado en un reporte para el director.</p>
+          <p>Da clic en <b>"Editar tabla"</b> y agrega tienda por tienda con su conteo mensual; el total y el estatus se calculan solos.</p>
+        </div>` : renderTopTable(rows, editing)}
+    `;
+    if(editing){
+      document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
+      document.getElementById('btnSave').onclick=()=>{
+        document.querySelectorAll('[data-row]').forEach(row=>{
+          const i = Number(row.dataset.row);
+          const nameInp = row.querySelector('[data-field="nombre"]');
+          if(nameInp) rows[i].nombre = nameInp.value;
+          const carrierInp = row.querySelector('[data-field="carrier"]');
+          if(carrierInp) rows[i].carrier = carrierInp.value;
+          const tecInp = row.querySelector('[data-field="tecnologia"]');
+          if(tecInp) rows[i].tecnologia = tecInp.value;
+          rows[i].meses = rows[i].meses.map((_,mi)=> Number(row.querySelector(`[data-mes="${mi}"]`).value||0));
+        });
+        save();
+      };
+      document.getElementById('btnAddRow')?.remove();
+      wireRemoveButtons(rows,key);
+    } else {
+      if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
+      document.getElementById('btnAddRow').onclick=()=>{
+        rows.push({nombre:'Nueva tienda', carrier:'', tecnologia:'', meses:new Array(7).fill(0)});
+        editing = true; render();
+      };
+    }
+  }
+  function renderTopTable(rows, edit){
+    const hasta = idxMes(state.periodo_actual);
+    const mesesCortos = MESES.slice(0,hasta+1);
+    const withTotals = rows.map((r,origIdx)=>({...r, total:r.meses.reduce((a,b)=>a+Number(b||0),0), _idx:origIdx}))
+      .sort((a,b)=>b.total-a.total).slice(0,15);
+    return `<div class="panel"><div style="overflow-x:auto;"><table>
+      <thead><tr><th>#</th><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th>${edit?'<th></th>':''}</tr></thead>
+      <tbody>${withTotals.map((r,i)=>{
+        const st = estatusTienda(r.total);
+        return `<tr data-row="${r._idx}">
+          <td>${i+1}</td>
+          <td>${edit ? `<input type="text" style="width:200px;" data-field="nombre" value="${r.nombre}">` : r.nombre}</td>
+          <td>${edit ? `<input type="text" style="width:80px;" data-field="carrier" value="${r.carrier||''}">` : (r.carrier||'—')}</td>
+          <td>${edit ? `<input type="text" style="width:80px;" data-field="tecnologia" value="${r.tecnologia||''}">` : (r.tecnologia||'—')}</td>
+          ${mesesCortos.map((m,mi)=> `<td>${edit ? `<input type="number" min="0" data-mes="${mi}" value="${r.meses[mi]||0}">` : (r.meses[mi]||'-')}</td>`).join('')}
+          <td><b>${r.total}</b></td>
+          <td><span class="status-badge ${st.cls}">${st.label}</span></td>
+          ${edit?`<td><button data-remove="${r._idx}" style="padding:3px 8px;">✕</button></td>`:''}
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+    <div class="foot">Tienda, Carrier y Tecnología vienen del catálogo de tiendas (se empatan por el nombre "PRM TDA..." una vez quitado el alias del ticket). Si ves "—" es que ese nombre no está en el catálogo que me compartiste.</div>
+    </div>`;
+  }
+  function wireRemoveButtons(rows,key){
+    document.querySelectorAll('[data-remove]').forEach(btn=>{
+      btn.onclick = () => { rows.splice(Number(btn.dataset.remove),1); render(); };
+    });
+  }
+
+  // ---------- Plan de expansion ----------
+  function renderExpansion(c){
+    const exp = state.expansion;
+    const tiendas = exp.tiendas || [];
+    if(tiendas.length===0){
+      c.innerHTML = `
+        <div class="title">Plan de expansión · PrimeMX ${state.anio}</div>
+        <div class="subtitle">Aperturas de tienda, hardware e internet asignado</div>
+        ${canEdit ? `
+        <div class="uploadbar">
+          <div class="txt">
+            <b>Cargar archivo de expansión (.xlsx)</b> — agrega o actualiza tiendas (por Clave PDV); no borra lo que ya tenías cargado.
+            <div id="uploadErrorExp"></div>
+          </div>
+          <input type="file" id="fileExpansion" accept=".xlsx,.xls" style="display:none">
+          <button class="upload" id="btnUploadExp">Cargar archivo</button>
+        </div>` : ''}
+        ${cargaPendienteExpansion ? panelConfirmacionExpansion() : `
+        <div class="placeholder">
+          <h3>Todavía no hay tiendas cargadas</h3>
+          <p>Sube el Excel de expansión (el mismo formato de "NVO_EXPANSION") para llenar esta pestaña: acumulado de aperturas, tiendas en proceso, y la tabla completa con notas manuales por tienda.</p>
+        </div>`}
+      `;
+      wireExpansionUpload();
+      return;
+    }
+
+    const abiertas = tiendas.filter(t=>t.estatus==='Abierta');
+    const enProceso = tiendas.filter(t=>t.estatus==='En proceso');
+    const prospecto = tiendas.filter(t=>t.estatus==='Prospecto');
+    const cerradas = tiendas.filter(t=>t.estatus==='Cerrada');
+    const esteMes = abiertas.filter(t=>t.mes.startsWith(state.periodo_actual)).length;
+
+    c.innerHTML = `
+      <div class="title">Plan de expansión · PrimeMX ${state.anio}</div>
+      <div class="subtitle">${exp.carga.archivo ? `Última carga: ${exp.carga.archivo}${exp.carga.agregadas!==undefined ? ` · ${exp.carga.agregadas} nuevas, ${exp.carga.actualizadas} actualizadas` : ''} · ${fmtFecha(exp.carga.fecha)}` : 'Aperturas de tienda, hardware e internet asignado'}</div>
+
+      ${canEdit ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar archivo de la semana (.xlsx)</b> — solo necesitas subir los registros nuevos: se agregan a lo que ya tienes o actualizan la tienda que coincida por Clave PDV. Nada se borra. Las notas se conservan.
+          <div id="uploadErrorExp"></div>
+        </div>
+        <input type="file" id="fileExpansion" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUploadExp">Cargar archivo</button>
+      </div>` : ''}
+      ${cargaPendienteExpansion ? panelConfirmacionExpansion() : ''}
+
+      <div class="cards">
+        <div class="card"><div class="head" style="background:#6600CC">Total tiendas</div>
+          <div class="body"><div class="big">${tiendas.length}</div><div class="lbl">${prospecto.length} prospecto sin clave</div></div></div>
+        <div class="card"><div class="head" style="background:#00B050">Abiertas</div>
+          <div class="body"><div class="big">${abiertas.length}</div><div class="lbl">${esteMes} etiquetadas "${state.periodo_actual}"</div></div></div>
+        <div class="card"><div class="head" style="background:#B8860B">En proceso</div>
+          <div class="body"><div class="big">${enProceso.length}</div><div class="lbl">con ARQ o impresora pendiente</div></div></div>
+        <div class="card"><div class="head" style="background:#C00000">Cerradas</div>
+          <div class="body"><div class="big">${cerradas.length}</div><div class="lbl">marcadas manualmente</div></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="editbar">${editing
+          ? `<button id="btnCancel">Cancelar</button><button id="btnAddTienda">Agregar tienda</button><button class="primary" id="btnSave">Guardar cambios</button>`
+          : (canEdit ? `<button id="btnEdit">Editar todo</button>` : '')}</div>
+        <h3>Tiendas — mes, hardware, internet y estatus</h3>
+        <div style="overflow-x:auto;"><table>
+          <thead><tr>
+            <th>#</th><th>Clave PDV</th><th>Tienda</th><th>Región</th><th>Mes</th>
+            <th>PC</th><th>Lap</th><th>Internet</th><th>ARQ</th><th>Impresora</th><th>Estatus</th><th style="text-align:left;">Nota</th>${editing?'<th></th>':''}
+          </tr></thead>
+          <tbody>${tiendas.map((t,i)=> editing ? `
+            <tr data-exp-row="${i}">
+              <td><input type="text" style="width:44px;" data-exp-field="numero" data-exp-row="${i}" value="${t.numero!==null && t.numero!==undefined ? t.numero : ''}"></td>
+              <td><input type="text" style="width:110px;" data-exp-field="clave" data-exp-row="${i}" value="${t.clave||''}"></td>
+              <td><input type="text" style="width:220px; text-align:left;" data-exp-field="nombre" data-exp-row="${i}" value="${(t.nombre||'').replace(/"/g,'&quot;')}"></td>
+              <td><input type="text" style="width:90px;" data-exp-field="region" data-exp-row="${i}" value="${t.region||''}"></td>
+              <td><input type="text" style="width:80px;" data-exp-field="mes" data-exp-row="${i}" value="${t.mes||''}"></td>
+              <td><input type="text" style="width:36px;" data-exp-field="pc" data-exp-row="${i}" value="${t.pc||''}"></td>
+              <td><input type="text" style="width:36px;" data-exp-field="lap" data-exp-row="${i}" value="${t.lap||''}"></td>
+              <td><input type="text" style="width:70px;" data-exp-field="internet" data-exp-row="${i}" value="${t.internet||''}"></td>
+              <td><input type="text" style="width:80px;" data-exp-field="entregado_arq" data-exp-row="${i}" value="${t.entregado_arq||''}"></td>
+              <td><input type="text" style="width:80px;" data-exp-field="entrega_impresora" data-exp-row="${i}" value="${t.entrega_impresora||''}"></td>
+              <td><select data-exp-field="estatus" data-exp-row="${i}">
+                ${['Abierta','En proceso','Prospecto','Cerrada'].map(op=>`<option value="${op}" ${t.estatus===op?'selected':''}>${op}</option>`).join('')}
+              </select></td>
+              <td><input type="text" style="width:220px; text-align:left;" data-exp-field="nota" data-exp-row="${i}" value="${(t.nota||'').replace(/"/g,'&quot;')}"></td>
+              <td><button data-exp-remove="${i}" style="padding:3px 8px;">✕</button></td>
+            </tr>` : `
+            <tr data-exp-row="${i}">
+              <td>${t.numero!==null && t.numero!==undefined ? t.numero : '—'}</td>
+              <td>${t.clave||'—'}</td>
+              <td style="text-align:left;">${t.nombre}</td>
+              <td>${t.region}</td>
+              <td>${t.mes||'—'}</td>
+              <td>${t.pc}</td>
+              <td>${t.lap}</td>
+              <td>${t.internet}</td>
+              <td>${t.entregado_arq}</td>
+              <td>${t.entrega_impresora}</td>
+              <td><span class="status-badge ${estatusExpClass(t.estatus)}">${t.estatus}</span></td>
+              <td style="text-align:left;">${t.nota||'<span style="color:var(--sub)">—</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <h3>Notas generales de expansión</h3>
+        ${editing
+          ? `<textarea id="notasGenerales" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: Tienda CITY SHOP — cierre de tienda para el 03 de agosto">${exp.notas_generales||''}</textarea>`
+          : `<div style="font-size:13px; white-space:pre-wrap; color:${exp.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${exp.notas_generales || 'Sin notas capturadas todavía. Da clic en "Editar todo" arriba para agregar.'}</div>`}
+        <div class="foot">Espacio libre para movimientos que no vienen en el archivo (cierres, cambios de plaza, pausas, etc.). No se sobreescribe al cargar un nuevo Excel.</div>
+      </div>
+      <div class="foot">En modo edición puedes cambiar cualquier campo de la tabla, agregar tiendas manualmente o quitarlas. Al cargar un archivo nuevo, esos cambios manuales se respetan salvo que ese mismo campo venga distinto en el Excel para esa Clave PDV.</div>
+    `;
+    if(editing){
+      document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
+      document.getElementById('btnAddTienda').onclick=()=>{
+        tiendas.push({numero:null, clave:'', nombre:'Nueva tienda', mes:'', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'-', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Prospecto', nota:''});
+        render();
+      };
+      document.getElementById('btnSave').onclick=()=>{
+        document.querySelectorAll('[data-exp-field]').forEach(inp=>{
+          const i = Number(inp.dataset.expRow);
+          const field = inp.dataset.expField;
+          let val = inp.value;
+          if(field==='numero') val = val==='' ? null : Number(val);
+          tiendas[i][field] = val;
+        });
+        const ng = document.getElementById('notasGenerales');
+        if(ng) exp.notas_generales = ng.value;
+        save();
+      };
+      document.querySelectorAll('[data-exp-remove]').forEach(btn=>{
+        btn.onclick = ()=>{ tiendas.splice(Number(btn.dataset.expRemove),1); render(); };
+      });
+    } else {
+      if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
+    }
+    wireExpansionUpload();
+  }
+  function panelConfirmacionExpansion(){
+    const d = cargaPendienteExpansion;
+    const existentes = state.expansion.tiendas || [];
+    const keyOf = t => t.clave ? ('clave:'+t.clave) : ('nombre:'+t.nombre);
+    const clavesExistentes = new Set(existentes.map(keyOf));
+    const nuevas = d.tiendas.filter(t=>!clavesExistentes.has(keyOf(t))).length;
+    const actualizan = d.tiendas.length - nuevas;
+    return `<div class="panel" style="border-color:var(--tm);">
+      <h3 style="color:var(--tm);">Confirmar carga · ${d.fileName}</h3>
+      <div style="font-size:13px; line-height:1.8;">
+        Filas en el archivo: <b>${d.resumen.total}</b> → <b>${nuevas} tiendas nuevas</b> se agregarán, <b>${actualizan}</b> ya existían y se actualizarán.<br>
+        En el archivo: Abiertas <b>${d.resumen.abiertas}</b> · En proceso <b>${d.resumen.enProceso}</b> · Prospecto <b>${d.resumen.prospecto}</b>
+      </div>
+      <div class="foot">No se borra nada de lo que ya tenías. Las notas manuales que ya hayas escrito se conservan (se empatan por Clave PDV, o por nombre si no tiene clave).</div>
+      <div class="editbar" style="margin-top:10px;">
+        <button id="btnCancelCargaExp">Cancelar</button>
+        <button class="primary" id="btnAplicarCargaExp">Aplicar datos</button>
+      </div>
+    </div>`;
+  }
+  function wireExpansionUpload(){
+    const btn = document.getElementById('btnUploadExp');
+    if(btn) btn.onclick = () => document.getElementById('fileExpansion').click();
+    const inp = document.getElementById('fileExpansion');
+    if(inp) inp.onchange = handleFileUploadExpansion;
+    const btnCancel = document.getElementById('btnCancelCargaExp');
+    if(btnCancel) btnCancel.onclick = ()=>{ cargaPendienteExpansion = null; render(); };
+    const btnAplicar = document.getElementById('btnAplicarCargaExp');
+    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosExpansion(cargaPendienteExpansion); };
+  }
+
+  window.initCaidasApp = function(role){
+    canEdit = (role === 'admin');
+    load();
+  };
+})();
+</script>
+</body>
+</html>
