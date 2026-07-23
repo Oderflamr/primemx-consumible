@@ -365,7 +365,7 @@ document.getElementById('login-form').addEventListener('submit', async function(
     errEl.classList.remove('show');
   }catch(err){
     console.error(err);
-    errEl.textContent = 'Usuario o contraseña incorrectos.';
+    errEl.textContent = 'No se pudo entrar (' + (err.code || err.message || 'error desconocido') + ').';
     errEl.classList.add('show');
   }
   submitBtn.disabled = false;
@@ -1791,9 +1791,4 @@ auth.onAuthStateChanged(async function(user){
 
   window.initCaidasApp = function(role){
     canEdit = (role === 'admin');
-    load();
-  };
-})();
-</script>
-</body>
-</html>
+    l
