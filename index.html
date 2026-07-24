@@ -1455,21 +1455,16 @@ const PROVEEDOR_EMAILS = "ajuarez@cknew.com.mx;arodriguez@cknew.com.mx;efrias@ck
 function enviarCorreo(id) {
   const t = tickets.find(x => x.id === id);
   if(!t) { toast("Ticket no encontrado", true); return; }
-
-  // Asunto: Tipo / Tienda / Ticket#
   const asunto = `${t.tipo} / ${t.tienda} / Ticket# ${t.id}`;
-
-  // Cuerpo según tipo
+  const direccion = DIRECCIONES[t.ceco] || "(favor de completar dirección del PDV)";
+  const aviso = `\n\nQuedo pendiente de sus comentarios,\n\n\nAVISO: Este mensaje de correo electrónico y en cualquier archivo adjunto es confidencial y puede contener información confidencial o privilegiada. Si usted no es el destinatario al cual este mensaje estaba dirigido, queda notificado por el presente de que cualquier, distribución o copia de esta comunicación está totalmente prohibida. Si ha recibido esta comunicación por error, notifíqueselo al remitente de inmediato, borre este mensaje de correo electrónico de su computadora y no conserve ninguna copia. Gracias!\n\nNOTICE: This message, including any attachments is for the use of the individual or entity intended to receive it. It may contain confidential, proprietary and/or privileged information, and any unauthorized review, use, disclosure or distribution is prohibited. If you are not the intended recipient or if you have received this message in error, please permanently delete it from your computer system without retaining any copies. Thank you.`;
   let cuerpo;
   if(t.tipo === "FALLA IMPRESORA") {
-    cuerpo = `Equipo me ayudan con esta falla del equipo, por favor.\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
+    cuerpo = `Equipo me ayudan con esta falla del equipo, por favor.\n\nUbicación: ${direccion}${aviso}`;
   } else {
-    cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.\n\nUbicación: (favor de completar dirección del PDV)\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
+    cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.\n\nUbicación: ${direccion}${aviso}`;
   }
-
-  // Construir mailto
-  const mailto = `mailto:${PROVEEDOR_EMAILS}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
-  window.location.href = mailto;
+  window.location.href = `mailto:${PROVEEDOR_EMAILS}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
 }
 
 async function doSaveAndEmail() {
@@ -1481,11 +1476,12 @@ async function doSaveAndEmail() {
   const id_      = document.getElementById("m-id")?.value.trim()||"";
   const asunto   = `${tipo} / ${tienda} / Ticket# ${id_}`;
   const direccion = DIRECCIONES[ceco] || "(favor de completar dirección del PDV)";
-  let cuerpo;
+  const aviso = `\n\nQuedo pendiente de sus comentarios,\n\n\nAVISO: Este mensaje de correo electrónico y en cualquier archivo adjunto es confidencial y puede contener información confidencial o privilegiada. Si usted no es el destinatario al cual este mensaje estaba dirigido, queda notificado por el presente de que cualquier, distribución o copia de esta comunicación está totalmente prohibida. Si ha recibido esta comunicación por error, notifíqueselo al remitente de inmediato, borre este mensaje de correo electrónico de su computadora y no conserve ninguna copia. Gracias!\n\nNOTICE: This message, including any attachments is for the use of the individual or entity intended to receive it. It may contain confidential, proprietary and/or privileged information, and any unauthorized review, use, disclosure or distribution is prohibited. If you are not the intended recipient or if you have received this message in error, please permanently delete it from your computer system without retaining any copies. Thank you.`;
+
   if(tipo === "FALLA IMPRESORA") {
-    cuerpo = `Equipo me ayudan con esta falla del equipo, por favor.\n\nUbicación: ${direccion}\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
+    cuerpo = `Equipo me ayudan con esta falla del equipo, por favor.\n\nUbicación: ${direccion}${aviso}`;
   } else {
-    cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.\n\nUbicación: ${direccion}\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
+    cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.\n\nUbicación: ${direccion}${aviso}`;
   }
   // Cambiar footer ANTES de abrir Outlook
   const footer = document.querySelector("#modal-overlay .modal-footer");
