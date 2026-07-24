@@ -929,6 +929,7 @@ function openModal(id) {
   </div>
   <div class="modal-footer">
     <button class="btn" onclick="closeModal()">Cancelar</button>
+    <button class="btn" style="color:var(--blue-text);border-color:var(--blue)" onclick="doSaveAndEmail()">${svgIcon("mail")} ${t?"Guardar y enviar correo":"Crear y enviar correo"}</button>
     <button class="btn primary" onclick="doSave()">${svgIcon("check")} ${t?"Guardar cambios":"Crear ticket"}</button>
   </div>
 </div>`;
@@ -1493,7 +1494,72 @@ Ubicación: (favor de completar dirección del PDV)`;
   window.location.href = mailto;
 }
 
-window.enviarCorreo = enviarCorreo;
+async function doSaveAndEmail() {
+  // Primero guardar el ticket
+  const ok = await doSaveInternal();
+  if(!ok) return;
+  // Luego abrir correo con los datos del formulario
+  const tipo     = document.getElementById("m-tipo")?.value||"TONER";
+  const tienda   = document.getElementById("m-tienda")?.value.trim()||document.getElementById("m-tienda-search")?.value.split(' — ').slice(1).join(' — ')||"";
+  const ceco     = document.getElementById("m-ceco")?.value.trim()||"";
+  const id_      = document.getElementById("m-id")?.value.trim()||"";
+  const solicitud= document.getElementById("m-sol")?.value||"";
+  const obs      = document.getElementById("m-obs")?.value.trim()||"";
+  const asunto   = `${tipo} / ${tienda} / Ticket# ${id_}`;
+  let cuerpo;
+  if(tipo === "FALLA IMPRESORA") {
+    cuerpo = `Se ha levantado la solicitud de soporte técnico con el proveedor. Un técnico se comunicará con usted vía telefónica para coordinar la revisión de la falla reportada. Le pedimos estar al pendiente de la llamada. Cualquier actualización o acuerdo al que lleguen, favor de reportarlo a través de este medio para mantener el seguimiento correspondiente.\n\nDatos del ticket:\n• Ticket #: ${id_}\n• Tienda: ${tienda}\n• CECO: ${ceco}\n• Fecha de solicitud: ${solicitud||'—'}\n• Tipo: ${tipo}`;
+  } else {
+    cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.\n\nDatos del ticket:\n• Ticket #: ${id_}\n• Tienda: ${tienda}\n• CECO: ${ceco}\n• Tipo de consumible: ${tipo}\n• Fecha de solicitud: ${solicitud||'—'}\n\nUbicación: (favor de completar dirección del PDV)`;
+  }
+  if(obs) cuerpo += `\n\nObservaciones: ${obs}`;
+  closeModal();
+  setTimeout(() => {
+    window.location.href = `mailto:${PROVEEDOR_EMAILS}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+  }, 300);
+}
+
+// Versión interna de doSave que retorna true/false sin cerrar modal
+async function doSaveInternal() {
+  const id_     = document.getElementById("m-id")?.value.trim();
+  const tiendaHidden = document.getElementById("m-tienda")?.value.trim();
+  const tiendaSearch = document.getElementById("m-tienda-search")?.value.trim();
+  let tienda = tiendaHidden;
+  if(!tienda && tiendaSearch) {
+    const parts = tiendaSearch.split(' — ');
+    tienda = parts.length > 1 ? parts.slice(1).join(' — ') : tiendaSearch;
+  }
+  if(!id_||!tienda){ toast("Ticket y tienda son obligatorios", true); return false; }
+  if(!editId && tickets.find(t=>t.id===id_)){ toast("Ya existe ese número de ticket", true); return false; }
+  const ceco   = document.getElementById("m-ceco")?.value.trim()||"";
+  const tipo   = document.getElementById("m-tipo")?.value||"TONER";
+  const mes    = document.getElementById("m-mes")?.value.trim()||"";
+  const anio   = (document.getElementById("m-sol")?.value||"").slice(0,4);
+  const solVal = document.getElementById("m-sol")?.value||"";
+  function mismaTienda(t) {
+    if(ceco && t.ceco) return t.ceco === ceco;
+    return t.tienda.trim().toLowerCase() === tienda.trim().toLowerCase();
+  }
+  if(!editId) {
+    const duplicado = tickets.find(t => mismaTienda(t) && t.tipo===tipo && t.mes===mes && t.anio===anio && t.estatus!=="RECHAZADO");
+    if(duplicado) { showAlertaDuplicado(duplicado, `⚠️ La tienda <strong>${tienda}</strong> ya tiene un ticket de <strong>${tipo}</strong> en <strong>${mes} ${anio}</strong>.`); return false; }
+  }
+  if(!editId && tipo==="UNIDAD DE IMAGEN" && solVal) {
+    const solFecha = new Date(solVal);
+    if(!isNaN(solFecha)) {
+      const dosAtras = new Date(solFecha); dosAtras.setMonth(dosAtras.getMonth()-2);
+      const prevUnidad = tickets.find(t => mismaTienda(t) && t.tipo==="UNIDAD DE IMAGEN" && t.solicitud && new Date(t.solicitud)>=dosAtras && new Date(t.solicitud)<=solFecha && t.estatus!=="RECHAZADO");
+      if(prevUnidad) { const d=Math.round((solFecha-new Date(prevUnidad.solicitud))/86400000); showAlertaDuplicado(prevUnidad, `⚠️ La <strong>Unidad de Imagen</strong> tiene vigencia mínima de <strong>2 meses</strong>.<br>Esta tienda ya solicitó una hace <strong>${d} días</strong>.`); return false; }
+    }
+  }
+  const data = { id:id_, tienda, ceco, sku:"60540-"+ceco, tipo, solicitud:solVal, entregado:document.getElementById("m-ent")?.value||"", mes, anio, estatus:document.getElementById("m-est")?.value||"ABIERTO", observaciones:document.getElementById("m-obs")?.value.trim()||"", falla:"", guia:"" };
+  const ok = await saveTicket(data);
+  if(ok) toast(editId?"Ticket actualizado":"Ticket creado");
+  return ok;
+}
+
+window.doSaveAndEmail = doSaveAndEmail;
+window.enviarCorreo   = enviarCorreo;
 
 /* ══════════════ EXPORT CSV ══════════════════════ */
 function exportCSV() {
