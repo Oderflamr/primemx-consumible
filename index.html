@@ -2,12 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="version" content="20260724184425">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com; style-src 'self' 'unsafe-inline';">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PrimeMX · Consumibles v3</title>
+<title>PrimeMX · Consumibles v4</title>
 <style>
 /* ── TOKENS ─────────────────────────────────────── */
 :root{
@@ -635,7 +636,7 @@ function svgIcon(name){
     send:`<svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
     truck:`<svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
     check:`<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
-    warn:`<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    mail:`<svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
   };
   return icons[name]||"";
 }
@@ -753,6 +754,7 @@ ${(()=>{
       <td><span class="badge b-${estatusClass(t.estatus)}"><span class="dot-status"></span>${t.estatus}</span></td>
       <td><div class="actions">
         <button class="btn sm" onclick="openModal('${t.id}')" title="Editar">${svgIcon("edit")}</button>
+        <button class="btn sm" onclick="enviarCorreo('${t.id}')" title="Enviar a proveedor" style="color:var(--blue-text);border-color:var(--blue)">${svgIcon("mail")}</button>
         <button class="btn sm danger" onclick="confirmDel('${t.id}')" title="Eliminar">${svgIcon("trash")}</button>
       </div></td>
     </tr>`).join("")}
@@ -1446,6 +1448,52 @@ ${renderTiendasSelector()}
   </table></div>
 </div>`;
 }
+
+/* ══════════════ ENVIAR CORREO PROVEEDOR ════════ */
+const PROVEEDOR_EMAILS = "ajuarez@cknew.com.mx;arodriguez@cknew.com.mx;efrias@cknew.com.mx;rmartinez@cknew.com.mx";
+
+function enviarCorreo(id) {
+  const t = tickets.find(x => x.id === id);
+  if(!t) { toast("Ticket no encontrado", true); return; }
+
+  // Asunto: Tipo / Tienda / Ticket#
+  const asunto = `${t.tipo} / ${t.tienda} / Ticket# ${t.id}`;
+
+  // Cuerpo según tipo
+  let cuerpo;
+  if(t.tipo === "FALLA IMPRESORA") {
+    cuerpo = `Se ha levantado la solicitud de soporte técnico con el proveedor. Un técnico se comunicará con usted vía telefónica para coordinar la revisión de la falla reportada. Le pedimos estar al pendiente de la llamada. Cualquier actualización o acuerdo al que lleguen, favor de reportarlo a través de este medio para mantener el seguimiento correspondiente.
+
+Datos del ticket:
+• Ticket #: ${t.id}
+• Tienda: ${t.tienda}
+• CECO: ${t.ceco}
+• Fecha de solicitud: ${t.solicitud||'—'}
+• Tipo: ${t.tipo}`;
+  } else {
+    cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.
+
+Datos del ticket:
+• Ticket #: ${t.id}
+• Tienda: ${t.tienda}
+• CECO: ${t.ceco}
+• Tipo de consumible: ${t.tipo}
+• Fecha de solicitud: ${t.solicitud||'—'}
+
+Ubicación: (favor de completar dirección del PDV)`;
+  }
+
+  // Agregar observaciones si tiene
+  if(t.observaciones && t.observaciones.trim()) {
+    cuerpo += `\n\nObservaciones: ${t.observaciones}`;
+  }
+
+  // Construir mailto
+  const mailto = `mailto:${PROVEEDOR_EMAILS}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+  window.location.href = mailto;
+}
+
+window.enviarCorreo = enviarCorreo;
 
 /* ══════════════ EXPORT CSV ══════════════════════ */
 function exportCSV() {
