@@ -754,7 +754,6 @@ ${(()=>{
       <td><span class="badge b-${estatusClass(t.estatus)}"><span class="dot-status"></span>${t.estatus}</span></td>
       <td><div class="actions">
         <button class="btn sm" onclick="openModal('${t.id}')" title="Editar">${svgIcon("edit")}</button>
-        <button class="btn sm" onclick="enviarCorreo('${t.id}')" title="Enviar a proveedor" style="color:var(--blue-text);border-color:var(--blue)">${svgIcon("mail")}</button>
         <button class="btn sm danger" onclick="confirmDel('${t.id}')" title="Eliminar">${svgIcon("trash")}</button>
       </div></td>
     </tr>`).join("")}
@@ -1463,30 +1462,9 @@ function enviarCorreo(id) {
   // Cuerpo según tipo
   let cuerpo;
   if(t.tipo === "FALLA IMPRESORA") {
-    cuerpo = `Se ha levantado la solicitud de soporte técnico con el proveedor. Un técnico se comunicará con usted vía telefónica para coordinar la revisión de la falla reportada. Le pedimos estar al pendiente de la llamada. Cualquier actualización o acuerdo al que lleguen, favor de reportarlo a través de este medio para mantener el seguimiento correspondiente.
-
-Datos del ticket:
-• Ticket #: ${t.id}
-• Tienda: ${t.tienda}
-• CECO: ${t.ceco}
-• Fecha de solicitud: ${t.solicitud||'—'}
-• Tipo: ${t.tipo}`;
+    cuerpo = `Equipo me ayudan con esta falla del equipo, por favor.\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
   } else {
-    cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.
-
-Datos del ticket:
-• Ticket #: ${t.id}
-• Tienda: ${t.tienda}
-• CECO: ${t.ceco}
-• Tipo de consumible: ${t.tipo}
-• Fecha de solicitud: ${t.solicitud||'—'}
-
-Ubicación: (favor de completar dirección del PDV)`;
-  }
-
-  // Agregar observaciones si tiene
-  if(t.observaciones && t.observaciones.trim()) {
-    cuerpo += `\n\nObservaciones: ${t.observaciones}`;
+    cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.\n\nUbicación: (favor de completar dirección del PDV)\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
   }
 
   // Construir mailto
@@ -1508,11 +1486,10 @@ async function doSaveAndEmail() {
   const asunto   = `${tipo} / ${tienda} / Ticket# ${id_}`;
   let cuerpo;
   if(tipo === "FALLA IMPRESORA") {
-    cuerpo = `Se ha levantado la solicitud de soporte técnico con el proveedor. Un técnico se comunicará con usted vía telefónica para coordinar la revisión de la falla reportada. Le pedimos estar al pendiente de la llamada. Cualquier actualización o acuerdo al que lleguen, favor de reportarlo a través de este medio para mantener el seguimiento correspondiente.\n\nDatos del ticket:\n• Ticket #: ${id_}\n• Tienda: ${tienda}\n• CECO: ${ceco}\n• Fecha de solicitud: ${solicitud||'—'}\n• Tipo: ${tipo}`;
+    cuerpo = `Equipo me ayudan con esta falla del equipo, por favor.\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
   } else {
-    cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.\n\nDatos del ticket:\n• Ticket #: ${id_}\n• Tienda: ${tienda}\n• CECO: ${ceco}\n• Tipo de consumible: ${tipo}\n• Fecha de solicitud: ${solicitud||'—'}\n\nUbicación: (favor de completar dirección del PDV)`;
+    cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.\n\nUbicación: (favor de completar dirección del PDV)\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
   }
-  if(obs) cuerpo += `\n\nObservaciones: ${obs}`;
   closeModal();
   setTimeout(() => {
     window.location.href = `mailto:${PROVEEDOR_EMAILS}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
