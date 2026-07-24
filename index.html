@@ -1473,33 +1473,31 @@ function enviarCorreo(id) {
 }
 
 async function doSaveAndEmail() {
-  // Primero guardar el ticket
   const ok = await doSaveInternal();
   if(!ok) return;
-  // Luego abrir correo con los datos del formulario — el modal permanece abierto
   const tipo     = document.getElementById("m-tipo")?.value||"TONER";
   const tienda   = document.getElementById("m-tienda")?.value.trim()||document.getElementById("m-tienda-search")?.value.split(' — ').slice(1).join(' — ')||"";
   const ceco     = document.getElementById("m-ceco")?.value.trim()||"";
   const id_      = document.getElementById("m-id")?.value.trim()||"";
   const asunto   = `${tipo} / ${tienda} / Ticket# ${id_}`;
-  let cuerpo;
   const direccion = DIRECCIONES[ceco] || "(favor de completar dirección del PDV)";
+  let cuerpo;
   if(tipo === "FALLA IMPRESORA") {
     cuerpo = `Equipo me ayudan con esta falla del equipo, por favor.\n\nUbicación: ${direccion}\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
   } else {
     cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.\n\nUbicación: ${direccion}\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
   }
-  // Cambiar botones: ocultar "Crear y enviar" y "Crear ticket", mostrar solo "Cerrar"
+  // Cambiar footer ANTES de abrir Outlook
   const footer = document.querySelector("#modal-overlay .modal-footer");
   if(footer) {
     footer.innerHTML = `
-      <div style="font-size:12px;color:var(--green-text);display:flex;align-items:center;gap:6px;margin-right:auto">
-        ✅ Ticket guardado y correo enviado al proveedor
-      </div>
-      <button class="btn primary" onclick="closeModal()">Cerrar</button>`;
+      <span style="font-size:12px;color:var(--green-text);margin-right:auto">✅ Ticket guardado — correo enviado al proveedor</span>
+      <button class="btn primary" id="btn-cerrar-modal" onclick="closeModal()">Cerrar</button>`;
   }
-  // Abrir Outlook
-  window.location.href = `mailto:${PROVEEDOR_EMAILS}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+  // Abrir Outlook con pequeño delay para que el DOM actualice primero
+  setTimeout(() => {
+    window.location.href = `mailto:${PROVEEDOR_EMAILS}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+  }, 100);
 }
 
 // Versión interna de doSave que retorna true/false sin cerrar modal
