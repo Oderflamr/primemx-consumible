@@ -1489,7 +1489,16 @@ async function doSaveAndEmail() {
   } else {
     cuerpo = `Equipo me ayudan con esta solicitud y me envían la guía, por favor.\n\nUbicación: ${direccion}\n\nQuedo pendiente de sus comentarios,\nAlfredo Martinez\nPRIMEMX`;
   }
-  // Abrir Outlook sin cerrar el modal
+  // Cambiar botones: ocultar "Crear y enviar" y "Crear ticket", mostrar solo "Cerrar"
+  const footer = document.querySelector("#modal-overlay .modal-footer");
+  if(footer) {
+    footer.innerHTML = `
+      <div style="font-size:12px;color:var(--green-text);display:flex;align-items:center;gap:6px;margin-right:auto">
+        ✅ Ticket guardado y correo enviado al proveedor
+      </div>
+      <button class="btn primary" onclick="closeModal()">Cerrar</button>`;
+  }
+  // Abrir Outlook
   window.location.href = `mailto:${PROVEEDOR_EMAILS}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
 }
 
