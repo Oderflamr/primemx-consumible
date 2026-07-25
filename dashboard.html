@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>Caídas · PrimeMX</title>
+<title>Dashboard IT · PrimeMX</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -283,7 +283,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
 <div id="login-screen">
   <div class="login-card">
     <div class="login-signal"><span></span><span></span><span></span><span></span></div>
-    <h1>Caídas · Internet</h1>
+    <h1>Dashboard IT</h1>
     <p class="sub">PrimeMX · Acceso al portal</p>
     <div class="login-error" id="login-error">Usuario o contraseña incorrectos.</div>
     <form id="login-form">
@@ -295,7 +295,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
         <label>Contraseña</label>
         <input type="password" id="login-pass" autocomplete="current-password" required>
       </div>
-      <button type="submit" class="btn btn-primary">Ingresar</button>
+      <button type="submit" class="btn btn-primary" style="background:#0C8599; color:#fff; border:none; border-radius:8px; padding:11px 18px; font-size:14px; font-weight:600; cursor:pointer; width:100%;">Ingresar</button>
     </form>
     <p class="login-hint">Acceso restringido. Usa el mismo usuario y contraseña que en el Directorio de Tiendas.</p>
   </div>
@@ -306,7 +306,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
     <div class="brand">
       <div class="mark">PX</div>
       <div>
-        <h1>Caídas · Internet</h1>
+        <h1>Dashboard IT</h1>
         <p class="brand-sub">PrimeMX</p>
       </div>
     </div>
@@ -1630,21 +1630,22 @@ auth.onAuthStateChanged(async function(user){
     'PRM TDA LEON CENTRO',
     'PRM TDA LA PIEDAD HERIBERTO JARA'
   ];
-  function renderMigracionCarrier(c){
-    const hasta = idxMes(state.periodo_actual);
-    const mesesCortos = MESES.slice(0,hasta+1);
-    const filas = MIGRACION_MEGACABLE.map(nombre=>{
+  const MIGRACION_TELMEX = [
+    'PRM TDA IRAPUATO DE BERRIOZABAL',
+    'PRM TDA IRAPUATO PLAZA CIBELES'
+  ];
+  function filasMigracion(lista, hasta){
+    return lista.map(nombre=>{
       const enTop = state.top_totalplay.find(r=>r.nombre===nombre);
       const meses = enTop ? enTop.meses : new Array(hasta+1).fill(0);
       const total = meses.reduce((a,b)=>a+Number(b||0),0);
       const cat = buscarCatalogo(nombre);
       return { nombre, carrier: enTop?.carrier || cat.carrier, tecnologia: enTop?.tecnologia || cat.tecnologia, meses, total };
     });
-    c.innerHTML = `
-      <div class="title">Migración de carrier — Microonda a Megacable</div>
-      <div class="subtitle">Tiendas TOTALPLAY/MICROONDA con caídas recurrentes, en proceso de cambio a Megacable · Ene-${state.periodo_actual} ${state.anio}</div>
-      <div class="panel"><div style="overflow-x:auto;"><table>
-        <thead><tr><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th><th>Cambio a Megacable</th></tr></thead>
+  }
+  function tablaMigracion(filas, mesesCortos, tituloMigracion, textoMigracion){
+    return `<div class="panel"><div style="overflow-x:auto;"><table>
+        <thead><tr><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th><th>${tituloMigracion}</th></tr></thead>
         <tbody>${filas.map(r=>{
           const st = estatusTienda(r.total);
           return `<tr>
@@ -1654,12 +1655,29 @@ auth.onAuthStateChanged(async function(user){
             ${mesesCortos.map((m,mi)=>`<td>${r.meses[mi]||'-'}</td>`).join('')}
             <td><b>${r.total}</b></td>
             <td><span class="status-badge ${st.cls}">${st.label}</span></td>
-            <td><span class="status-badge alerta">En proceso</span></td>
+            <td><span class="status-badge alerta">${textoMigracion}</span></td>
           </tr>`;
         }).join('')}</tbody>
-      </table></div>
-      <div class="foot">Las caídas mensuales, Carrier y Tecnología se toman en vivo de Top 15 TotalPlay — se actualizan solas cada vez que cargues un archivo de tickets nuevo. La columna "Cambio a Megacable" es fija para esta lista de tiendas.</div>
-      </div>
+      </table></div></div>`;
+  }
+  function renderMigracionCarrier(c){
+    const hasta = idxMes(state.periodo_actual);
+    const mesesCortos = MESES.slice(0,hasta+1);
+    const filasMega = filasMigracion(MIGRACION_MEGACABLE, hasta);
+    const filasTelmex = filasMigracion(MIGRACION_TELMEX, hasta);
+    c.innerHTML = `
+      <div class="title">Migración de carrier</div>
+      <div class="subtitle">Cambios de tecnología y de proveedor · Ene-${state.periodo_actual} ${state.anio}</div>
+
+      <h3 style="margin-top:6px;">Cambio de tecnología: Microonda → Megacable</h3>
+      <div class="foot" style="margin-bottom:10px;">Tiendas TOTALPLAY/MICROONDA con caídas recurrentes, en proceso de cambio a Megacable.</div>
+      ${tablaMigracion(filasMega, mesesCortos, 'Cambio a Megacable', 'En proceso')}
+
+      <h3 style="margin-top:24px;">Cambio de carrier: TotalPlay → Telmex</h3>
+      <div class="foot" style="margin-bottom:10px;">Tiendas ya migradas a Telmex. El historial mensual mostrado es de antes de la migración (bajo TotalPlay); todavía no acumulan tickets propios como Telmex.</div>
+      ${tablaMigracion(filasTelmex, mesesCortos, 'Migración', 'Migrada Telmex')}
+
+      <div class="foot" style="margin-top:14px;">Las caídas mensuales, Carrier y Tecnología se toman en vivo de Top 15 TotalPlay — se actualizan solas cada vez que cargues un archivo de tickets nuevo. Las columnas de migración son fijas para estas listas de tiendas.</div>
     `;
   }
 
