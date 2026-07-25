@@ -802,8 +802,7 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'Angel Antonio Pérez González', meses:[660,457,614,361,430,300,153], promedio:1.3},
       {nombre:'Josafath setzafel Pacheco Zamorano', meses:[660,349,358,455,334,427,229], promedio:2.9},
       {nombre:'Leon Gustavo Rivera Arriaga', meses:[125,436,568,353,387,422,215], promedio:1.5},
-      {nombre:'Ingrid Rodriguez Nuñez', meses:[245,112,313,500,457,445,361], promedio:1.9},
-      {nombre:'Luis Alzaga Hernandez', meses:[1,2,1,0,1,1,0], promedio:299.1}
+      {nombre:'Ingrid Rodriguez Nuñez', meses:[245,112,313,500,457,445,361], promedio:1.9}
     ] },
     carga: { archivo: 'reporte_tickets.xlsx', tickets_caidas: 429, fecha: '2026-07-22T17:30:00.000Z' },
     expansion: { tiendas: [
@@ -837,7 +836,7 @@ auth.onAuthStateChanged(async function(user){
     {id:'top_tp', label:'Top 15 TotalPlay'},
     {id:'top_tm', label:'Top 15 Telmex'},
     {id:'migracion_carrier', label:'Migración de carrier'},
-    {id:'ingenieros', label:'Ingenieros IT'},
+    {id:'ingenieros', label:'Ticket´s atendidos'},
     {id:'expansion', label:'Plan de expansión'}
   ];
 
@@ -993,7 +992,7 @@ auth.onAuthStateChanged(async function(user){
 
   // Ingenieros que no se miden en el ranking (colas/sistemas automáticos, no personas;
   // o personas que el usuario pidió excluir explícitamente de esta medición).
-  const AGENTES_EXCLUIDOS = ['MC PPM','MC EGF','MESA CONTROL','Alfredo Martínez R','Eder Ernesto Castillo Colin','Daniel Aguilar Solis','Ariadna Sánchez Ramírez'];
+  const AGENTES_EXCLUIDOS = ['MC PPM','MC EGF','MESA CONTROL','Alfredo Martínez R','Eder Ernesto Castillo Colin','Daniel Aguilar Solis','Ariadna Sánchez Ramírez','Luis Alzaga Hernandez'];
 
   // Calcula los datos a partir de las filas del Excel SIN tocar el estado (para poder confirmar antes de aplicar)
   function calcularDatosTickets(rows, fileName){
@@ -1902,7 +1901,7 @@ auth.onAuthStateChanged(async function(user){
     const promedioMesa = mesaSoporteIT.length ? Math.round(totalMesa/mesaSoporteIT.length) : 0;
 
     c.innerHTML = `
-      <div class="title">Ingenieros IT</div>
+      <div class="title">Ticket´s atendidos</div>
       <div class="subtitle">Carga de trabajo y tiempos de atención · Ene-${state.periodo_actual} ${state.anio}</div>
 
       <h3>Tickets de Soporte IT Nivel 1 por mes</h3>
