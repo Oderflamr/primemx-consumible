@@ -782,6 +782,7 @@ auth.onAuthStateChanged(async function(user){
     {id:'atencion', label:'Atención'},
     {id:'top_tp', label:'Top 15 TotalPlay'},
     {id:'top_tm', label:'Top 15 Telmex'},
+    {id:'migracion_carrier', label:'Migración de carrier'},
     {id:'expansion', label:'Plan de expansión'}
   ];
 
@@ -1239,6 +1240,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='atencion') return renderAtencion(c);
     if(tab==='top_tp') return renderTop(c,'top_totalplay','TotalPlay');
     if(tab==='top_tm') return renderTop(c,'top_telmex','Telmex');
+    if(tab==='migracion_carrier') return renderMigracionCarrier(c);
     if(tab==='expansion') return renderExpansion(c);
   }
 
@@ -1617,6 +1619,48 @@ auth.onAuthStateChanged(async function(user){
     document.querySelectorAll('[data-remove]').forEach(btn=>{
       btn.onclick = () => { rows.splice(Number(btn.dataset.remove),1); render(); };
     });
+  }
+
+  // ---------- Migración de carrier (Microonda -> Megacable) ----------
+  // Lista fija de tiendas en proceso de migración. Los datos de caídas/carrier/tecnología
+  // se toman en vivo de Top 15 TotalPlay, así que se actualizan solos con cada carga de tickets.
+  const MIGRACION_MEGACABLE = [
+    'PRM TDA ZACATECAS',
+    'PRM TDA MI PLAZA BARRANCOS',
+    'PRM TDA LEON CENTRO',
+    'PRM TDA LA PIEDAD HERIBERTO JARA'
+  ];
+  function renderMigracionCarrier(c){
+    const hasta = idxMes(state.periodo_actual);
+    const mesesCortos = MESES.slice(0,hasta+1);
+    const filas = MIGRACION_MEGACABLE.map(nombre=>{
+      const enTop = state.top_totalplay.find(r=>r.nombre===nombre);
+      const meses = enTop ? enTop.meses : new Array(hasta+1).fill(0);
+      const total = meses.reduce((a,b)=>a+Number(b||0),0);
+      const cat = buscarCatalogo(nombre);
+      return { nombre, carrier: enTop?.carrier || cat.carrier, tecnologia: enTop?.tecnologia || cat.tecnologia, meses, total };
+    });
+    c.innerHTML = `
+      <div class="title">Migración de carrier — Microonda a Megacable</div>
+      <div class="subtitle">Tiendas TOTALPLAY/MICROONDA con caídas recurrentes, en proceso de cambio a Megacable · Ene-${state.periodo_actual} ${state.anio}</div>
+      <div class="panel"><div style="overflow-x:auto;"><table>
+        <thead><tr><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th><th>Cambio a Megacable</th></tr></thead>
+        <tbody>${filas.map(r=>{
+          const st = estatusTienda(r.total);
+          return `<tr>
+            <td style="text-align:left;">${r.nombre}</td>
+            <td>${r.carrier||'—'}</td>
+            <td>${r.tecnologia||'—'}</td>
+            ${mesesCortos.map((m,mi)=>`<td>${r.meses[mi]||'-'}</td>`).join('')}
+            <td><b>${r.total}</b></td>
+            <td><span class="status-badge ${st.cls}">${st.label}</span></td>
+            <td><span class="status-badge alerta">En proceso</span></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+      <div class="foot">Las caídas mensuales, Carrier y Tecnología se toman en vivo de Top 15 TotalPlay — se actualizan solas cada vez que cargues un archivo de tickets nuevo. La columna "Cambio a Megacable" es fija para esta lista de tiendas.</div>
+      </div>
+    `;
   }
 
   // ---------- Plan de expansion ----------
