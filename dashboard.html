@@ -804,6 +804,11 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'Leon Gustavo Rivera Arriaga', meses:[125,436,568,353,387,422,215], promedio:1.5},
       {nombre:'Ingrid Rodriguez Nuñez', meses:[245,112,313,500,457,445,361], promedio:1.9}
     ] },
+    ticketsmc: { mesa_control: [956,887,1042,777,886,973,572,0,0,0,0,0], agentes: [
+      {nombre:'MC PPM', meses:[594,391,388,302,337,357,199], promedio:2.2},
+      {nombre:'MESA CONTROL', meses:[307,145,59,24,19,31,16], promedio:5.4},
+      {nombre:'MC EGF', meses:[0,233,442,337,379,465,257], promedio:1.3}
+    ] },
     carga: { archivo: 'reporte_tickets.xlsx', tickets_caidas: 429, fecha: '2026-07-22T17:30:00.000Z' },
     expansion: { tiendas: [
       {numero:58, clave:'PRMDTSTIJ026', nombre:'PRM TDA MULTIPLAZA SANTA FE BC', mes:'Mayo 2026', region:'NOROESTE I', pc:'6', lap:'1', hc:'-', pinpad:'7', dif_pinpad:'-', biometricos:'7', dif_biometricos:'-', prep_equipo:'2026-01-15', envio_mac:'-', internet:'TELMEX', solicitud_arq:'-', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
@@ -836,7 +841,8 @@ auth.onAuthStateChanged(async function(user){
     {id:'top_tp', label:'Top 15 TotalPlay'},
     {id:'top_tm', label:'Top 15 Telmex'},
     {id:'migracion_carrier', label:'Migración de carrier'},
-    {id:'ingenieros', label:'Ticket´s atendidos'},
+    {id:'ingenieros', label:'Tickets Soporte'},
+    {id:'ticketsmc', label:'Tickets Mesa de control'},
     {id:'expansion', label:'Plan de expansión'}
   ];
 
@@ -867,6 +873,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.top_velocidad_totalplay) state.top_velocidad_totalplay = clone(DEFAULTS.top_velocidad_totalplay);
       if(!state.top_velocidad_telmex) state.top_velocidad_telmex = clone(DEFAULTS.top_velocidad_telmex);
       if(!state.ingenieros) state.ingenieros = clone(DEFAULTS.ingenieros);
+      if(!state.ticketsmc) state.ticketsmc = clone(DEFAULTS.ticketsmc);
       if(!state.yoy_notas) state.yoy_notas = clone(DEFAULTS.yoy_notas);
       if(state.expansion.notas_generales === undefined) state.expansion.notas_generales = '';
     }catch(e){ console.error(e); state = clone(DEFAULTS); }
@@ -993,6 +1000,9 @@ auth.onAuthStateChanged(async function(user){
   // Ingenieros que no se miden en el ranking (colas/sistemas automáticos, no personas;
   // o personas que el usuario pidió excluir explícitamente de esta medición).
   const AGENTES_EXCLUIDOS = ['MC PPM','MC EGF','MESA CONTROL','Alfredo Martínez R','Eder Ernesto Castillo Colin','Daniel Aguilar Solis','Ariadna Sánchez Ramírez','Luis Alzaga Hernandez'];
+  // Agentes que se miden aparte, en la pestaña "Tickets Mesa de control" (son colas, no personas individuales).
+  const AGENTES_MESA_CONTROL = ['MC PPM','MC EGF','MESA CONTROL'];
+  const MESAS_CONTROL = ['Mesa de Control','Mesa de Control Nivel 1'];
 
   // Calcula los datos a partir de las filas del Excel SIN tocar el estado (para poder confirmar antes de aplicar)
   function calcularDatosTickets(rows, fileName){
@@ -1002,8 +1012,11 @@ auth.onAuthStateChanged(async function(user){
     const storeMonth  = { TotalPlay:{}, Telmex:{} };
     const storeMonthVelocidad = { TotalPlay:{}, Telmex:{} };
     const mesaSoporteIT = new Array(12).fill(0);
+    const mesaControl = new Array(12).fill(0);
     const agenteMonth = {};
     const agenteDuraciones = {};
+    const agenteMonthMC = {};
+    const agenteDuracionesMC = {};
     let maxMonthIdx = -1, totalCaidas = 0;
 
     rows.forEach(row=>{
@@ -1013,8 +1026,12 @@ auth.onAuthStateChanged(async function(user){
       if(mIdx > maxMonthIdx) maxMonthIdx = mIdx;
 
       // Mesa de ayuda: solo "Soporte IT Nivel 1", sobre TODOS los tickets del archivo.
-      if(String(row['Mesa de ayuda']).trim() === 'Soporte IT Nivel 1'){
+      const mesaAyuda = String(row['Mesa de ayuda']).trim();
+      if(mesaAyuda === 'Soporte IT Nivel 1'){
         mesaSoporteIT[mIdx]++;
+      }
+      if(MESAS_CONTROL.includes(mesaAyuda)){
+        mesaControl[mIdx]++;
       }
       // Ingenieros (Agente asignado): sobre TODOS los tickets del archivo, excluyendo colas/personas fuera de medición.
       const agente = row['Agente asignado'] ? String(row['Agente asignado']).trim() : '';
@@ -1028,6 +1045,21 @@ auth.onAuthStateChanged(async function(user){
             if(hrsAg >= 0){
               if(!agenteDuraciones[agente]) agenteDuraciones[agente] = [];
               agenteDuraciones[agente].push(hrsAg);
+            }
+          }
+        }
+      }
+      // Agentes de Mesa de Control (MC PPM, MC EGF, Mesa de Control): se miden aparte.
+      if(agente && AGENTES_MESA_CONTROL.includes(agente)){
+        if(!agenteMonthMC[agente]) agenteMonthMC[agente] = new Array(12).fill(0);
+        agenteMonthMC[agente][mIdx]++;
+        if(String(row['Estado']).trim()==='Cerrado'){
+          const fcierreMC = parseFechaTicket(row['Fecha de cierre']);
+          if(fcierreMC){
+            const hrsMC = (fcierreMC - fc)/3600000;
+            if(hrsMC >= 0){
+              if(!agenteDuracionesMC[agente]) agenteDuracionesMC[agente] = [];
+              agenteDuracionesMC[agente].push(hrsMC);
             }
           }
         }
@@ -1102,6 +1134,11 @@ auth.onAuthStateChanged(async function(user){
       const promedio = dur.length ? Math.round((dur.reduce((a,b)=>a+b,0)/dur.length)*10)/10 : null;
       return { nombre, meses: meses.slice(0,hasta+1), promedio };
     });
+    const agentesMC = Object.entries(agenteMonthMC).map(([nombre,meses])=>{
+      const dur = agenteDuracionesMC[nombre] || [];
+      const promedio = dur.length ? Math.round((dur.reduce((a,b)=>a+b,0)/dur.length)*10)/10 : null;
+      return { nombre, meses: meses.slice(0,hasta+1), promedio };
+    });
 
     return {
       fileName,
@@ -1114,7 +1151,9 @@ auth.onAuthStateChanged(async function(user){
       top_velocidad_totalplay: topsVelocidad.TotalPlay,
       top_velocidad_telmex: topsVelocidad.Telmex,
       mesa_soporte_it: mesaSoporteIT,
+      mesa_control: mesaControl,
       ingenieros,
+      agentes_mc: agentesMC,
       resumen: {
         totalCaidas, mesesCubiertos: hasta+1,
         tiendasTP: tops.TotalPlay.length,
@@ -1144,6 +1183,9 @@ auth.onAuthStateChanged(async function(user){
     if(!state.ingenieros) state.ingenieros = {};
     state.ingenieros.mesa_soporte_it = datos.mesa_soporte_it;
     state.ingenieros.agentes = datos.ingenieros;
+    if(!state.ticketsmc) state.ticketsmc = {};
+    state.ticketsmc.mesa_control = datos.mesa_control;
+    state.ticketsmc.agentes = datos.agentes_mc;
     state.carga = { archivo: datos.fileName, tickets_caidas: datos.resumen.totalCaidas, fecha: new Date().toISOString() };
     cargaPendiente = null;
     save();
@@ -1394,6 +1436,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='top_tm') return renderTop(c,'top_telmex','Telmex');
     if(tab==='migracion_carrier') return renderMigracionCarrier(c);
     if(tab==='ingenieros') return renderIngenieros(c);
+    if(tab==='ticketsmc') return renderTicketsMC(c);
     if(tab==='expansion') return renderExpansion(c);
   }
 
@@ -1901,7 +1944,7 @@ auth.onAuthStateChanged(async function(user){
     const promedioMesa = mesaSoporteIT.length ? Math.round(totalMesa/mesaSoporteIT.length) : 0;
 
     c.innerHTML = `
-      <div class="title">Ticket´s atendidos</div>
+      <div class="title">Tickets Soporte</div>
       <div class="subtitle">Carga de trabajo y tiempos de atención · Ene-${state.periodo_actual} ${state.anio}</div>
 
       <h3>Tickets de Soporte IT Nivel 1 por mes</h3>
@@ -1935,6 +1978,58 @@ auth.onAuthStateChanged(async function(user){
       type:'bar',
       data:{ labels: mesesCortos, datasets:[
         { label:'Tickets Soporte IT Nivel 1', data: mesaSoporteIT, backgroundColor: COLOR.TotalPlay }
+      ]},
+      options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+    });
+  }
+
+  // ---------- Tickets Mesa de control ----------
+  function renderTicketsMC(c){
+    const hasta = idxMes(state.periodo_actual);
+    const mesesCortos = MESES.slice(0,hasta+1);
+    const tmc = state.ticketsmc || {};
+    const mesaControl = (tmc.mesa_control || new Array(12).fill(0)).slice(0,hasta+1);
+    const agentes = (tmc.agentes || []).map(a=>({...a, total: a.meses.reduce((x,y)=>x+Number(y||0),0)}))
+      .sort((a,b)=>b.total-a.total);
+    const totalMesa = mesaControl.reduce((a,b)=>a+Number(b||0),0);
+    const promedioMesa = mesaControl.length ? Math.round(totalMesa/mesaControl.length) : 0;
+
+    c.innerHTML = `
+      <div class="title">Tickets Mesa de control</div>
+      <div class="subtitle">Carga de trabajo y tiempos de atención · Ene-${state.periodo_actual} ${state.anio}</div>
+
+      <h3>Tickets de Mesa de Control por mes</h3>
+      <div class="foot" style="margin-bottom:10px;">Incluye las colas "Mesa de Control" y "Mesa de Control Nivel 1".</div>
+      <div class="cards" style="grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:16px;">
+        <div class="card"><div class="head" style="background:var(--tm)">Total Ene-${state.periodo_actual}</div>
+          <div class="body"><div class="big">${totalMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets de Mesa de Control</div></div></div>
+        <div class="card"><div class="head" style="background:var(--tm)">Promedio mensual</div>
+          <div class="body"><div class="big">${promedioMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets por mes</div></div></div>
+      </div>
+      <div class="panel"><canvas id="chartTicketsMC"></canvas></div>
+
+      <h3 style="margin-top:24px;">Tickets atendidos por Mesa de Control, por mes</h3>
+      <div class="foot" style="margin-bottom:10px;">Todos los tickets del archivo (no solo Internet), agrupados por MC PPM, MC EGF y Mesa de Control.</div>
+      <div class="panel"><div style="overflow-x:auto;"><table>
+        <thead><tr><th style="text-align:left;">Mesa de Control</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
+        <tbody>${agentes.map(a=>`
+          <tr>
+            <td style="text-align:left;">${a.nombre}</td>
+            ${mesesCortos.map((m,mi)=>`<td>${a.meses[mi]||'-'}</td>`).join('')}
+            <td><b>${a.total}</b></td>
+            <td>${a.promedio!==null && a.promedio!==undefined ? a.promedio+'h' : 's/d'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+      <div class="foot">"Prom. atención" es el promedio de horas entre creación y cierre de los tickets cerrados de cada uno.</div>
+      </div>
+    `;
+
+    if(charts.ticketsmc) charts.ticketsmc.destroy();
+    charts.ticketsmc = new Chart(document.getElementById('chartTicketsMC'), {
+      type:'bar',
+      data:{ labels: mesesCortos, datasets:[
+        { label:'Tickets Mesa de Control', data: mesaControl, backgroundColor: COLOR.Telmex }
       ]},
       options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
     });
