@@ -807,27 +807,22 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'Ingrid Rodriguez Nuñez', meses:[245,112,313,500,457,445,361], promedio:1.9}
     ] },
     ticketsmc: { mesa_control: [956,887,1042,777,886,973,572,0,0,0,0,0], agentes: [
-      {nombre:'MC PPM', meses:[594,390,388,302,337,357,199], promedio:2.2},
-      {nombre:'MESA CONTROL', meses:[305,144,59,24,19,31,16], promedio:5.4},
-      {nombre:'MC EGF', meses:[0,233,442,337,378,465,257], promedio:1.3},
-      {nombre:'Sin asignar', meses:[0,0,0,0,0,1,6], promedio:14.4}
+      {nombre:'MC PPM', meses:[593,390,387,302,337,357,199], promedio:2.2},
+      {nombre:'MESA CONTROL', meses:[305,144,59,24,19,31,22], promedio:5.4},
+      {nombre:'MC EGF', meses:[0,233,441,336,378,465,257], promedio:1.3}
     ], categorias: [
       {categoria:'Reset de contraseña', meses:[409,358,444,351,349,304,171]},
       {categoria:'Reset de Token VPN', meses:[53,7,6,6,4,16,7]},
       {categoria:'Reactivacion de aplicativos de ventas y servicios ATT', meses:[90,59,56,30,36,47,34]},
       {categoria:'Reset Correo Zimbra', meses:[346,343,381,275,345,486,243]},
-      {categoria:'Sin subcategoría', meses:[1,0,1,1,0,0,0]},
-      {categoria:'Otros', meses:[0,0,1,0,0,1,0]},
       {categoria:'RESET de YUBIKEY por BAJA de colaborador', meses:[0,0,0,0,0,0,23]}
     ], categoria_agente: [
-      {categoria:'Reset de contraseña', 'MC PPM':{count:1136, promedio:2.3}, 'MESA CONTROL':{count:314, promedio:8.1}, 'MC EGF':{count:935, promedio:1.6}, 'Sin asignar':{count:1, promedio:null}},
-      {categoria:'Reset de Token VPN', 'MC PPM':{count:49, promedio:8.3}, 'MESA CONTROL':{count:32, promedio:2}, 'MC EGF':{count:15, promedio:0.3}, 'Sin asignar':{count:3, promedio:null}},
-      {categoria:'Reactivacion de aplicativos de ventas y servicios ATT', 'MC PPM':{count:171, promedio:8.3}, 'MESA CONTROL':{count:46, promedio:10.3}, 'MC EGF':{count:134, promedio:3.8}, 'Sin asignar':{count:1, promedio:14.4}},
+      {categoria:'Reset de contraseña', 'MC PPM':{count:1136, promedio:2.3}, 'MESA CONTROL':{count:315, promedio:8.1}, 'MC EGF':{count:935, promedio:1.6}},
+      {categoria:'Reset de Token VPN', 'MC PPM':{count:49, promedio:8.3}, 'MESA CONTROL':{count:35, promedio:2}, 'MC EGF':{count:15, promedio:0.3}},
+      {categoria:'Reactivacion de aplicativos de ventas y servicios ATT', 'MC PPM':{count:171, promedio:8.3}, 'MESA CONTROL':{count:47, promedio:10.3}, 'MC EGF':{count:134, promedio:3.8}},
       {categoria:'Reset Correo Zimbra', 'MC PPM':{count:1199, promedio:0.9}, 'MESA CONTROL':{count:204, promedio:0.7}, 'MC EGF':{count:1016, promedio:0.5}},
-      {categoria:'Sin subcategoría', 'MC PPM':{count:2, promedio:7.2}, 'MC EGF':{count:1, promedio:1.3}},
-      {categoria:'Otros', 'MC EGF':{count:1, promedio:0.6}, 'MESA CONTROL':{count:1, promedio:1}},
-      {categoria:'RESET de YUBIKEY por BAJA de colaborador', 'MC PPM':{count:10, promedio:9.5}, 'MC EGF':{count:10, promedio:8.5}, 'MESA CONTROL':{count:1, promedio:3.3}, 'Sin asignar':{count:2, promedio:null}}
-    ] , rechazado_cancelado: 809 },
+      {categoria:'RESET de YUBIKEY por BAJA de colaborador', 'MC PPM':{count:10, promedio:9.5}, 'MC EGF':{count:10, promedio:8.5}, 'MESA CONTROL':{count:3, promedio:3.3}}
+    ] , rechazado_cancelado: 814 },
     carga: { archivo: 'reporte_tickets.xlsx', tickets_caidas: 429, fecha: '2026-07-22T17:30:00.000Z' },
     expansion: { tiendas: [
       {numero:58, clave:'PRMDTSTIJ026', nombre:'PRM TDA MULTIPLAZA SANTA FE BC', mes:'Mayo 2026', region:'NOROESTE I', pc:'6', lap:'1', hc:'-', pinpad:'7', dif_pinpad:'-', biometricos:'7', dif_biometricos:'-', prep_equipo:'2026-01-15', envio_mac:'-', internet:'TELMEX', solicitud_arq:'-', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
@@ -1025,6 +1020,9 @@ auth.onAuthStateChanged(async function(user){
   // Agentes que se miden aparte, en la pestaña "Tickets Mesa de control" (son colas, no personas individuales).
   const AGENTES_MESA_CONTROL = ['MC PPM','MC EGF','MESA CONTROL'];
   const MESAS_CONTROL = ['Mesa de Control','Mesa de Control Nivel 1'];
+  // Tickets que se quedaron mal categorizados (Sin subcategoría / Otros) y que se decidió
+  // tratar siempre como Rechazado/Cancelado, sin importar qué diga el Excel para ellos.
+  const IDS_FORZAR_RECHAZADO = [220456, 233508, 237902, 229151, 248027];
 
   // Calcula los datos a partir de las filas del Excel SIN tocar el estado (para poder confirmar antes de aplicar)
   function calcularDatosTickets(rows, fileName){
@@ -1078,12 +1076,15 @@ auth.onAuthStateChanged(async function(user){
       if(MESAS_CONTROL.includes(mesaAyuda)){
         mesaControl[mIdx]++;
         const estadoMC = String(row['Estado']).trim();
+        const idTicket = Number(row['ID']);
+        const forzarRechazado = IDS_FORZAR_RECHAZADO.includes(idTicket);
 
-        if(estadoMC === 'Rechazado' || estadoMC === 'Cancelado'){
+        if(forzarRechazado || estadoMC === 'Rechazado' || estadoMC === 'Cancelado'){
           rechazoCancelMC++;
         } else {
           // Solo Cerrado/Abierto entran al detalle por agente y por categoría.
-          const agenteMC = agente || 'Sin asignar';
+          // Los que no tienen agente asignado se cuentan como MESA CONTROL (no aparte).
+          const agenteMC = agente || 'MESA CONTROL';
           if(!agenteMonthMC[agenteMC]) agenteMonthMC[agenteMC] = new Array(12).fill(0);
           agenteMonthMC[agenteMC][mIdx]++;
           let hrsMC = null;
@@ -2085,7 +2086,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel"><canvas id="chartTicketsMC"></canvas></div>
 
       <h3 style="margin-top:24px;">Tickets atendidos por Mesa de Control, por mes</h3>
-      <div class="foot" style="margin-bottom:10px;">Solo tickets Cerrado o Abierto (${cerradoAbierto.toLocaleString('es-MX')} de ${totalMesa.toLocaleString('es-MX')}) — no incluye Rechazado/Cancelado. "Sin asignar" son tickets que nunca se le asignaron a alguien.</div>
+      <div class="foot" style="margin-bottom:10px;">Solo tickets Cerrado o Abierto (${cerradoAbierto.toLocaleString('es-MX')} de ${totalMesa.toLocaleString('es-MX')}) — no incluye Rechazado/Cancelado. Los tickets sin agente asignado se cuentan dentro de MESA CONTROL.</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Mesa de Control</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
         <tbody>${agentes.map(a=>`
@@ -2115,7 +2116,7 @@ auth.onAuthStateChanged(async function(user){
       </div>
 
       <h3 style="margin-top:24px;">Categoría × Agente de Mesa de Control</h3>
-      <div class="foot" style="margin-bottom:10px;">Cruce de cada categoría contra quién la atendió. "Sin asignar" son tickets que nunca se asignaron (casi todos Rechazados).</div>
+      <div class="foot" style="margin-bottom:10px;">Cruce de cada categoría contra quién la atendió (los sin agente asignado se cuentan dentro de MESA CONTROL).</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Categoría</th>${agentesCols.map(a=>`<th>${a}</th>`).join('')}</tr></thead>
         <tbody>${catAgenteRows.map(r=>`
