@@ -913,13 +913,14 @@ function openModal(id) {
       </div>
       <div class="fg">
         <label>Estatus</label>
-        <select id="m-est">${ESTATUS.map(e=>`<option value="${e}"${t&&t.estatus===e?" selected":(!t&&e==="ABIERTO"?" selected":"")}>${e}</option>`).join("")}</select>
+        <select id="m-est" onchange="onEstatusChange(this.value)">${ESTATUS.map(e=>`<option value="${e}"${t&&t.estatus===e?" selected":(!t&&e==="ABIERTO"?" selected":"")}>${e}</option>`).join("")}</select>
       </div>
       <div class="fg form-full">
         <label>Observaciones <span style="font-size:10px;color:var(--text3);font-weight:400">— selecciona una respuesta predefinida o escribe una personalizada</span></label>
         <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
           <button type="button" class="btn sm" style="font-size:11px;height:26px" onclick="setObs(1)">📦 Envío de consumible</button>
           <button type="button" class="btn sm" style="font-size:11px;height:26px" onclick="setObs(2)">🔧 Visita técnica</button>
+          ${(t&&t.estatus==="CERRADO")?'<button type="button" class="btn sm" id="btn-cierre" style="font-size:11px;height:26px;color:var(--green-text);border-color:rgba(22,101,52,.4)" onclick="setObs(3)">✅ Cierre de ticket</button>':""}
           <button type="button" class="btn sm" style="font-size:11px;height:26px;color:var(--text3)" onclick="setObs(0)">✕ Limpiar</button>
         </div>
         <textarea id="m-obs" rows="4" style="width:100%;border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;line-height:1.5">${t?t.observaciones||"":""}</textarea>
@@ -928,7 +929,7 @@ function openModal(id) {
   </div>
   <div class="modal-footer">
     <button class="btn" onclick="closeModal()">Cancelar</button>
-    <button class="btn" style="color:var(--blue-text);border-color:var(--blue)" onclick="doSaveAndEmail()">${svgIcon("mail")} ${t?"Guardar y enviar correo":"Crear y enviar correo"}</button>
+  !t?'<button class="btn" style="color:var(--blue-text);border-color:var(--blue)" onclick="doSaveAndEmail()">✉ Crear y enviar correo</button>':''  }
     <button class="btn primary" onclick="doSave()">${svgIcon("check")} ${t?"Guardar cambios":"Crear ticket"}</button>
   </div>
 </div>`;
@@ -939,8 +940,36 @@ function openModal(id) {
 const OBS_PRESETS = [
   "",
   "Se ha solicitado el envío del consumible requerido. Le informamos que el servicio de mensajería tiene un tiempo estimado de entrega de 3 a 7 días hábiles. En caso de no recibir el paquete dentro de este plazo, le pedimos dar seguimiento a través de este mismo medio. Asimismo, al momento de recibir el consumible, le solicitamos confirmarlo por este canal para dar cierre al ticket.",
-  "Se ha levantado la solicitud de soporte técnico con el proveedor. Un técnico se comunicará con usted vía telefónica para coordinar la revisión de la falla reportada. Le pedimos estar al pendiente de la llamada. Cualquier actualización o acuerdo al que lleguen, favor de reportarlo a través de este medio para mantener el seguimiento correspondiente."
+  "Se ha levantado la solicitud de soporte técnico con el proveedor. Un técnico se comunicará con usted vía telefónica para coordinar la revisión de la falla reportada. Le pedimos estar al pendiente de la llamada. Cualquier actualización o acuerdo al que lleguen, favor de reportarlo a través de este medio para mantener el seguimiento correspondiente.",
+  "El ticket fue atendido y entregado el consumible."
 ];
+
+window.onEstatusChange = function(val) {
+  // Auto-fecha de entrega al cerrar
+  const entEl = document.getElementById("m-ent");
+  if(val === "CERRADO" && entEl && !entEl.value) {
+    const hoy = new Date().toISOString().split("T")[0];
+    entEl.value = hoy;
+  }
+  // Mostrar/ocultar botón cierre de ticket dinámicamente
+  const btnCierre = document.getElementById("btn-cierre");
+  if(btnCierre) {
+    btnCierre.style.display = val === "CERRADO" ? "inline-flex" : "none";
+  } else if(val === "CERRADO") {
+    // Si no existe (ticket nuevo que cambió a cerrado), insertarlo
+    const limpiar = document.querySelector("[onclick='setObs(0)']");
+    if(limpiar) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn sm";
+      btn.id = "btn-cierre";
+      btn.style.cssText = "font-size:11px;height:26px;color:var(--green-text);border-color:rgba(22,101,52,.4)";
+      btn.onclick = () => setObs(3);
+      btn.textContent = "✅ Cierre de ticket";
+      limpiar.parentNode.insertBefore(btn, limpiar);
+    }
+  }
+};
 
 window.setObs = function(idx) {
   const el = document.getElementById("m-obs");
