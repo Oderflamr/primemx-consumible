@@ -807,21 +807,26 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'Ingrid Rodriguez Nuñez', meses:[245,112,313,500,457,445,361], promedio:1.9}
     ] },
     ticketsmc: { mesa_control: [956,887,1042,777,886,973,572,0,0,0,0,0], agentes: [
-      {nombre:'MC PPM', meses:[594,391,388,302,337,357,199], promedio:2.2},
+      {nombre:'MC PPM', meses:[594,390,388,302,337,357,199], promedio:2.2},
       {nombre:'MESA CONTROL', meses:[307,145,59,24,19,31,16], promedio:5.4},
+      {nombre:'Sin asignar', meses:[55,119,153,114,151,120,100], promedio:14.4},
       {nombre:'MC EGF', meses:[0,233,442,337,379,465,257], promedio:1.3}
     ], categorias: [
-      {categoria:'Reset de contraseña', meses:[410,359,444,351,350,304,170]},
-      {categoria:'Reset de Token VPN', meses:[53,7,6,6,4,16,4]},
-      {categoria:'Reactivacion de aplicativos de ventas y servicios ATT', meses:[91,60,56,30,36,46,34]},
-      {categoria:'Reset Correo Zimbra', meses:[346,343,381,275,345,486,243]},
-      {categoria:'RESET de YUBIKEY por BAJA de colaborador', meses:[0,0,0,0,0,0,21]}
+      {categoria:'Reset de contraseña', meses:[416,387,472,374,381,324,189]},
+      {categoria:'Reset de Token VPN', meses:[94,58,93,66,92,83,40]},
+      {categoria:'Reactivacion de aplicativos de ventas y servicios ATT', meses:[96,87,88,48,53,71,55]},
+      {categoria:'Reset Correo Zimbra', meses:[348,353,387,287,359,493,252]},
+      {categoria:'Otros', meses:[1,2,1,1,1,2,1]},
+      {categoria:'Sin subcategoría', meses:[1,0,1,1,0,0,1]},
+      {categoria:'RESET de YUBIKEY por BAJA de colaborador', meses:[0,0,0,0,0,0,34]}
     ], categoria_agente: [
-      {categoria:'Reset de contraseña', 'MC PPM':{count:1137, promedio:2.3}, 'MC EGF':{count:936, promedio:1.6}, 'MESA CONTROL':{count:315, promedio:8.1}},
-      {categoria:'Reset de Token VPN', 'MC PPM':{count:49, promedio:8.3}, 'MC EGF':{count:15, promedio:0.3}, 'MESA CONTROL':{count:32, promedio:2}},
-      {categoria:'Reactivacion de aplicativos de ventas y servicios ATT', 'MC PPM':{count:171, promedio:8.3}, 'MC EGF':{count:134, promedio:3.8}, 'MESA CONTROL':{count:48, promedio:10.3}},
-      {categoria:'Reset Correo Zimbra', 'MC PPM':{count:1199, promedio:0.9}, 'MC EGF':{count:1016, promedio:0.5}, 'MESA CONTROL':{count:204, promedio:0.7}},
-      {categoria:'RESET de YUBIKEY por BAJA de colaborador', 'MC PPM':{count:10, promedio:9.5}, 'MC EGF':{count:10, promedio:8.5}, 'MESA CONTROL':{count:1, promedio:3.3}}
+      {categoria:'Reset de contraseña', 'MC PPM':{count:1136, promedio:2.3}, 'MESA CONTROL':{count:315, promedio:8.1}, 'Sin asignar':{count:156, promedio:null}, 'MC EGF':{count:936, promedio:1.6}},
+      {categoria:'Reset de Token VPN', 'MC PPM':{count:49, promedio:8.3}, 'Sin asignar':{count:430, promedio:null}, 'MESA CONTROL':{count:32, promedio:2}, 'MC EGF':{count:15, promedio:0.3}},
+      {categoria:'Reactivacion de aplicativos de ventas y servicios ATT', 'MC PPM':{count:171, promedio:8.3}, 'MESA CONTROL':{count:48, promedio:10.3}, 'Sin asignar':{count:145, promedio:14.4}, 'MC EGF':{count:134, promedio:3.8}},
+      {categoria:'Reset Correo Zimbra', 'MC PPM':{count:1199, promedio:0.9}, 'MESA CONTROL':{count:204, promedio:0.7}, 'Sin asignar':{count:60, promedio:null}, 'MC EGF':{count:1016, promedio:0.5}},
+      {categoria:'Otros', 'Sin asignar':{count:7, promedio:null}, 'MC EGF':{count:1, promedio:0.6}, 'MESA CONTROL':{count:1, promedio:1}},
+      {categoria:'Sin subcategoría', 'MC PPM':{count:2, promedio:7.2}, 'MC EGF':{count:1, promedio:1.3}, 'Sin asignar':{count:1, promedio:null}},
+      {categoria:'RESET de YUBIKEY por BAJA de colaborador', 'Sin asignar':{count:13, promedio:null}, 'MC PPM':{count:10, promedio:9.5}, 'MC EGF':{count:10, promedio:8.5}, 'MESA CONTROL':{count:1, promedio:3.3}}
     ] },
     carga: { archivo: 'reporte_tickets.xlsx', tickets_caidas: 429, fecha: '2026-07-22T17:30:00.000Z' },
     expansion: { tiendas: [
@@ -1048,9 +1053,6 @@ auth.onAuthStateChanged(async function(user){
       if(mesaAyuda === 'Soporte IT Nivel 1'){
         mesaSoporteIT[mIdx]++;
       }
-      if(MESAS_CONTROL.includes(mesaAyuda)){
-        mesaControl[mIdx]++;
-      }
       // Ingenieros (Agente asignado): sobre TODOS los tickets del archivo, excluyendo colas/personas fuera de medición.
       const agente = row['Agente asignado'] ? String(row['Agente asignado']).trim() : '';
       if(agente && !AGENTES_EXCLUIDOS.includes(agente)){
@@ -1067,39 +1069,39 @@ auth.onAuthStateChanged(async function(user){
           }
         }
       }
-      // Agentes de Mesa de Control (MC PPM, MC EGF, Mesa de Control): se miden aparte.
-      if(agente && AGENTES_MESA_CONTROL.includes(agente)){
-        if(!agenteMonthMC[agente]) agenteMonthMC[agente] = new Array(12).fill(0);
-        agenteMonthMC[agente][mIdx]++;
+
+      // Mesa de Control: UNA sola fuente de verdad (columna "Mesa de ayuda"). Todo lo que se
+      // desglosa abajo (por agente, por categoría, el cruce) es un recorte de este MISMO
+      // conjunto de filas, para que los totales siempre cuadren entre las distintas tablas.
+      if(MESAS_CONTROL.includes(mesaAyuda)){
+        mesaControl[mIdx]++;
+
+        const agenteMC = agente || 'Sin asignar';
+        if(!agenteMonthMC[agenteMC]) agenteMonthMC[agenteMC] = new Array(12).fill(0);
+        agenteMonthMC[agenteMC][mIdx]++;
+        let hrsMC = null;
         if(String(row['Estado']).trim()==='Cerrado'){
           const fcierreMC = parseFechaTicket(row['Fecha de cierre']);
           if(fcierreMC){
-            const hrsMC = (fcierreMC - fc)/3600000;
-            if(hrsMC >= 0){
-              if(!agenteDuracionesMC[agente]) agenteDuracionesMC[agente] = [];
-              agenteDuracionesMC[agente].push(hrsMC);
-            }
+            const h = (fcierreMC - fc)/3600000;
+            if(h >= 0) hrsMC = h;
           }
         }
-      }
+        if(hrsMC !== null){
+          if(!agenteDuracionesMC[agenteMC]) agenteDuracionesMC[agenteMC] = [];
+          agenteDuracionesMC[agenteMC].push(hrsMC);
+        }
 
-      // Detalle de Mesa de Control por categoría — solo tickets atendidos por MC PPM/MC EGF/MESA CONTROL
-      // (consistente con el resto de la pestaña), sin contar las filas genéricas sin subcategoría.
-      const categoriaFull = String(row['Categoría']||'').trim();
-      if(categoriaFull.startsWith('Mesa de Control > ') && agente && AGENTES_MESA_CONTROL.includes(agente)){
-        const catCorta = categoriaFull.replace('Mesa de Control > ', '');
+        const categoriaFull = String(row['Categoría']||'').trim();
+        const catCorta = categoriaFull.startsWith('Mesa de Control > ')
+          ? categoriaFull.replace('Mesa de Control > ', '')
+          : (categoriaFull === 'Mesa de Control' || !categoriaFull ? 'Sin subcategoría' : 'Otros');
         if(!catMonth[catCorta]) catMonth[catCorta] = new Array(12).fill(0);
         catMonth[catCorta][mIdx]++;
         if(!catAgente[catCorta]) catAgente[catCorta] = {};
-        if(!catAgente[catCorta][agente]) catAgente[catCorta][agente] = { count:0, dur:[] };
-        catAgente[catCorta][agente].count++;
-        if(String(row['Estado']).trim()==='Cerrado'){
-          const fcierreCat = parseFechaTicket(row['Fecha de cierre']);
-          if(fcierreCat){
-            const hrsCat = (fcierreCat - fc)/3600000;
-            if(hrsCat >= 0) catAgente[catCorta][agente].dur.push(hrsCat);
-          }
-        }
+        if(!catAgente[catCorta][agenteMC]) catAgente[catCorta][agenteMC] = { count:0, dur:[] };
+        catAgente[catCorta][agenteMC].count++;
+        if(hrsMC !== null) catAgente[catCorta][agenteMC].dur.push(hrsMC);
       }
 
       const provVel = proveedorVelocidad(row['Categoría']);
@@ -1181,11 +1183,9 @@ auth.onAuthStateChanged(async function(user){
     }));
     const mcCategoriaAgente = Object.entries(catAgente).map(([categoria,porAgente])=>{
       const fila = { categoria };
-      AGENTES_MESA_CONTROL.forEach(ag=>{
-        const d = porAgente[ag];
-        const count = d ? d.count : 0;
-        const promedio = (d && d.dur.length) ? Math.round((d.dur.reduce((a,b)=>a+b,0)/d.dur.length)*10)/10 : null;
-        fila[ag] = { count, promedio };
+      Object.entries(porAgente).forEach(([ag,d])=>{
+        const promedio = d.dur.length ? Math.round((d.dur.reduce((a,b)=>a+b,0)/d.dur.length)*10)/10 : null;
+        fila[ag] = { count: d.count, promedio };
       });
       return fila;
     });
@@ -2051,6 +2051,8 @@ auth.onAuthStateChanged(async function(user){
     const categorias = (tmc.categorias || []).map(r=>({...r, total: r.meses.reduce((x,y)=>x+Number(y||0),0)}))
       .sort((a,b)=>b.total-a.total);
     const catAgenteRows = tmc.categoria_agente || [];
+    const agentesCols = Array.from(new Set(catAgenteRows.flatMap(r=>Object.keys(r).filter(k=>k!=='categoria'))))
+      .sort((a,b)=> a==='Sin asignar' ? 1 : b==='Sin asignar' ? -1 : a.localeCompare(b));
 
     c.innerHTML = `
       <div class="title">Tickets Mesa de control</div>
@@ -2067,7 +2069,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel"><canvas id="chartTicketsMC"></canvas></div>
 
       <h3 style="margin-top:24px;">Tickets atendidos por Mesa de Control, por mes</h3>
-      <div class="foot" style="margin-bottom:10px;">Todos los tickets del archivo (no solo Internet), agrupados por MC PPM, MC EGF y Mesa de Control.</div>
+      <div class="foot" style="margin-bottom:10px;">Mismas filas de la gráfica de arriba (Mesa de ayuda = "Mesa de Control" o "Mesa de Control Nivel 1"), agrupadas por quién las atendió. "Sin asignar" son tickets que nunca se le asignaron a alguien (casi todos Rechazados).</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Mesa de Control</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
         <tbody>${agentes.map(a=>`
@@ -2083,7 +2085,7 @@ auth.onAuthStateChanged(async function(user){
       </div>
 
       <h3 style="margin-top:24px;">Detalle de tickets Mesa de Control por categoría</h3>
-      <div class="foot" style="margin-bottom:10px;">Categoría del ticket (columna "Categoría"), solo tickets atendidos por MC PPM, MC EGF o Mesa de Control. No incluye las filas sin subcategoría.</div>
+      <div class="foot" style="margin-bottom:10px;">Mismas filas de la cola "Mesa de Control" (columna "Mesa de ayuda") de la gráfica de arriba, agrupadas por categoría del ticket.</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Categoría</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th></tr></thead>
         <tbody>${categorias.map(r=>`
@@ -2097,16 +2099,17 @@ auth.onAuthStateChanged(async function(user){
       </div>
 
       <h3 style="margin-top:24px;">Categoría × Agente de Mesa de Control</h3>
-      <div class="foot" style="margin-bottom:10px;">Cruce de cada categoría contra MC PPM, MC EGF y Mesa de Control — tickets atendidos y tiempo promedio de atención (horas), para medir su desempeño.</div>
+      <div class="foot" style="margin-bottom:10px;">Cruce de cada categoría contra quién la atendió — tickets y tiempo promedio de atención (horas). "Sin asignar" son tickets que nunca se asignaron (casi todos Rechazados).</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
-        <thead><tr><th style="text-align:left;">Categoría</th><th colspan="2">MC PPM</th><th colspan="2">MC EGF</th><th colspan="2">MESA CONTROL</th></tr>
-        <tr><th></th><th>Tickets</th><th>Prom.</th><th>Tickets</th><th>Prom.</th><th>Tickets</th><th>Prom.</th></tr></thead>
+        <thead><tr><th style="text-align:left;">Categoría</th>${agentesCols.map(a=>`<th colspan="2">${a}</th>`).join('')}</tr>
+        <tr><th></th>${agentesCols.map(()=>`<th>Tickets</th><th>Prom.</th>`).join('')}</tr></thead>
         <tbody>${catAgenteRows.map(r=>`
           <tr>
             <td style="text-align:left;">${r.categoria}</td>
-            <td>${r['MC PPM'].count||'-'}</td><td>${r['MC PPM'].promedio!==null?r['MC PPM'].promedio+'h':'s/d'}</td>
-            <td>${r['MC EGF'].count||'-'}</td><td>${r['MC EGF'].promedio!==null?r['MC EGF'].promedio+'h':'s/d'}</td>
-            <td>${r['MESA CONTROL'].count||'-'}</td><td>${r['MESA CONTROL'].promedio!==null?r['MESA CONTROL'].promedio+'h':'s/d'}</td>
+            ${agentesCols.map(a=>{
+              const d = r[a] || {count:0,promedio:null};
+              return `<td>${d.count||'-'}</td><td>${d.promedio!==null?d.promedio+'h':'s/d'}</td>`;
+            }).join('')}
           </tr>`).join('')}
         </tbody>
       </table></div>
