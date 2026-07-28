@@ -930,7 +930,7 @@ auth.onAuthStateChanged(async function(user){
     render();
   }
   async function save(){
-    if(!canEdit){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
+    if(!canEdit && !canEditInventario()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
     state.updated_at = new Date().toISOString();
     try{
       await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).set({
