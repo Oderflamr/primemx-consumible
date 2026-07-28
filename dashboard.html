@@ -2028,18 +2028,20 @@ auth.onAuthStateChanged(async function(user){
       <div class="title">Tickets Soporte</div>
       <div class="subtitle">Carga de trabajo y tiempos de atención · Ene-${state.periodo_actual} ${state.anio}</div>
 
-      <h3>Tickets de Soporte IT por mes</h3>
+      <h3>Tickets de Soporte IT — ${state.anio-1} vs ${state.anio}</h3>
       <div class="foot" style="margin-bottom:10px;">Todos los tickets del archivo, sin importar categoría ni mesa de ayuda — excepto Reset Correo Zimbra, Reset de contraseña, Reactivación de aplicativos ATT y Reset de YUBIKEY (esas son de Mesa de Control, tienen su propia pestaña).</div>
-      <div class="cards" style="grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:16px;">
-        <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Total Ene-${state.periodo_actual}</div>
-          <div class="body"><div class="big">${totalMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte IT</div></div></div>
-        <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Promedio mensual</div>
+      <div class="cards" style="grid-template-columns:repeat(3,minmax(0,1fr)); margin-bottom:16px;">
+        <div class="card"><div class="head" style="background:#B39DDB">Año ${state.anio-1} (Ene-${state.periodo_actual})</div>
+          <div class="body"><div class="big">${cum2025.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte</div></div></div>
+        <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Año ${state.anio} (Ene-${state.periodo_actual})</div>
+          <div class="body"><div class="big">${totalMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte</div></div></div>
+        <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Promedio mensual ${state.anio}</div>
           <div class="body"><div class="big">${promedioMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets por mes</div></div></div>
       </div>
-      <div class="panel"><canvas id="chartIngenieros"></canvas></div>
+      <div class="panel"><canvas id="chartIngenierosYoy"></canvas></div>
 
       <h3 style="margin-top:24px;">Tickets atendidos por ingeniero, por mes</h3>
-      <div class="foot" style="margin-bottom:10px;">Mismas filas de la gráfica de arriba, agrupadas por quién las atendió. "Soporte Prime" agrupa a MC PPM, MC EGF, Mesa de Control, a Alfredo, Eder, Daniel, Ariadna y Luis Alzaga (excluidos a solicitud), y a los tickets sin agente asignado.</div>
+      <div class="foot" style="margin-bottom:10px;">Mismas filas de la gráfica de arriba (año ${state.anio}), agrupadas por quién las atendió. "Soporte Prime" agrupa a MC PPM, MC EGF, Mesa de Control, a Alfredo, Eder, Daniel, Ariadna y Luis Alzaga (excluidos a solicitud), y a los tickets sin agente asignado.</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Ingeniero</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
         <tbody>${agentes.map(a=>`
@@ -2053,25 +2055,7 @@ auth.onAuthStateChanged(async function(user){
       </table></div>
       <div class="foot">"Prom. atención" es el promedio de horas entre creación y cierre de los tickets cerrados de cada ingeniero.</div>
       </div>
-
-      <h3 style="margin-top:24px;">Comparativo Tickets Soporte — 2025 vs ${state.anio}</h3>
-      <div class="cards" style="grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:16px;">
-        <div class="card"><div class="head" style="background:#B39DDB">Año ${state.anio-1} (Ene-${state.periodo_actual})</div>
-          <div class="body"><div class="big">${cum2025.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte</div></div></div>
-        <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Año ${state.anio} (Ene-${state.periodo_actual})</div>
-          <div class="body"><div class="big">${totalMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte</div></div></div>
-      </div>
-      <div class="panel"><canvas id="chartIngenierosYoy"></canvas></div>
     `;
-
-    if(charts.ingenieros) charts.ingenieros.destroy();
-    charts.ingenieros = new Chart(document.getElementById('chartIngenieros'), {
-      type:'bar',
-      data:{ labels: mesesCortos, datasets:[
-        { label:'Tickets Soporte IT Nivel 1', data: mesaSoporteIT, backgroundColor: COLOR_COMBINADO }
-      ]},
-      options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
-    });
 
     if(charts.ingenierosYoy) charts.ingenierosYoy.destroy();
     charts.ingenierosYoy = new Chart(document.getElementById('chartIngenierosYoy'), {
