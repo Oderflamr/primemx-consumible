@@ -2208,6 +2208,9 @@ auth.onAuthStateChanged(async function(user){
       ['Adquiridas','adquiridas'], ['Entregadas','entregadas'], ['Inventariadas','inventariadas'],
       ['No inventariadas','no_inventariadas'], ['Falta por recibir','falta_recibir']
     ];
+    const total = data.asignaciones.reduce((s,a)=>s+Number(a.valor||0),0);
+    const mesesTranscurridos = idxMes(state.periodo_actual) + 2; // diciembre + Ene..periodo_actual
+    const promMensual = Math.round(total / mesesTranscurridos);
     return `
       <div style="border:1px solid var(--line); border-radius:10px; overflow:hidden;">
         <div style="background:${color}; color:#fff; font-weight:700; font-size:16px; padding:12px 16px;">${tipo}</div>
@@ -2232,16 +2235,19 @@ auth.onAuthStateChanged(async function(user){
           ${editando ? `<button data-inv-asig-agregar="${tipo}" style="margin-top:8px;">Agregar renglón</button>` : ''}
           <div style="display:flex; justify-content:space-between; padding:9px 0; margin-top:${editando?'10px':'0'}; border-bottom:1px solid var(--line);">
             <span style="font-weight:700; color:${color};">Total entregadas</span>
-            ${editando ? `<input type="number" data-inv="${tipo}.total_entregadas" value="${data.total_entregadas}" style="width:80px; text-align:right; font-weight:700;">` : `<b style="color:${color};">${data.total_entregadas}</b>`}
+            <b style="color:${color};">${total}</b>
           </div>
+          <div class="foot" style="margin-top:2px;">Se calcula solo, sumando los renglones de Asignación de arriba.</div>
           <div style="display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line);">
             <span style="font-weight:700; color:${color};">Prom. Mensual</span>
-            ${editando ? `<input type="number" data-inv="${tipo}.prom_mensual" value="${data.prom_mensual}" style="width:80px; text-align:right; font-weight:700;">` : `<b style="color:${color};">${data.prom_mensual}</b>`}
+            <b style="color:${color};">${promMensual}</b>
           </div>
+          <div class="foot" style="margin-top:2px;">Total entregadas ÷ ${mesesTranscurridos} (de diciembre a ${state.periodo_actual}) — crece solo cada mes.</div>
           <div style="display:flex; justify-content:space-between; padding:9px 0;">
             <span style="font-weight:700; color:${color};">Proyección Anual</span>
             ${editando ? `<input type="number" data-inv="${tipo}.proyeccion_anual" value="${data.proyeccion_anual}" style="width:80px; text-align:right; font-weight:700;">` : `<b style="color:${color};">${data.proyeccion_anual}</b>`}
           </div>
+          <div class="foot" style="margin-top:2px;">Meta fija definida al comprar el equipo — no se recalcula, se edita a mano si cambia.</div>
         </div>
       </div>
     `;
