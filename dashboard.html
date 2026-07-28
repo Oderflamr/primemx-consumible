@@ -826,6 +826,27 @@ auth.onAuthStateChanged(async function(user){
       {categoria:'RESET de YUBIKEY por BAJA de colaborador', 'MC PPM':{count:10, promedio:9.5}, 'MC EGF':{count:10, promedio:8.5}, 'MESA CONTROL':{count:3, promedio:3.3}}
     ] , rechazado_cancelado: 814 },
     carga: { archivo: 'reporte_tickets.xlsx', tickets_caidas: 429, fecha: '2026-07-22T17:30:00.000Z' },
+    inventario: {
+      laptop: {
+        adquiridas:178, entregadas:178, inventariadas:149, no_inventariadas:0, falta_recibir:0,
+        asignaciones: [
+          {nombre:'Asignadas Mazaryk', valor:12},
+          {nombre:'Reemplazos Backoffice', valor:6},
+          {nombre:'Reemplazos Tienda', valor:96},
+          {nombre:'Expansión', valor:8},
+          {nombre:'Cambaceo', valor:2}
+        ],
+        total_entregadas:124, prom_mensual:14, proyeccion_anual:12
+      },
+      cpu: {
+        adquiridas:374, entregadas:374, inventariadas:374, no_inventariadas:0, falta_recibir:0,
+        asignaciones: [
+          {nombre:'Reemplazos Tienda', valor:211},
+          {nombre:'Expansión', valor:39}
+        ],
+        total_entregadas:250, prom_mensual:30, proyeccion_anual:25
+      }
+    },
     expansion: { tiendas: [
       {numero:58, clave:'PRMDTSTIJ026', nombre:'PRM TDA MULTIPLAZA SANTA FE BC', mes:'Mayo 2026', region:'NOROESTE I', pc:'6', lap:'1', hc:'-', pinpad:'7', dif_pinpad:'-', biometricos:'7', dif_biometricos:'-', prep_equipo:'2026-01-15', envio_mac:'-', internet:'TELMEX', solicitud_arq:'-', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
       {numero:59, clave:'PRMDTSQRO024', nombre:'PRM TDA PLAZA DEL PARQUE QRO', mes:'Mayo 2026', region:'BAJIO', pc:'4', lap:'1', hc:'5', pinpad:'5', dif_pinpad:'-', biometricos:'5', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTAL', solicitud_arq:'-', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
@@ -859,6 +880,7 @@ auth.onAuthStateChanged(async function(user){
     {id:'migracion_carrier', label:'Migración de carrier'},
     {id:'ingenieros', label:'Tickets Soporte'},
     {id:'ticketsmc', label:'Tickets Mesa de control'},
+    {id:'inventario', label:'Inventario de Equipo'},
     {id:'expansion', label:'Plan de expansión'}
   ];
 
@@ -867,6 +889,13 @@ auth.onAuthStateChanged(async function(user){
   let editing = false;
   let charts = {};
   let canEdit = false;
+  // Inventario de Equipo: además del admin, estos dos usuarios específicos pueden editar
+  // esta pestaña aunque su rol general sea "consulta".
+  const USUARIOS_INVENTARIO = ['ecastillo','daguilar'];
+  function canEditInventario(){
+    if(canEdit) return true;
+    return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_INVENTARIO.includes(currentUser.username));
+  }
   let cargaPendiente = null;
   let cargaPendienteExpansion = null;
 
@@ -891,6 +920,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.ingenieros) state.ingenieros = clone(DEFAULTS.ingenieros);
       if(!state.ingenieros.yoy_2025) state.ingenieros.yoy_2025 = clone(DEFAULTS.ingenieros.yoy_2025);
       if(!state.ticketsmc) state.ticketsmc = clone(DEFAULTS.ticketsmc);
+      if(!state.inventario) state.inventario = clone(DEFAULTS.inventario);
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
       if(!state.ticketsmc.categoria_agente) state.ticketsmc.categoria_agente = clone(DEFAULTS.ticketsmc.categoria_agente);
       if(state.ticketsmc.rechazado_cancelado === undefined) state.ticketsmc.rechazado_cancelado = DEFAULTS.ticketsmc.rechazado_cancelado;
@@ -1518,6 +1548,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='migracion_carrier') return renderMigracionCarrier(c);
     if(tab==='ingenieros') return renderIngenieros(c);
     if(tab==='ticketsmc') return renderTicketsMC(c);
+    if(tab==='inventario') return renderInventario(c);
     if(tab==='expansion') return renderExpansion(c);
   }
 
@@ -2169,6 +2200,107 @@ auth.onAuthStateChanged(async function(user){
       ]},
       options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
     });
+  }
+
+  // ---------- Inventario de Equipo ----------
+  function panelInventario(tipo, data, color, editando){
+    const filasAdq = [
+      ['Adquiridas','adquiridas'], ['Entregadas','entregadas'], ['Inventariadas','inventariadas'],
+      ['No inventariadas','no_inventariadas'], ['Falta por recibir','falta_recibir']
+    ];
+    return `
+      <div style="border:1px solid var(--line); border-radius:10px; overflow:hidden;">
+        <div style="background:${color}; color:#fff; font-weight:700; font-size:16px; padding:12px 16px;">${tipo}</div>
+        <div style="padding:14px 16px;">
+          <div style="font-size:11px; font-weight:700; color:var(--sub); letter-spacing:.5px; margin-bottom:6px;">ADQUISICIÓN</div>
+          ${filasAdq.map(([label,key])=>`
+            <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line);">
+              <span>${label}</span>
+              ${editando ? `<input type="number" data-inv="${tipo}.${key}" value="${data[key]}" style="width:80px; text-align:right;">` : `<b>${data[key]}</b>`}
+            </div>`).join('')}
+          <div style="font-size:11px; font-weight:700; color:var(--sub); letter-spacing:.5px; margin:14px 0 6px;">ASIGNACIÓN</div>
+          ${data.asignaciones.map((a,i)=>`
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid var(--line);">
+              ${editando
+                ? `<input type="text" data-inv-asig-nombre="${tipo}.${i}" value="${a.nombre}" style="flex:1; margin-right:8px;">`
+                : `<span>${a.nombre}</span>`}
+              ${editando
+                ? `<input type="number" data-inv-asig-valor="${tipo}.${i}" value="${a.valor}" style="width:70px; text-align:right;">`
+                : `<b style="color:${color};">${a.valor}</b>`}
+              ${editando ? `<button data-inv-asig-quitar="${tipo}.${i}" style="margin-left:8px; padding:2px 7px;">✕</button>` : ''}
+            </div>`).join('')}
+          ${editando ? `<button data-inv-asig-agregar="${tipo}" style="margin-top:8px;">Agregar renglón</button>` : ''}
+          <div style="display:flex; justify-content:space-between; padding:9px 0; margin-top:${editando?'10px':'0'}; border-bottom:1px solid var(--line);">
+            <span style="font-weight:700; color:${color};">Total entregadas</span>
+            ${editando ? `<input type="number" data-inv="${tipo}.total_entregadas" value="${data.total_entregadas}" style="width:80px; text-align:right; font-weight:700;">` : `<b style="color:${color};">${data.total_entregadas}</b>`}
+          </div>
+          <div style="display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line);">
+            <span style="font-weight:700; color:${color};">Prom. Mensual</span>
+            ${editando ? `<input type="number" data-inv="${tipo}.prom_mensual" value="${data.prom_mensual}" style="width:80px; text-align:right; font-weight:700;">` : `<b style="color:${color};">${data.prom_mensual}</b>`}
+          </div>
+          <div style="display:flex; justify-content:space-between; padding:9px 0;">
+            <span style="font-weight:700; color:${color};">Proyección Anual</span>
+            ${editando ? `<input type="number" data-inv="${tipo}.proyeccion_anual" value="${data.proyeccion_anual}" style="width:80px; text-align:right; font-weight:700;">` : `<b style="color:${color};">${data.proyeccion_anual}</b>`}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  function renderInventario(c){
+    const inv = state.inventario;
+    const puedeEditar = canEditInventario();
+    c.innerHTML = `
+      <div class="title">Inventario de Equipo ${state.anio}</div>
+      <div class="subtitle">Laptop y CPU — Estado de adquisición, entrega y asignación</div>
+      <div class="editbar">${editing && puedeEditar
+        ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
+        : (puedeEditar ? `<button id="btnEdit">Editar</button>` : '')}</div>
+      <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; margin-top:10px;">
+        ${panelInventario('LAPTOP', inv.laptop, '#1565C0', editing && puedeEditar)}
+        ${panelInventario('CPU', inv.cpu, '#1B5E20', editing && puedeEditar)}
+      </div>
+      ${!puedeEditar ? '' : ''}
+    `;
+    if(editing && puedeEditar){
+      document.getElementById('btnCancel').onclick = ()=>{ editing=false; render(); };
+      document.getElementById('btnSave').onclick = ()=>{
+        document.querySelectorAll('[data-inv]').forEach(inp=>{
+          const [tipo,key] = inp.dataset.inv.split('.');
+          const obj = tipo==='LAPTOP' ? inv.laptop : inv.cpu;
+          obj[key] = Number(inp.value||0);
+        });
+        document.querySelectorAll('[data-inv-asig-nombre]').forEach(inp=>{
+          const [tipo,idx] = inp.dataset.invAsigNombre.split('.');
+          const obj = tipo==='LAPTOP' ? inv.laptop : inv.cpu;
+          obj.asignaciones[Number(idx)].nombre = inp.value;
+        });
+        document.querySelectorAll('[data-inv-asig-valor]').forEach(inp=>{
+          const [tipo,idx] = inp.dataset.invAsigValor.split('.');
+          const obj = tipo==='LAPTOP' ? inv.laptop : inv.cpu;
+          obj.asignaciones[Number(idx)].valor = Number(inp.value||0);
+        });
+        editing = false;
+        save();
+      };
+      document.querySelectorAll('[data-inv-asig-quitar]').forEach(btn=>{
+        btn.onclick = ()=>{
+          const [tipo,idx] = btn.dataset.invAsigQuitar.split('.');
+          const obj = tipo==='LAPTOP' ? inv.laptop : inv.cpu;
+          obj.asignaciones.splice(Number(idx),1);
+          render();
+        };
+      });
+      document.querySelectorAll('[data-inv-asig-agregar]').forEach(btn=>{
+        btn.onclick = ()=>{
+          const tipo = btn.dataset.invAsigAgregar;
+          const obj = tipo==='LAPTOP' ? inv.laptop : inv.cpu;
+          obj.asignaciones.push({nombre:'Nuevo renglón', valor:0});
+          render();
+        };
+      });
+    } else if(puedeEditar){
+      document.getElementById('btnEdit').onclick = ()=>{ editing=true; render(); };
+    }
   }
 
   function renderExpansion(c){
