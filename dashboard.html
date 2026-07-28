@@ -806,7 +806,7 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'Ingrid Rodriguez Nuñez', meses:[245,112,313,499,457,445,360], promedio:1.9},
       {nombre:'Leon Gustavo Rivera Arriaga', meses:[125,436,568,353,387,422,215], promedio:1.5},
       {nombre:'Josafath setzafel Pacheco Zamorano', meses:[660,349,357,455,334,427,229], promedio:2.9}
-    ] },
+    ], yoy_2025: [5101,4400,4202,3382,3413,4215,3675,4045,4155,3800,5536,4100] },
     ticketsmc: { mesa_control: [956,887,1042,777,886,973,572,0,0,0,0,0], agentes: [
       {nombre:'MC PPM', meses:[593,390,387,302,337,357,199], promedio:2.2},
       {nombre:'MESA CONTROL', meses:[305,144,59,24,19,31,22], promedio:5.4},
@@ -888,6 +888,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.top_velocidad_totalplay) state.top_velocidad_totalplay = clone(DEFAULTS.top_velocidad_totalplay);
       if(!state.top_velocidad_telmex) state.top_velocidad_telmex = clone(DEFAULTS.top_velocidad_telmex);
       if(!state.ingenieros) state.ingenieros = clone(DEFAULTS.ingenieros);
+      if(!state.ingenieros.yoy_2025) state.ingenieros.yoy_2025 = clone(DEFAULTS.ingenieros.yoy_2025);
       if(!state.ticketsmc) state.ticketsmc = clone(DEFAULTS.ticketsmc);
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
       if(!state.ticketsmc.categoria_agente) state.ticketsmc.categoria_agente = clone(DEFAULTS.ticketsmc.categoria_agente);
@@ -2017,9 +2018,11 @@ auth.onAuthStateChanged(async function(user){
     const ing = state.ingenieros || {};
     const mesaSoporteIT = (ing.mesa_soporte_it || new Array(12).fill(0)).slice(0,hasta+1);
     const agentes = (ing.agentes || []).map(a=>({...a, total: a.meses.reduce((x,y)=>x+Number(y||0),0)}))
-      .sort((a,b)=>b.total-a.total);
+      .sort((a,b)=> a.nombre==='Soporte Prime' ? 1 : b.nombre==='Soporte Prime' ? -1 : b.total-a.total);
     const totalMesa = mesaSoporteIT.reduce((a,b)=>a+Number(b||0),0);
     const promedioMesa = mesaSoporteIT.length ? Math.round(totalMesa/mesaSoporteIT.length) : 0;
+    const yoy2025 = (ing.yoy_2025 || new Array(12).fill(0)).slice(0,hasta+1);
+    const cum2025 = yoy2025.reduce((a,b)=>a+Number(b||0),0);
 
     c.innerHTML = `
       <div class="title">Tickets Soporte</div>
@@ -2044,12 +2047,21 @@ auth.onAuthStateChanged(async function(user){
             <td style="text-align:left;">${a.nombre}</td>
             ${mesesCortos.map((m,mi)=>`<td>${a.meses[mi]||'-'}</td>`).join('')}
             <td><b>${a.total}</b></td>
-            <td>${a.promedio!==null && a.promedio!==undefined ? a.promedio+'h' : 's/d'}</td>
+            <td>${a.nombre==='Soporte Prime' ? '' : (a.promedio!==null && a.promedio!==undefined ? a.promedio+'h' : 's/d')}</td>
           </tr>`).join('')}
         </tbody>
       </table></div>
       <div class="foot">"Prom. atención" es el promedio de horas entre creación y cierre de los tickets cerrados de cada ingeniero.</div>
       </div>
+
+      <h3 style="margin-top:24px;">Comparativo Tickets Soporte — 2025 vs ${state.anio}</h3>
+      <div class="cards" style="grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:16px;">
+        <div class="card"><div class="head" style="background:#B39DDB">Año ${state.anio-1} (Ene-${state.periodo_actual})</div>
+          <div class="body"><div class="big">${cum2025.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte</div></div></div>
+        <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Año ${state.anio} (Ene-${state.periodo_actual})</div>
+          <div class="body"><div class="big">${totalMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte</div></div></div>
+      </div>
+      <div class="panel"><canvas id="chartIngenierosYoy"></canvas></div>
     `;
 
     if(charts.ingenieros) charts.ingenieros.destroy();
@@ -2059,6 +2071,16 @@ auth.onAuthStateChanged(async function(user){
         { label:'Tickets Soporte IT Nivel 1', data: mesaSoporteIT, backgroundColor: COLOR_COMBINADO }
       ]},
       options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+    });
+
+    if(charts.ingenierosYoy) charts.ingenierosYoy.destroy();
+    charts.ingenierosYoy = new Chart(document.getElementById('chartIngenierosYoy'), {
+      type:'bar',
+      data:{ labels: mesesCortos, datasets:[
+        { label:String(state.anio-1), data: yoy2025, backgroundColor:'#B39DDB' },
+        { label:String(state.anio), data: mesaSoporteIT, backgroundColor: COLOR_COMBINADO }
+      ]},
+      options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
     });
   }
 
