@@ -269,6 +269,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .toast{position:fixed; bottom:20px; right:20px; background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; opacity:0; transform:translateY(8px); transition:.25s; z-index:99;}
   .toast.show{opacity:1; transform:translateY(0);}
   .foot{font-size:11px; color:var(--sub); margin-top:6px;}
+  #caidas-root:not(.is-admin) .foot{display:none;}
 
   @media (max-width:1366px){
     .title{font-size:17px;}
@@ -1459,6 +1460,7 @@ auth.onAuthStateChanged(async function(user){
 
   function render(){
     const app = document.getElementById('caidas-root');
+    app.className = canEdit ? 'is-admin' : '';
     app.innerHTML = `
       <div class="status-line" style="margin-bottom:14px;"><span class="dot"></span> Última actualización: ${fmtFecha(state.updated_at)}</div>
       ${canEdit ? `
@@ -2061,8 +2063,8 @@ auth.onAuthStateChanged(async function(user){
     charts.ingenierosYoy = new Chart(document.getElementById('chartIngenierosYoy'), {
       type:'bar',
       data:{ labels: mesesCortos, datasets:[
-        { label:String(state.anio-1), data: yoy2025, backgroundColor:'#B39DDB' },
-        { label:String(state.anio), data: mesaSoporteIT, backgroundColor: COLOR_COMBINADO }
+        { label:String(state.anio-1), data: yoy2025, backgroundColor:'#B39DDB', borderRadius:4 },
+        { label:String(state.anio), data: mesaSoporteIT, backgroundColor: COLOR_COMBINADO, borderRadius:4 }
       ]},
       options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
     });
