@@ -796,15 +796,16 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'PRM TDA CHEDRAUI COLOSIO', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]},
       {nombre:'PRM TDA TEHUACAN', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1]}
     ],
-    ingenieros: { mesa_soporte_it: [3323,2748,3690,2713,2520,2319,1640,0,0,0,0,0], agentes: [
-      {nombre:'Andres Giovanny Flores Juarez', meses:[903,810,953,569,622,527,340], promedio:1.3},
-      {nombre:'Adrian Gutierrez Martinez', meses:[844,548,821,537,490,566,304], promedio:4.1},
-      {nombre:'Luis Fernando Herrera Leyva', meses:[694,685,767,484,496,451,381], promedio:1.7},
-      {nombre:'Alondra Rodríguez Rivera', meses:[796,556,747,479,491,422,290], promedio:1.6},
-      {nombre:'Angel Antonio Pérez González', meses:[660,457,614,361,430,300,153], promedio:1.3},
-      {nombre:'Josafath setzafel Pacheco Zamorano', meses:[660,349,358,455,334,427,229], promedio:2.9},
+    ingenieros: { mesa_soporte_it: [5389,4374,5590,4083,4136,3924,2509,0,0,0,0,0], agentes: [
+      {nombre:'Angel Antonio Pérez González', meses:[657,457,614,361,430,300,153], promedio:1.3},
+      {nombre:'Soporte Prime', meses:[465,423,451,346,429,365,237], promedio:412.4},
+      {nombre:'Luis Fernando Herrera Leyva', meses:[694,685,767,484,496,450,381], promedio:1.7},
+      {nombre:'Adrian Gutierrez Martinez', meses:[844,548,820,537,490,566,304], promedio:4.1},
+      {nombre:'Andres Giovanny Flores Juarez', meses:[903,809,953,569,622,527,340], promedio:1.3},
+      {nombre:'Alondra Rodríguez Rivera', meses:[796,555,747,479,491,422,290], promedio:1.6},
+      {nombre:'Ingrid Rodriguez Nuñez', meses:[245,112,313,499,457,445,360], promedio:1.9},
       {nombre:'Leon Gustavo Rivera Arriaga', meses:[125,436,568,353,387,422,215], promedio:1.5},
-      {nombre:'Ingrid Rodriguez Nuñez', meses:[245,112,313,500,457,445,361], promedio:1.9}
+      {nombre:'Josafath setzafel Pacheco Zamorano', meses:[660,349,357,455,334,427,229], promedio:2.9}
     ] },
     ticketsmc: { mesa_control: [956,887,1042,777,886,973,572,0,0,0,0,0], agentes: [
       {nombre:'MC PPM', meses:[593,390,387,302,337,357,199], promedio:2.2},
@@ -1020,6 +1021,14 @@ auth.onAuthStateChanged(async function(user){
   // Agentes que se miden aparte, en la pestaña "Tickets Mesa de control" (son colas, no personas individuales).
   const AGENTES_MESA_CONTROL = ['MC PPM','MC EGF','MESA CONTROL'];
   const MESAS_CONTROL = ['Mesa de Control','Mesa de Control Nivel 1'];
+  // Tickets Soporte: se cuentan TODOS los tickets del archivo, sin importar categoría ni mesa de
+  // ayuda, EXCEPTO estas 4 categorías exactas (que son de Mesa de Control, no de Soporte).
+  const CATEGORIAS_EXCLUIR_SOPORTE = [
+    'Mesa de Control > Reset Correo Zimbra',
+    'Mesa de Control > Reset de contraseña',
+    'Mesa de Control > Reactivacion de aplicativos de ventas y servicios ATT',
+    'Mesa de Control > RESET de YUBIKEY por BAJA de colaborador'
+  ];
   // Tickets que se quedaron mal categorizados (Sin subcategoría / Otros) y que se decidió
   // tratar siempre como Rechazado/Cancelado, sin importar qué diga el Excel para ellos.
   const IDS_FORZAR_RECHAZADO = [220456, 233508, 237902, 229151, 248027];
@@ -1048,23 +1057,27 @@ auth.onAuthStateChanged(async function(user){
       const mIdx = fc.getMonth();
       if(mIdx > maxMonthIdx) maxMonthIdx = mIdx;
 
-      // Mesa de ayuda: solo "Soporte IT Nivel 1", sobre TODOS los tickets del archivo.
+      // Tickets Soporte: UNA sola fuente de verdad — TODOS los tickets del archivo, sin importar
+      // categoría ni mesa de ayuda, EXCEPTO las 4 categorías de Mesa de Control (arriba). La tabla
+      // por ingeniero es un recorte de este MISMO conjunto de filas, para que el total de la
+      // gráfica y el total de la tabla siempre cuadren entre sí. Los agentes que no se miden
+      // individualmente (Alfredo, Eder, Daniel, Ariadna, Luis Alzaga, MC PPM/EGF/Mesa de Control)
+      // y los tickets sin agente asignado se agrupan todos en una sola fila: "Soporte Prime".
       const mesaAyuda = String(row['Mesa de ayuda']).trim();
-      if(mesaAyuda === 'Soporte IT Nivel 1'){
-        mesaSoporteIT[mIdx]++;
-      }
-      // Ingenieros (Agente asignado): sobre TODOS los tickets del archivo, excluyendo colas/personas fuera de medición.
       const agente = row['Agente asignado'] ? String(row['Agente asignado']).trim() : '';
-      if(agente && !AGENTES_EXCLUIDOS.includes(agente)){
-        if(!agenteMonth[agente]) agenteMonth[agente] = new Array(12).fill(0);
-        agenteMonth[agente][mIdx]++;
+      const categoriaTicket = String(row['Categoría']||'').trim();
+      if(!CATEGORIAS_EXCLUIR_SOPORTE.includes(categoriaTicket)){
+        mesaSoporteIT[mIdx]++;
+        const agenteSoporte = (!agente || AGENTES_EXCLUIDOS.includes(agente)) ? 'Soporte Prime' : agente;
+        if(!agenteMonth[agenteSoporte]) agenteMonth[agenteSoporte] = new Array(12).fill(0);
+        agenteMonth[agenteSoporte][mIdx]++;
         if(String(row['Estado']).trim()==='Cerrado'){
           const fcierreAg = parseFechaTicket(row['Fecha de cierre']);
           if(fcierreAg){
             const hrsAg = (fcierreAg - fc)/3600000;
             if(hrsAg >= 0){
-              if(!agenteDuraciones[agente]) agenteDuraciones[agente] = [];
-              agenteDuraciones[agente].push(hrsAg);
+              if(!agenteDuraciones[agenteSoporte]) agenteDuraciones[agenteSoporte] = [];
+              agenteDuraciones[agenteSoporte].push(hrsAg);
             }
           }
         }
@@ -2012,17 +2025,18 @@ auth.onAuthStateChanged(async function(user){
       <div class="title">Tickets Soporte</div>
       <div class="subtitle">Carga de trabajo y tiempos de atención · Ene-${state.periodo_actual} ${state.anio}</div>
 
-      <h3>Tickets de Soporte IT Nivel 1 por mes</h3>
+      <h3>Tickets de Soporte IT por mes</h3>
+      <div class="foot" style="margin-bottom:10px;">Todos los tickets del archivo, sin importar categoría ni mesa de ayuda — excepto Reset Correo Zimbra, Reset de contraseña, Reactivación de aplicativos ATT y Reset de YUBIKEY (esas son de Mesa de Control, tienen su propia pestaña).</div>
       <div class="cards" style="grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:16px;">
         <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Total Ene-${state.periodo_actual}</div>
-          <div class="body"><div class="big">${totalMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte IT Nivel 1</div></div></div>
+          <div class="body"><div class="big">${totalMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte IT</div></div></div>
         <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Promedio mensual</div>
           <div class="body"><div class="big">${promedioMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets por mes</div></div></div>
       </div>
       <div class="panel"><canvas id="chartIngenieros"></canvas></div>
 
       <h3 style="margin-top:24px;">Tickets atendidos por ingeniero, por mes</h3>
-      <div class="foot" style="margin-bottom:10px;">Todos los tickets del archivo (no solo Internet). No incluye MC PPM, MC EGF ni Mesa de Control (colas, no personas), ni Alfredo, Eder, Daniel o Ariadna (excluidos a solicitud).</div>
+      <div class="foot" style="margin-bottom:10px;">Mismas filas de la gráfica de arriba, agrupadas por quién las atendió. "Soporte Prime" agrupa a MC PPM, MC EGF, Mesa de Control, a Alfredo, Eder, Daniel, Ariadna y Luis Alzaga (excluidos a solicitud), y a los tickets sin agente asignado.</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Ingeniero</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
         <tbody>${agentes.map(a=>`
