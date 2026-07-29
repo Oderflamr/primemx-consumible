@@ -826,6 +826,7 @@ auth.onAuthStateChanged(async function(user){
       {categoria:'RESET de YUBIKEY por BAJA de colaborador', 'MC PPM':{count:10, promedio:9.5}, 'MC EGF':{count:10, promedio:8.5}, 'MESA CONTROL':{count:3, promedio:3.3}}
     ] , rechazado_cancelado: 814 },
     carga: { archivo: 'reporte_tickets.xlsx', tickets_caidas: 429, fecha: '2026-07-22T17:30:00.000Z' },
+    inventario_historial: [],
     inventario: {
       laptop: {
         adquiridas:178, entregadas:178, inventariadas:149, no_inventariadas:0, falta_recibir:0,
@@ -899,6 +900,7 @@ auth.onAuthStateChanged(async function(user){
   }
   let cargaPendiente = null;
   let cargaPendienteExpansion = null;
+  let historialExpandido = null;
 
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
   function idxMes(n){ return MESES.indexOf(n); }
@@ -922,6 +924,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.ingenieros.yoy_2025) state.ingenieros.yoy_2025 = clone(DEFAULTS.ingenieros.yoy_2025);
       if(!state.ticketsmc) state.ticketsmc = clone(DEFAULTS.ticketsmc);
       if(!state.inventario) state.inventario = clone(DEFAULTS.inventario);
+      if(!state.inventario_historial) state.inventario_historial = clone(DEFAULTS.inventario_historial);
       if(!state.inventario.masaryk_detalle) state.inventario.masaryk_detalle = clone(DEFAULTS.inventario.masaryk_detalle);
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
       if(!state.ticketsmc.categoria_agente) state.ticketsmc.categoria_agente = clone(DEFAULTS.ticketsmc.categoria_agente);
@@ -2278,6 +2281,7 @@ auth.onAuthStateChanged(async function(user){
         </div>
         ${panelInventario('CPU', inv.cpu, '#1B5E20', editing && puedeEditar)}
       </div>
+      ${canEdit ? renderHistorialInventario() : ''}
     `;
     if(editing && puedeEditar){
       document.getElementById('btnCancel').onclick = ()=>{ editing=false; render(); };
@@ -2302,6 +2306,13 @@ auth.onAuthStateChanged(async function(user){
         document.querySelectorAll('[data-masaryk-obs]').forEach(inp=>{
           inv.masaryk_detalle.observaciones[Number(inp.dataset.masarykObs)] = inp.value;
         });
+        if(!state.inventario_historial) state.inventario_historial = [];
+        state.inventario_historial.unshift({
+          fecha: new Date().toISOString(),
+          usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : 'desconocido',
+          snapshot: JSON.parse(JSON.stringify(inv))
+        });
+        if(state.inventario_historial.length > 30) state.inventario_historial.length = 30;
         editing = false;
         save();
       };
@@ -2328,6 +2339,15 @@ auth.onAuthStateChanged(async function(user){
       };
     } else if(puedeEditar){
       document.getElementById('btnEdit').onclick = ()=>{ editing=true; render(); };
+    }
+    if(canEdit){
+      document.querySelectorAll('[data-hist-ver]').forEach(btn=>{
+        btn.onclick = ()=>{
+          const idx = Number(btn.dataset.histVer);
+          historialExpandido = historialExpandido===idx ? null : idx;
+          render();
+        };
+      });
     }
   }
 
@@ -2366,6 +2386,55 @@ auth.onAuthStateChanged(async function(user){
           </div>
         <div class="foot" style="margin-top:2px;">Entregadas (${entregadas}) − Utilizadas (${utilizadas}) = ${totalDisponible}</div>
         </div>
+      </div>
+    `;
+  }
+
+  function renderHistorialInventario(){
+    const hist = state.inventario_historial || [];
+    if(!hist.length){
+      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3><div class="foot">Todavía no hay cambios guardados en esta pestaña.</div></div>`;
+    }
+    return `
+      <div class="panel" style="margin-top:20px;">
+        <h3>Historial de cambios</h3>
+        <div class="foot" style="margin-bottom:10px;">Solo visible para admin. Se guardan los últimos 30 cambios, más reciente arriba.</div>
+        <div style="overflow-x:auto;"><table>
+          <thead><tr><th>Fecha</th><th>Usuario</th><th></th></tr></thead>
+          <tbody>${hist.map((h,i)=>`
+            <tr>
+              <td>${fmtFecha(h.fecha)}</td>
+              <td>${h.usuario}</td>
+              <td><button data-hist-ver="${i}" style="padding:3px 8px;">${historialExpandido===i ? 'Ocultar' : 'Ver'}</button></td>
+            </tr>
+            ${historialExpandido===i ? `
+            <tr><td colspan="3">
+              <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; padding:10px 0;">
+                <div>
+                  <b>Laptop</b>
+                  <div style="font-size:12.5px; margin-top:4px;">
+                    Adquiridas: ${h.snapshot.laptop.adquiridas} · Entregadas: ${h.snapshot.laptop.entregadas} · Inventariadas: ${h.snapshot.laptop.inventariadas}<br>
+                    Asignación: ${h.snapshot.laptop.asignaciones.map(a=>a.nombre+': '+a.valor).join(' · ')}<br>
+                    Proyección Anual: ${h.snapshot.laptop.proyeccion_anual}
+                  </div>
+                </div>
+                <div>
+                  <b>CPU</b>
+                  <div style="font-size:12.5px; margin-top:4px;">
+                    Adquiridas: ${h.snapshot.cpu.adquiridas} · Entregadas: ${h.snapshot.cpu.entregadas} · Inventariadas: ${h.snapshot.cpu.inventariadas}<br>
+                    Asignación: ${h.snapshot.cpu.asignaciones.map(a=>a.nombre+': '+a.valor).join(' · ')}<br>
+                    Proyección Anual: ${h.snapshot.cpu.proyeccion_anual}
+                  </div>
+                </div>
+              </div>
+              <div style="font-size:12.5px;">
+                <b>Detalle Masaryk</b> — Utilizadas: ${h.snapshot.masaryk_detalle.utilizadas} ·
+                Observaciones: ${h.snapshot.masaryk_detalle.observaciones.filter(o=>o).join(', ') || '—'}
+              </div>
+            </td></tr>` : ''}
+          `).join('')}
+          </tbody>
+        </table></div>
       </div>
     `;
   }
