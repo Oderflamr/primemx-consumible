@@ -1562,7 +1562,7 @@ auth.onAuthStateChanged(async function(user){
   // ---------- Tendencia mensual ----------
   function renderTendencia(c){
     const tp=cumulativo('TotalPlay'), tm=cumulativo('Telmex'), mc=cumulativo('Metrocarrier');
-    const mg=Number(state.tendencia.caidas_extra.Megacable||0), sl=Number(state.tendencia.caidas_extra.Starlink||0);
+    const sl=Number(state.tendencia.caidas_extra.Starlink||0);
     const sv = state.tendencia.servicios;
     function card(prov,caidas,servicios,pillCaidas){
       const st = estatusProveedor(pillCaidas);
@@ -1576,7 +1576,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="cards">
         ${card('TotalPlay',tp,sv.TotalPlay,tp)}
         ${card('Telmex',tm,sv.Telmex,tm)}
-        ${card('Megacable',mg,sv.Megacable,mg)}
+        ${card('Megacable',mc,sv.Megacable,mc)}
         ${card('Starlink',sl,sv.Starlink,sl)}
       </div>
       <div class="panel">
@@ -1605,11 +1605,11 @@ auth.onAuthStateChanged(async function(user){
       <div style="overflow-x:auto;"><table><thead><tr><th>Proveedor</th>${MESES.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
       <h3 style="margin-top:16px;">Periodo actual</h3>
       <select id="selPeriodo">${MESES.map(m=>`<option value="${m}" ${m===state.periodo_actual?'selected':''}>${m}</option>`).join('')}</select>
-      <h3 style="margin-top:16px;">Megacable / Starlink (acumulado, sin desglose mensual)</h3>
+      <h3 style="margin-top:16px;">Starlink (acumulado, sin desglose mensual)</h3>
       <div class="servicios-grid" style="grid-template-columns:repeat(2,1fr);">
-        <div class="sv-field"><label>Megacable — Caídas</label><input type="number" min="0" id="mgExtra" value="${state.tendencia.caidas_extra.Megacable}"></div>
         <div class="sv-field"><label>Starlink — Caídas</label><input type="number" min="0" id="slExtra" value="${state.tendencia.caidas_extra.Starlink}"></div>
       </div>
+      <div class="foot">Megacable ya no se captura a mano — usa el mismo dato calculado que Metrocarrier (categoría "Metro Carrier" de los tickets), son el mismo proveedor.</div>
       <h3 style="margin-top:16px;">Servicios activos por proveedor</h3>
       <div class="servicios-grid">${['TotalPlay','Telmex','Megacable','Starlink'].map(p=>`
         <div class="sv-field"><label>${p}</label><input type="number" min="0" data-svc="${p}" value="${state.tendencia.servicios[p]}"></div>`).join('')}</div>
@@ -1620,7 +1620,6 @@ auth.onAuthStateChanged(async function(user){
     document.getElementById('btnSave').onclick=()=>{
       document.querySelectorAll('input[data-prov]').forEach(i=>{ state.tendencia.data[i.dataset.prov][Number(i.dataset.idx)] = Number(i.value||0); });
       document.querySelectorAll('input[data-svc]').forEach(i=>{ state.tendencia.servicios[i.dataset.svc] = Number(i.value||0); });
-      state.tendencia.caidas_extra.Megacable = Number(document.getElementById('mgExtra').value||0);
       state.tendencia.caidas_extra.Starlink = Number(document.getElementById('slExtra').value||0);
       const sel = document.getElementById('selPeriodo'); if(sel) state.periodo_actual = sel.value;
       save();
@@ -1739,8 +1738,8 @@ auth.onAuthStateChanged(async function(user){
 
   // ---------- Resumen 2026 ----------
   function renderResumen(c){
-    const tp=cumulativo('TotalPlay'), tm=cumulativo('Telmex');
-    const mg=Number(state.tendencia.caidas_extra.Megacable||0), sl=Number(state.tendencia.caidas_extra.Starlink||0);
+    const tp=cumulativo('TotalPlay'), tm=cumulativo('Telmex'), mg=cumulativo('Metrocarrier');
+    const sl=Number(state.tendencia.caidas_extra.Starlink||0);
     const total = tp+tm+mg+sl;
     const r = state.resumen;
     function card(prov,caidas){
