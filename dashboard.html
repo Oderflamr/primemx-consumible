@@ -2270,7 +2270,7 @@ auth.onAuthStateChanged(async function(user){
         : (puedeEditar ? `<button id="btnEdit">Editar</button>` : '')}</div>
       <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; margin-top:10px;">
         ${panelInventario('LAPTOP', inv.laptop, '#1565C0', editing && puedeEditar)}
-        ${panelMasarykDetalle(inv, editing && puedeEditar)}
+        ${panelMasarykDetalle(inv, editing && puedeEditar, '#1565C0')}
       </div>
       <div style="margin-top:20px;">
         ${panelInventario('CPU', inv.cpu, '#1B5E20', editing && puedeEditar)}
@@ -2328,7 +2328,7 @@ auth.onAuthStateChanged(async function(user){
     }
   }
 
-  function panelMasarykDetalle(inv, editando){
+  function panelMasarykDetalle(inv, editando, color){
     const masarykRow = inv.laptop.asignaciones.find(a=>/mazaryk|masaryk/i.test(a.nombre));
     const entregadas = masarykRow ? Number(masarykRow.valor||0) : 0;
     const det = inv.masaryk_detalle;
@@ -2339,7 +2339,7 @@ auth.onAuthStateChanged(async function(user){
     const totalDisponible = entregadas - utilizadas;
     return `
       <div class="panel">
-        <h3 style="margin-bottom:2px;">Detalle — Masaryk</h3>
+        <h3 style="margin-bottom:2px; color:${color};">Detalle — Masaryk</h3>
         <div class="foot" style="margin-bottom:8px;">Cada laptop "utilizada" resta del total disponible y agrega su propio recuadro de observación.</div>
         <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line);">
           <span>Entregadas</span><b>${entregadas}</b>
@@ -2357,7 +2357,7 @@ auth.onAuthStateChanged(async function(user){
           ).join('')}
         </div>` : ''}
         <div style="display:flex; justify-content:space-between; padding:9px 0; margin-top:8px; border-top:1px solid var(--line);">
-          <span style="font-weight:700;">Total disponible</span><b>${totalDisponible}</b>
+          <span style="font-weight:700; color:${color};">Total disponible</span><b style="color:${color};">${totalDisponible}</b>
         </div>
         <div class="foot" style="margin-top:2px;">Entregadas (${entregadas}) − Utilizadas (${utilizadas}) = ${totalDisponible}</div>
       </div>
