@@ -845,7 +845,8 @@ auth.onAuthStateChanged(async function(user){
           {nombre:'Expansión', valor:39}
         ],
         total_entregadas:250, prom_mensual:30, proyeccion_anual:25
-      }
+      },
+      masaryk_detalle: { utilizadas:3, observaciones:['','',''] }
     },
     expansion: { tiendas: [
       {numero:58, clave:'PRMDTSTIJ026', nombre:'PRM TDA MULTIPLAZA SANTA FE BC', mes:'Mayo 2026', region:'NOROESTE I', pc:'6', lap:'1', hc:'-', pinpad:'7', dif_pinpad:'-', biometricos:'7', dif_biometricos:'-', prep_equipo:'2026-01-15', envio_mac:'-', internet:'TELMEX', solicitud_arq:'-', entregado_arq:'Entregado', entrega_impresora:'Entregado', modelo_impresora:'MX532', estatus:'Abierta', nota:''},
@@ -921,6 +922,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.ingenieros.yoy_2025) state.ingenieros.yoy_2025 = clone(DEFAULTS.ingenieros.yoy_2025);
       if(!state.ticketsmc) state.ticketsmc = clone(DEFAULTS.ticketsmc);
       if(!state.inventario) state.inventario = clone(DEFAULTS.inventario);
+      if(!state.inventario.masaryk_detalle) state.inventario.masaryk_detalle = clone(DEFAULTS.inventario.masaryk_detalle);
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
       if(!state.ticketsmc.categoria_agente) state.ticketsmc.categoria_agente = clone(DEFAULTS.ticketsmc.categoria_agente);
       if(state.ticketsmc.rechazado_cancelado === undefined) state.ticketsmc.rechazado_cancelado = DEFAULTS.ticketsmc.rechazado_cancelado;
@@ -2239,6 +2241,11 @@ auth.onAuthStateChanged(async function(user){
           </div>
           <div class="foot" style="margin-top:2px;">Se calcula solo, sumando los renglones de Asignación de arriba.</div>
           <div style="display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line);">
+            <span style="font-weight:700; color:${color};">Inventario de adquiridas</span>
+            <b style="color:${color};">${data.adquiridas - total}</b>
+          </div>
+          <div class="foot" style="margin-top:2px;">Adquiridas (${data.adquiridas}) − Total entregadas (${total}) — lo que aún no se ha asignado.</div>
+          <div style="display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line);">
             <span style="font-weight:700; color:${color};">Prom. Mensual</span>
             <b style="color:${color};">${promMensual}</b>
           </div>
@@ -2265,7 +2272,7 @@ auth.onAuthStateChanged(async function(user){
         ${panelInventario('LAPTOP', inv.laptop, '#1565C0', editing && puedeEditar)}
         ${panelInventario('CPU', inv.cpu, '#1B5E20', editing && puedeEditar)}
       </div>
-      ${!puedeEditar ? '' : ''}
+      ${panelMasarykDetalle(inv, editing && puedeEditar)}
     `;
     if(editing && puedeEditar){
       document.getElementById('btnCancel').onclick = ()=>{ editing=false; render(); };
@@ -2284,6 +2291,11 @@ auth.onAuthStateChanged(async function(user){
           const [tipo,idx] = inp.dataset.invAsigValor.split('.');
           const obj = tipo==='LAPTOP' ? inv.laptop : inv.cpu;
           obj.asignaciones[Number(idx)].valor = Number(inp.value||0);
+        });
+        const inpUtil = document.getElementById('masarykUtilizadas');
+        if(inpUtil) inv.masaryk_detalle.utilizadas = Number(inpUtil.value||0);
+        document.querySelectorAll('[data-masaryk-obs]').forEach(inp=>{
+          inv.masaryk_detalle.observaciones[Number(inp.dataset.masarykObs)] = inp.value;
         });
         editing = false;
         save();
@@ -2304,9 +2316,50 @@ auth.onAuthStateChanged(async function(user){
           render();
         };
       });
+      const inpUtil = document.getElementById('masarykUtilizadas');
+      if(inpUtil) inpUtil.onchange = ()=>{
+        inv.masaryk_detalle.utilizadas = Math.max(0, Number(inpUtil.value||0));
+        render();
+      };
     } else if(puedeEditar){
       document.getElementById('btnEdit').onclick = ()=>{ editing=true; render(); };
     }
+  }
+
+  function panelMasarykDetalle(inv, editando){
+    const masarykRow = inv.laptop.asignaciones.find(a=>/mazaryk|masaryk/i.test(a.nombre));
+    const entregadas = masarykRow ? Number(masarykRow.valor||0) : 0;
+    const det = inv.masaryk_detalle;
+    let utilizadas = Math.max(0, Math.min(Number(det.utilizadas||0), entregadas));
+    if(det.utilizadas !== utilizadas) det.utilizadas = utilizadas;
+    while(det.observaciones.length < utilizadas) det.observaciones.push('');
+    while(det.observaciones.length > utilizadas) det.observaciones.pop();
+    const totalDisponible = entregadas - utilizadas;
+    return `
+      <div class="panel" style="margin-top:20px; max-width:420px;">
+        <h3 style="margin-bottom:2px;">Detalle — Masaryk</h3>
+        <div class="foot" style="margin-bottom:8px;">Cada laptop "utilizada" resta del total disponible y agrega su propio recuadro de observación.</div>
+        <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line);">
+          <span>Entregadas</span><b>${entregadas}</b>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line);">
+          <span>Utilizadas</span>
+          ${editando ? `<input type="number" id="masarykUtilizadas" min="0" max="${entregadas}" value="${utilizadas}" style="width:70px; text-align:right;">` : `<b>${utilizadas}</b>`}
+        </div>
+        ${det.observaciones.length ? `
+        <div style="margin-top:10px;">
+          <div style="font-size:11px; font-weight:700; color:var(--sub); letter-spacing:.5px; margin-bottom:6px;">OBSERVACIONES (a quién se asignó)</div>
+          ${det.observaciones.map((obs,i)=> editando
+            ? `<input type="text" data-masaryk-obs="${i}" value="${(obs||'').replace(/"/g,'&quot;')}" placeholder="Nombre de quién recibió esta laptop" style="width:100%; margin-bottom:6px;">`
+            : `<div style="padding:5px 0; border-bottom:1px solid var(--line);">${obs || '<span style="color:var(--sub);">— sin capturar —</span>'}</div>`
+          ).join('')}
+        </div>` : ''}
+        <div style="display:flex; justify-content:space-between; padding:9px 0; margin-top:8px; border-top:1px solid var(--line);">
+          <span style="font-weight:700;">Total disponible</span><b>${totalDisponible}</b>
+        </div>
+        <div class="foot" style="margin-top:2px;">Entregadas (${entregadas}) − Utilizadas (${utilizadas}) = ${totalDisponible}</div>
+      </div>
+    `;
   }
 
   function renderExpansion(c){
