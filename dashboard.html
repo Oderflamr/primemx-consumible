@@ -2270,9 +2270,11 @@ auth.onAuthStateChanged(async function(user){
         : (puedeEditar ? `<button id="btnEdit">Editar</button>` : '')}</div>
       <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; margin-top:10px;">
         ${panelInventario('LAPTOP', inv.laptop, '#1565C0', editing && puedeEditar)}
+        ${panelMasarykDetalle(inv, editing && puedeEditar)}
+      </div>
+      <div style="margin-top:20px;">
         ${panelInventario('CPU', inv.cpu, '#1B5E20', editing && puedeEditar)}
       </div>
-      ${panelMasarykDetalle(inv, editing && puedeEditar)}
     `;
     if(editing && puedeEditar){
       document.getElementById('btnCancel').onclick = ()=>{ editing=false; render(); };
@@ -2336,7 +2338,7 @@ auth.onAuthStateChanged(async function(user){
     while(det.observaciones.length > utilizadas) det.observaciones.pop();
     const totalDisponible = entregadas - utilizadas;
     return `
-      <div class="panel" style="margin-top:20px; max-width:420px;">
+      <div class="panel">
         <h3 style="margin-bottom:2px;">Detalle — Masaryk</h3>
         <div class="foot" style="margin-bottom:8px;">Cada laptop "utilizada" resta del total disponible y agrega su propio recuadro de observación.</div>
         <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line);">
