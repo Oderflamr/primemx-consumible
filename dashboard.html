@@ -326,7 +326,6 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
       <p style="text-align:center; margin-top:8px;"><a href="#" id="link-cancelar-reset" style="font-size:12px; color:var(--ink-soft); text-decoration:none;">Cancelar</a></p>
     </div>
 
-    <p class="login-hint">Acceso restringido. Usa el mismo usuario y contraseña que en el Directorio de Tiendas.</p>
   </div>
 </div>
 
@@ -1037,6 +1036,7 @@ auth.onAuthStateChanged(async function(user){
   let historialExpandido = null;
   let historialPdvExpandido = null;
   let historialWin11Expandido = null;
+  let win11RegionCardExpandida = null;
 
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
   function idxMes(n){ return MESES.indexOf(n); }
@@ -2190,6 +2190,31 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- Migracion Win11 ----------
+  function renderWin11RegionCard(){
+    if(!win11RegionCardExpandida) return '';
+    const pendientes = state.win11_pendientes || [];
+    const region = win11RegionCardExpandida;
+    const conteo = {};
+    pendientes.forEach(p=>{
+      if(String(p.region||'').trim().toUpperCase() === region.toUpperCase()){
+        conteo[p.pdv] = (conteo[p.pdv]||0) + 1;
+      }
+    });
+    const filas = Object.entries(conteo);
+    return `
+      <div style="background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:16px 18px;">
+        <div style="font-weight:700; font-size:14px; margin-bottom:8px;">Pendientes de migrar — ${region}</div>
+        ${filas.length ? `<table>
+          <tbody>${filas.map(([pdv,n])=>`<tr><td style="text-align:left;">${pdv}</td><td style="text-align:right; font-weight:700;">${n}</td></tr>`).join('')}</tbody>
+        </table>` : `<div class="foot">No se encontró el detalle de esta región en la última carga.</div>`}
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button id="win11BtnCopiar">Copiar</button>
+          <button id="win11BtnCerrar">Cerrar</button>
+        </div>
+      </div>
+    `;
+  }
+
   function renderMigracionWin11(c){
     const regiones = ['Bajio','Centro I','Centro II','Noroeste I','Noroeste II','Norte I','Norte II','Pacifico','Sur Peninsula'];
     const win10 = [0,4,0,0,2,19,5,5,3];
@@ -2257,22 +2282,15 @@ auth.onAuthStateChanged(async function(user){
 
       <div class="panel">
         <h3>Detalle por región</h3>
+        <div class="foot" style="margin-bottom:8px;">Dale clic al número de "Win10 Pro x64" de una región para ver qué tiendas siguen pendientes.</div>
         <table>
           <thead><tr><th>Región</th><th>Win10 Pro x64</th><th>Win11 Pro x64</th><th>No compatible</th><th>Total</th><th>Avance</th></tr></thead>
           <tbody>
-            ${regiones.map((r,i)=>`<tr><td>${r}</td><td>${win10[i]||'—'}</td><td>${win11[i]}</td><td>${nocompat[i]||'—'}</td><td>${totales[i]}</td><td>${avance[i]}</td></tr>`).join('')}
+            ${regiones.map((r,i)=>`<tr><td>${r}</td><td>${win10[i] ? `<a href="#" data-win11-region="${r}" style="color:var(--sub-accent, #0C8599); font-weight:700; text-decoration:underline;">${win10[i]}</a>` : '—'}</td><td>${win11[i]}</td><td>${nocompat[i]||'—'}</td><td>${totales[i]}</td><td>${avance[i]}</td></tr>`).join('')}
             <tr style="font-weight:700;"><td>Total general</td><td>38</td><td>3,858</td><td>22</td><td>3,918</td><td>98.5%</td></tr>
           </tbody>
         </table>
-      </div>
-
-      <div class="panel">
-        <h3>Equipos pendientes de migrar a Windows 11</h3>
-        <div class="foot" style="margin-bottom:10px;">${pendientes.length} equipos siguen en Windows 10.</div>
-        <div style="overflow-x:auto;"><table>
-          <thead><tr><th style="text-align:left;">Nombre del PDV</th><th>Región</th><th>Sistema operativo</th></tr></thead>
-          <tbody>${pendientes.map(p=>`<tr><td style="text-align:left;">${p.pdv}</td><td>${p.region}</td><td>${p.so}</td></tr>`).join('')}</tbody>
-        </table></div>
+        <div id="win11RegionCard" style="margin-top:12px;">${renderWin11RegionCard()}</div>
       </div>
       ${canEdit ? renderHistorialWin11() : ''}
     `;
@@ -2289,6 +2307,37 @@ auth.onAuthStateChanged(async function(user){
           render();
         };
       });
+    }
+    document.querySelectorAll('[data-win11-region]').forEach(a=>{
+      a.onclick = (e)=>{
+        e.preventDefault();
+        const region = a.dataset.win11Region;
+        win11RegionCardExpandida = win11RegionCardExpandida===region ? null : region;
+        render();
+      };
+    });
+    const btnCopiarW11 = document.getElementById('win11BtnCopiar');
+    if(btnCopiarW11){
+      btnCopiarW11.onclick = ()=>{
+        const pendientes = state.win11_pendientes || [];
+        const region = win11RegionCardExpandida;
+        const conteo = {};
+        pendientes.forEach(p=>{
+          if(String(p.region||'').trim().toUpperCase() === region.toUpperCase()){
+            conteo[p.pdv] = (conteo[p.pdv]||0) + 1;
+          }
+        });
+        const texto = 'Pendientes de migrar - ' + region + '\n' +
+          Object.entries(conteo).map(([pdv,n])=>pdv+' '+n).join('\n');
+        navigator.clipboard.writeText(texto).then(()=>{
+          btnCopiarW11.textContent = 'Copiado';
+          setTimeout(()=>{ btnCopiarW11.textContent = 'Copiar'; }, 1800);
+        });
+      };
+    }
+    const btnCerrarW11 = document.getElementById('win11BtnCerrar');
+    if(btnCerrarW11){
+      btnCerrarW11.onclick = ()=>{ win11RegionCardExpandida = null; render(); };
     }
 
     const circumference = Math.PI * 80;
