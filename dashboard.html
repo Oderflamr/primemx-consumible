@@ -314,6 +314,18 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
       </div>
       <button type="submit" class="btn btn-primary" style="background:#0C8599; color:#fff; border:none; border-radius:8px; padding:11px 18px; font-size:14px; font-weight:600; cursor:pointer; width:100%;">Ingresar</button>
     </form>
+    <p style="text-align:center; margin-top:10px;"><a href="#" id="link-olvide-pass" style="font-size:12.5px; color:#0C8599; text-decoration:none;">¿Olvidaste tu contraseña?</a></p>
+
+    <div id="reset-pass-box" style="display:none; margin-top:14px; padding-top:14px; border-top:1px solid var(--line);">
+      <div class="field">
+        <label>Usuario</label>
+        <input type="text" id="reset-user" placeholder="El mismo usuario con el que entras">
+      </div>
+      <div id="reset-msg" style="font-size:12.5px; margin-bottom:8px; display:none;"></div>
+      <button type="button" id="btn-reset-pass" style="width:100%; padding:9px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:13px;">Enviar correo para restablecer</button>
+      <p style="text-align:center; margin-top:8px;"><a href="#" id="link-cancelar-reset" style="font-size:12px; color:var(--ink-soft); text-decoration:none;">Cancelar</a></p>
+    </div>
+
     <p class="login-hint">Acceso restringido. Usa el mismo usuario y contraseña que en el Directorio de Tiendas.</p>
   </div>
 </div>
@@ -390,6 +402,46 @@ document.getElementById('login-form').addEventListener('submit', async function(
 
 document.getElementById('logout-btn').addEventListener('click', function(){
   auth.signOut();
+});
+
+document.getElementById('link-olvide-pass').addEventListener('click', function(e){
+  e.preventDefault();
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('reset-pass-box').style.display = 'block';
+  document.getElementById('reset-user').value = document.getElementById('login-user').value || '';
+  document.getElementById('login-error').classList.remove('show');
+});
+
+document.getElementById('link-cancelar-reset').addEventListener('click', function(e){
+  e.preventDefault();
+  document.getElementById('reset-pass-box').style.display = 'none';
+  document.getElementById('login-form').style.display = '';
+  document.getElementById('reset-msg').style.display = 'none';
+});
+
+document.getElementById('btn-reset-pass').addEventListener('click', async function(){
+  const u = document.getElementById('reset-user').value.trim().toLowerCase();
+  const msg = document.getElementById('reset-msg');
+  if(!u){
+    msg.textContent = 'Escribe tu usuario primero.';
+    msg.style.color = 'var(--warn)';
+    msg.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('btn-reset-pass');
+  btn.disabled = true;
+  try{
+    await auth.sendPasswordResetEmail(u + '@' + AUTH_DOMAIN);
+    msg.textContent = 'Listo. Revisa tu correo (' + u + '@' + AUTH_DOMAIN + ') para crear una contraseña nueva.';
+    msg.style.color = 'var(--ok)';
+  }catch(err){
+    console.error(err);
+    // Mensaje genérico a propósito: no confirmamos si el usuario existe o no.
+    msg.textContent = 'Si el usuario existe, te llegará un correo para restablecer la contraseña.';
+    msg.style.color = 'var(--ink-soft)';
+  }
+  msg.style.display = 'block';
+  btn.disabled = false;
 });
 
 auth.onAuthStateChanged(async function(user){
@@ -843,6 +895,47 @@ auth.onAuthStateChanged(async function(user){
     carga: { archivo: 'reporte_tickets.xlsx', tickets_caidas: 453, fecha: '2026-07-29T22:30:00.000Z' },
     inventario_historial: [],
     equipos_pdv_region_historial: [],
+    win11_pendientes_historial: [],
+    win11_pendientes: [
+      {pdv:'PRM TDA XOCHIMILCO CENTRO', region:'CENTRO I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA CDMX CUAJIMALPA', region:'CENTRO I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA CDMX PLAZA DESTINO AZCAPOTZALCO', region:'CENTRO I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA CDMX CENTRO', region:'CENTRO I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA FORD OBREGON', region:'NOROESTE II', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA CENTRO LOS MOCHIS I', region:'NOROESTE II', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA CD VICTORIA PLAZA PASEO AVENTA', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA MULTIPLAZA CD MADERO', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA MIRASIERRA SALTILLO', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA REYNOSA PLAZA PERIFERICO', region:'NORTE I', so:'Microsoft Windows 10 Pro for Workstations x64'},
+      {pdv:'PRM TDA NUEVO LAREDO NARCISO MENDOZA', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA HUMBERTO LOBO MTY', region:'NORTE I', so:'Microsoft Windows 10 Pro for Workstations x64'},
+      {pdv:'PRM TDA HUMBERTO LOBO MTY', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA HUMBERTO LOBO MTY', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA NUEVO SUR MTY', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA REVOLUCION MTY', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA PLAZA CHAPULTEPEC MTY', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA MONTERREY PLAZA ALTEA LINCOLN', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA MULTIPLAZA LINDAVISTA', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA MONTERREY SUN MALL VIP', region:'NORTE I', so:'Microsoft Windows 10 Pro for Workstations x64'},
+      {pdv:'PRM TDA MONTERREY PLAZA HERRADURA', region:'NORTE I', so:'Microsoft Windows 10 Pro for Workstations x64'},
+      {pdv:'PRM TDA MONTERREY PASEO LA FE', region:'NORTE I', so:'Microsoft Windows 10 Pro for Workstations x64'},
+      {pdv:'PRM TDA MONTERREY PASEO LA FE', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA MONTERREY MADERO NORTE', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA MONCLOVA HAROLD PAPE', region:'NORTE I', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA TORREON PLAZA TRIANA', region:'NORTE II', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA PORTAL DURANGO', region:'NORTE II', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'CAMBACEO NORTE II', region:'NORTE II', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA PLAZA RAZA AVENUE', region:'NORTE II', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA NUEVA ESPAÑA', region:'NORTE II', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA TEPIC CENTRO', region:'PACIFICO', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA LAS AMERICAS MORELIA', region:'PACIFICO', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA PLAZA TESISTAN II', region:'PACIFICO', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA PLAZA SAN FERNANDO', region:'PACIFICO', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA ZENTRALIA COLIMA', region:'PACIFICO', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA XALAPA URBANCENTER', region:'SUR PENINSULA', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA CRYSTAL CORDOBA', region:'SUR PENINSULA', so:'Microsoft Windows 10 Pro x64'},
+      {pdv:'PRM TDA PLAZA JARDIN COR', region:'SUR PENINSULA', so:'Microsoft Windows 10 Pro x64'}
+    ],
     equipos_pdv_region: {
       regiones: [
         {nombre:'Bajío', pdv_laptop:89, cambaceo:10, desktop:439},
@@ -934,10 +1027,16 @@ auth.onAuthStateChanged(async function(user){
     if(canEdit) return true;
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_PDV_REGION.includes(currentUser.username));
   }
+  const USUARIOS_WIN11 = ['lalzaga'];
+  function canEditWin11(){
+    if(canEdit) return true;
+    return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_WIN11.includes(currentUser.username));
+  }
   let cargaPendiente = null;
   let cargaPendienteExpansion = null;
   let historialExpandido = null;
   let historialPdvExpandido = null;
+  let historialWin11Expandido = null;
 
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
   function idxMes(n){ return MESES.indexOf(n); }
@@ -964,6 +1063,8 @@ auth.onAuthStateChanged(async function(user){
       if(!state.inventario_historial) state.inventario_historial = clone(DEFAULTS.inventario_historial);
       if(!state.equipos_pdv_region) state.equipos_pdv_region = clone(DEFAULTS.equipos_pdv_region);
       if(!state.equipos_pdv_region_historial) state.equipos_pdv_region_historial = clone(DEFAULTS.equipos_pdv_region_historial);
+      if(!state.win11_pendientes) state.win11_pendientes = clone(DEFAULTS.win11_pendientes);
+      if(!state.win11_pendientes_historial) state.win11_pendientes_historial = clone(DEFAULTS.win11_pendientes_historial);
       if(!state.inventario.masaryk_detalle) state.inventario.masaryk_detalle = clone(DEFAULTS.inventario.masaryk_detalle);
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
       if(!state.ticketsmc.categoria_agente) state.ticketsmc.categoria_agente = clone(DEFAULTS.ticketsmc.categoria_agente);
@@ -974,7 +1075,7 @@ auth.onAuthStateChanged(async function(user){
     render();
   }
   async function save(){
-    if(!canEdit && !canEditInventario() && !canEditPdvRegion()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
+    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
     state.updated_at = new Date().toISOString();
     try{
       await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).set({
@@ -2096,6 +2197,8 @@ auth.onAuthStateChanged(async function(user){
     const nocompat = [4,2,0,3,7,0,2,3,1];
     const totales = regiones.map((r,i)=> win10[i]+win11[i]+nocompat[i]);
     const avance = ['99.3%','98.6%','100.0%','99.1%','97.8%','96.7%','98.3%','98.3%','98.9%'];
+    const puedeEditarW11 = canEditWin11();
+    const pendientes = state.win11_pendientes || [];
 
     function kpi(color,label,val){
       return `<div class="card"><div class="head" style="background:${color}">${label}</div>
@@ -2105,6 +2208,15 @@ auth.onAuthStateChanged(async function(user){
     c.innerHTML = `
       <div class="title">Migración a Windows 11</div>
       <div class="subtitle">Avance por región y por tipo de equipo</div>
+      ${puedeEditarW11 ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar detalle de equipos pendientes por migrar (.xlsx)</b> — reemplaza la lista de abajo con lo que traiga el archivo.
+          <div id="uploadErrorWin11"></div>
+        </div>
+        <input type="file" id="fileWin11" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUploadWin11">Cargar archivo</button>
+      </div>` : ''}
       <div class="cards">
         ${kpi('#0F6E56','Avance global','98.5%')}
         ${kpi('#185FA5','Desktops','99.1%')}
@@ -2153,7 +2265,31 @@ auth.onAuthStateChanged(async function(user){
           </tbody>
         </table>
       </div>
+
+      <div class="panel">
+        <h3>Equipos pendientes de migrar a Windows 11</h3>
+        <div class="foot" style="margin-bottom:10px;">${pendientes.length} equipos siguen en Windows 10.</div>
+        <div style="overflow-x:auto;"><table>
+          <thead><tr><th style="text-align:left;">Nombre del PDV</th><th>Región</th><th>Sistema operativo</th></tr></thead>
+          <tbody>${pendientes.map(p=>`<tr><td style="text-align:left;">${p.pdv}</td><td>${p.region}</td><td>${p.so}</td></tr>`).join('')}</tbody>
+        </table></div>
+      </div>
+      ${canEdit ? renderHistorialWin11() : ''}
     `;
+
+    if(puedeEditarW11){
+      document.getElementById('btnUploadWin11').onclick = () => document.getElementById('fileWin11').click();
+      document.getElementById('fileWin11').onchange = handleFileUploadWin11;
+    }
+    if(canEdit){
+      document.querySelectorAll('[data-hist-win11-ver]').forEach(btn=>{
+        btn.onclick = ()=>{
+          const idx = Number(btn.dataset.histWin11Ver);
+          historialWin11Expandido = historialWin11Expandido===idx ? null : idx;
+          render();
+        };
+      });
+    }
 
     const circumference = Math.PI * 80;
     const arc = document.getElementById('mw11-gaugeArc');
@@ -2177,6 +2313,58 @@ auth.onAuthStateChanged(async function(user){
       data:{ labels:['Desktop','Laptop'], datasets:[{data:[3220,698], backgroundColor:['#2a78d6','#eb6834']}] },
       options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}}
     });
+  }
+
+  function handleFileUploadWin11(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadErrorWin11');
+    errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+        const nuevos = rows.map(row=>({
+          pdv: String(row['Nombre_PDV']||'').trim(),
+          region: String(row['Region']||'').trim(),
+          so: String(row['Sistema Operativo']||'').trim()
+        })).filter(r=>r.pdv);
+        if(!nuevos.length){ throw new Error('No se encontraron filas con "Nombre_PDV" en el archivo.'); }
+        state.win11_pendientes = nuevos;
+        if(!state.win11_pendientes_historial) state.win11_pendientes_historial = [];
+        state.win11_pendientes_historial.unshift({
+          fecha: new Date().toISOString(),
+          usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : 'desconocido',
+          archivo: file.name,
+          total: nuevos.length
+        });
+        if(state.win11_pendientes_historial.length > 30) state.win11_pendientes_historial.length = 30;
+        save();
+      }catch(err){
+        console.error(err);
+        errBox.innerHTML = `<div style="color:var(--warn); font-size:12px; margin-top:6px;">No se pudo leer el archivo: ${err.message}</div>`;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function renderHistorialWin11(){
+    const hist = state.win11_pendientes_historial || [];
+    if(!hist.length){
+      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3><div class="foot">Todavía no se ha cargado ningún archivo en esta pestaña.</div></div>`;
+    }
+    return `
+      <div class="panel" style="margin-top:20px;">
+        <h3>Historial de cambios</h3>
+        <div class="foot" style="margin-bottom:10px;">Solo visible para admin. Se guardan las últimas 30 cargas, más reciente arriba.</div>
+        <table>
+          <thead><tr><th>Fecha</th><th>Usuario</th><th>Archivo</th><th>Equipos cargados</th></tr></thead>
+          <tbody>${hist.map(h=>`<tr><td>${fmtFecha(h.fecha)}</td><td>${h.usuario}</td><td>${h.archivo}</td><td>${h.total}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+    `;
   }
 
   // ---------- Plan de expansion ----------
