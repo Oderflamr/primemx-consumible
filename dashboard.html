@@ -2217,10 +2217,11 @@ auth.onAuthStateChanged(async function(user){
   function renderWin11RegionCard(){
     if(!win11RegionCardExpandida) return '';
     const pendientes = state.win11_pendientes || [];
-    const { region, tipo } = win11RegionCardExpandida;
+    const region = win11RegionCardExpandida;
     const esTotal = region === 'TOTAL';
     const filtrados = pendientes.filter(p=>
-      p.tipo_so === tipo && (esTotal || String(p.region||'').trim().toUpperCase() === region.toUpperCase())
+      (p.tipo_so === 'win10' || p.tipo_so === 'nocompat') &&
+      (esTotal || String(p.region||'').trim().toUpperCase() === region.toUpperCase())
     );
     const porTienda = {};
     filtrados.forEach(p=>{
@@ -2229,11 +2230,10 @@ auth.onAuthStateChanged(async function(user){
     });
     const filas = Object.entries(porTienda);
     const puedeEditarW11 = canEditWin11();
-    const tituloTipo = tipo==='win10' ? 'Windows 10' : 'No compatibles con Win11';
     return `
       <div style="background:var(--surface, #fff); border:1px solid var(--line); border-radius:12px; padding:16px 18px;">
-        <div style="font-weight:700; font-size:14px; margin-bottom:2px;">Pendientes de migrar — ${esTotal ? 'Todas las regiones' : region} (${tituloTipo})</div>
-        <div class="foot" style="margin-bottom:10px;">${puedeEditarW11 ? 'Observaciones editable solo para admin y lalzaga.' : ''}</div>
+        <div style="font-weight:700; font-size:14px; margin-bottom:2px;">Pendientes de migrar — ${esTotal ? 'Todas las regiones' : region}</div>
+        <div class="foot" style="margin-bottom:10px;">Incluye Windows 10 y equipos no compatibles. ${puedeEditarW11 ? 'Observaciones editable solo para admin y lalzaga.' : ''}</div>
         ${filas.length ? `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse;">
           <thead><tr>
             <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--line);">Tienda</th>
@@ -2268,6 +2268,7 @@ auth.onAuthStateChanged(async function(user){
     const win11 = [535,409,418,321,391,554,406,458,366];
     const nocompat = [4,2,0,3,7,0,2,3,1];
     const totales = regiones.map((r,i)=> win10[i]+win11[i]+nocompat[i]);
+    const pendientes10 = regiones.map((r,i)=> win10[i]+nocompat[i]);
     const avance = ['99.3%','98.6%','100.0%','99.1%','97.8%','96.7%','98.3%','98.3%','98.9%'];
     const puedeEditarW11 = canEditWin11();
     const pendientes = state.win11_pendientes || [];
@@ -2329,19 +2330,17 @@ auth.onAuthStateChanged(async function(user){
 
       <div class="panel">
         <h3>Detalle por región</h3>
-        <div class="foot" style="margin-bottom:8px;">Dale clic a un número de "Win10 Pro x64" o "No compatible" para ver qué tiendas siguen pendientes.</div>
+        <div class="foot" style="margin-bottom:8px;">Dale clic al número de "Win10 Pro x64" (incluye equipos no compatibles) para ver qué tiendas siguen pendientes.</div>
         <table>
-          <thead><tr><th>Región</th><th>Win10 Pro x64</th><th>Win11 Pro x64</th><th>No compatible</th><th>Total</th><th>Avance</th></tr></thead>
+          <thead><tr><th>Región</th><th>Win10 Pro x64</th><th>Win11 Pro x64</th><th>Total</th><th>Avance</th></tr></thead>
           <tbody>
             ${regiones.map((r,i)=>`<tr><td>${r}</td>
-              <td>${win10[i] ? `<a href="#" data-win11-region="${r}" data-win11-tipo="win10" style="color:#0C8599; font-weight:700; text-decoration:underline;">${win10[i]}</a>` : '—'}</td>
+              <td>${pendientes10[i] ? `<a href="#" data-win11-region="${r}" style="color:#0C8599; font-weight:700; text-decoration:underline;">${pendientes10[i]}</a>` : '—'}</td>
               <td>${win11[i]}</td>
-              <td>${nocompat[i] ? `<a href="#" data-win11-region="${r}" data-win11-tipo="nocompat" style="color:#0C8599; font-weight:700; text-decoration:underline;">${nocompat[i]}</a>` : '—'}</td>
               <td>${totales[i]}</td><td>${avance[i]}</td></tr>`).join('')}
             <tr style="font-weight:700;"><td>Total general</td>
-              <td><a href="#" data-win11-region="TOTAL" data-win11-tipo="win10" style="color:#0C8599; text-decoration:underline;">38</a></td>
+              <td><a href="#" data-win11-region="TOTAL" style="color:#0C8599; text-decoration:underline;">60</a></td>
               <td>3,858</td>
-              <td><a href="#" data-win11-region="TOTAL" data-win11-tipo="nocompat" style="color:#0C8599; text-decoration:underline;">22</a></td>
               <td>3,918</td><td>98.5%</td></tr>
           </tbody>
         </table>
@@ -2367,9 +2366,7 @@ auth.onAuthStateChanged(async function(user){
       a.onclick = (e)=>{
         e.preventDefault();
         const region = a.dataset.win11Region;
-        const tipo = a.dataset.win11Tipo;
-        const mismo = win11RegionCardExpandida && win11RegionCardExpandida.region===region && win11RegionCardExpandida.tipo===tipo;
-        win11RegionCardExpandida = mismo ? null : { region, tipo };
+        win11RegionCardExpandida = win11RegionCardExpandida===region ? null : region;
         render();
       };
     });
@@ -2377,10 +2374,11 @@ auth.onAuthStateChanged(async function(user){
     if(btnCopiarW11){
       btnCopiarW11.onclick = ()=>{
         const pendientes = state.win11_pendientes || [];
-        const { region, tipo } = win11RegionCardExpandida;
+        const region = win11RegionCardExpandida;
         const esTotal = region === 'TOTAL';
         const filtrados = pendientes.filter(p=>
-          p.tipo_so === tipo && (esTotal || String(p.region||'').trim().toUpperCase() === region.toUpperCase())
+          (p.tipo_so === 'win10' || p.tipo_so === 'nocompat') &&
+          (esTotal || String(p.region||'').trim().toUpperCase() === region.toUpperCase())
         );
         const porTienda = {};
         filtrados.forEach(p=>{
