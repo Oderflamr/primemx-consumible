@@ -842,6 +842,20 @@ auth.onAuthStateChanged(async function(user){
     ] , rechazado_cancelado: 857 },
     carga: { archivo: 'reporte_tickets.xlsx', tickets_caidas: 453, fecha: '2026-07-29T22:30:00.000Z' },
     inventario_historial: [],
+    equipos_pdv_region_historial: [],
+    equipos_pdv_region: {
+      regiones: [
+        {nombre:'Bajío', pdv_laptop:89, cambaceo:10, desktop:439},
+        {nombre:'Centro I', pdv_laptop:61, cambaceo:8, desktop:345},
+        {nombre:'Centro II', pdv_laptop:64, cambaceo:7, desktop:346},
+        {nombre:'Noroeste I', pdv_laptop:52, cambaceo:2, desktop:271},
+        {nombre:'Noroeste II', pdv_laptop:65, cambaceo:4, desktop:331},
+        {nombre:'Norte I', pdv_laptop:95, cambaceo:11, desktop:462},
+        {nombre:'Norte II', pdv_laptop:62, cambaceo:13, desktop:336},
+        {nombre:'Pacífico', pdv_laptop:74, cambaceo:8, desktop:384},
+        {nombre:'Sur Península', pdv_laptop:63, cambaceo:9, desktop:298}
+      ]
+    },
     inventario: {
       laptop: {
         adquiridas:178, entregadas:178, inventariadas:149, no_inventariadas:0, falta_recibir:0,
@@ -899,6 +913,7 @@ auth.onAuthStateChanged(async function(user){
     {id:'ticketsmc', label:'Tickets Mesa de control'},
     {id:'inventario', label:'Inventario de Equipo'},
     {id:'migracion_win11', label:'Migración Win11'},
+    {id:'pdv_region', label:'Equipos PDV Región'},
     {id:'expansion', label:'Plan de expansión'}
   ];
 
@@ -914,9 +929,15 @@ auth.onAuthStateChanged(async function(user){
     if(canEdit) return true;
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_INVENTARIO.includes(currentUser.username));
   }
+  const USUARIOS_PDV_REGION = ['lalzaga'];
+  function canEditPdvRegion(){
+    if(canEdit) return true;
+    return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_PDV_REGION.includes(currentUser.username));
+  }
   let cargaPendiente = null;
   let cargaPendienteExpansion = null;
   let historialExpandido = null;
+  let historialPdvExpandido = null;
 
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
   function idxMes(n){ return MESES.indexOf(n); }
@@ -941,6 +962,8 @@ auth.onAuthStateChanged(async function(user){
       if(!state.ticketsmc) state.ticketsmc = clone(DEFAULTS.ticketsmc);
       if(!state.inventario) state.inventario = clone(DEFAULTS.inventario);
       if(!state.inventario_historial) state.inventario_historial = clone(DEFAULTS.inventario_historial);
+      if(!state.equipos_pdv_region) state.equipos_pdv_region = clone(DEFAULTS.equipos_pdv_region);
+      if(!state.equipos_pdv_region_historial) state.equipos_pdv_region_historial = clone(DEFAULTS.equipos_pdv_region_historial);
       if(!state.inventario.masaryk_detalle) state.inventario.masaryk_detalle = clone(DEFAULTS.inventario.masaryk_detalle);
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
       if(!state.ticketsmc.categoria_agente) state.ticketsmc.categoria_agente = clone(DEFAULTS.ticketsmc.categoria_agente);
@@ -951,7 +974,7 @@ auth.onAuthStateChanged(async function(user){
     render();
   }
   async function save(){
-    if(!canEdit && !canEditInventario()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
+    if(!canEdit && !canEditInventario() && !canEditPdvRegion()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
     state.updated_at = new Date().toISOString();
     try{
       await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).set({
@@ -1571,6 +1594,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='ticketsmc') return renderTicketsMC(c);
     if(tab==='inventario') return renderInventario(c);
     if(tab==='migracion_win11') return renderMigracionWin11(c);
+    if(tab==='pdv_region') return renderPdvRegion(c);
     if(tab==='expansion') return renderExpansion(c);
   }
 
@@ -2537,6 +2561,114 @@ auth.onAuthStateChanged(async function(user){
               <div style="font-size:12.5px;">
                 <b>Detalle Masaryk</b> — Utilizadas: ${h.snapshot.masaryk_detalle.utilizadas} ·
                 Observaciones: ${h.snapshot.masaryk_detalle.observaciones.filter(o=>o).join(', ') || '—'}
+              </div>
+            </td></tr>` : ''}
+          `).join('')}
+          </tbody>
+        </table></div>
+      </div>
+    `;
+  }
+
+  // ---------- Equipos PDV Región ----------
+  function renderPdvRegion(c){
+    const data = state.equipos_pdv_region;
+    const puedeEditar = canEditPdvRegion();
+    const regs = data.regiones.map(r=>({...r, total: Number(r.pdv_laptop||0)+Number(r.cambaceo||0)+Number(r.desktop||0)}));
+    const totalGeneral = regs.reduce((s,r)=>s+r.total,0);
+    const totalDesktop = regs.reduce((s,r)=>s+Number(r.desktop||0),0);
+    const totalPdvLaptop = regs.reduce((s,r)=>s+Number(r.pdv_laptop||0),0);
+    const totalCambaceo = regs.reduce((s,r)=>s+Number(r.cambaceo||0),0);
+    c.innerHTML = `
+      <div class="title">Equipos PDV Región</div>
+      <div class="subtitle">Desktop, PDV con laptop y laptop de cambaceo, por región</div>
+      <div class="editbar">${editing && puedeEditar
+        ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
+        : (puedeEditar ? `<button id="btnEdit">Editar</button>` : '')}</div>
+      <div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:10px;">
+        <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Total general</div><div class="body"><div class="big">${totalGeneral.toLocaleString('es-MX')}</div></div></div>
+        <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Desktop</div><div class="body"><div class="big">${totalDesktop.toLocaleString('es-MX')}</div></div></div>
+        <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">PDV con laptop</div><div class="body"><div class="big">${totalPdvLaptop.toLocaleString('es-MX')}</div></div></div>
+        <div class="card"><div class="head" style="background:${COLOR_COMBINADO}">Laptop cambaceo</div><div class="body"><div class="big">${totalCambaceo.toLocaleString('es-MX')}</div></div></div>
+      </div>
+      <div class="foot" style="margin:8px 0 16px;">Las tarjetas de arriba se calculan solas, sumando las 9 regiones de abajo.</div>
+      <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px;">
+        ${regs.map((r,i)=>`
+          <div style="border:1px solid var(--line); border-radius:10px; padding:14px 16px;">
+            ${editing && puedeEditar
+              ? `<input type="text" data-pdv-nombre="${i}" value="${r.nombre}" style="font-weight:700; font-size:14px; width:100%; margin-bottom:8px;">`
+              : `<div style="font-weight:700; font-size:14px; margin-bottom:8px;">${r.nombre}</div>`}
+            <div style="font-size:26px; font-weight:700;">${r.total}</div>
+            <div class="foot" style="margin:2px 0 10px;">Total equipos</div>
+            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
+              <span>PDV laptop</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${i}.pdv_laptop" value="${r.pdv_laptop}" style="width:60px; text-align:right;">` : `<b>${r.pdv_laptop}</b>`}
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
+              <span>Cambaceo</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${i}.cambaceo" value="${r.cambaceo}" style="width:60px; text-align:right;">` : `<b>${r.cambaceo}</b>`}
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
+              <span>Desktop</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${i}.desktop" value="${r.desktop}" style="width:60px; text-align:right;">` : `<b>${r.desktop}</b>`}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      ${canEdit ? renderHistorialPdvRegion() : ''}
+    `;
+    if(editing && puedeEditar){
+      document.getElementById('btnCancel').onclick = ()=>{ editing=false; render(); };
+      document.getElementById('btnSave').onclick = ()=>{
+        document.querySelectorAll('[data-pdv-nombre]').forEach(inp=>{
+          data.regiones[Number(inp.dataset.pdvNombre)].nombre = inp.value;
+        });
+        document.querySelectorAll('[data-pdv-campo]').forEach(inp=>{
+          const [idx,campo] = inp.dataset.pdvCampo.split('.');
+          data.regiones[Number(idx)][campo] = Number(inp.value||0);
+        });
+        if(!state.equipos_pdv_region_historial) state.equipos_pdv_region_historial = [];
+        state.equipos_pdv_region_historial.unshift({
+          fecha: new Date().toISOString(),
+          usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : 'desconocido',
+          snapshot: JSON.parse(JSON.stringify(data))
+        });
+        if(state.equipos_pdv_region_historial.length > 30) state.equipos_pdv_region_historial.length = 30;
+        editing = false;
+        save();
+      };
+    } else if(puedeEditar){
+      document.getElementById('btnEdit').onclick = ()=>{ editing=true; render(); };
+    }
+    if(canEdit){
+      document.querySelectorAll('[data-hist-pdv-ver]').forEach(btn=>{
+        btn.onclick = ()=>{
+          const idx = Number(btn.dataset.histPdvVer);
+          historialPdvExpandido = historialPdvExpandido===idx ? null : idx;
+          render();
+        };
+      });
+    }
+  }
+
+  function renderHistorialPdvRegion(){
+    const hist = state.equipos_pdv_region_historial || [];
+    if(!hist.length){
+      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3><div class="foot">Todavía no hay cambios guardados en esta pestaña.</div></div>`;
+    }
+    return `
+      <div class="panel" style="margin-top:20px;">
+        <h3>Historial de cambios</h3>
+        <div class="foot" style="margin-bottom:10px;">Solo visible para admin. Se guardan los últimos 30 cambios, más reciente arriba.</div>
+        <div style="overflow-x:auto;"><table>
+          <thead><tr><th>Fecha</th><th>Usuario</th><th></th></tr></thead>
+          <tbody>${hist.map((h,i)=>`
+            <tr>
+              <td>${fmtFecha(h.fecha)}</td>
+              <td>${h.usuario}</td>
+              <td><button data-hist-pdv-ver="${i}" style="padding:3px 8px;">${historialPdvExpandido===i ? 'Ocultar' : 'Ver'}</button></td>
+            </tr>
+            ${historialPdvExpandido===i ? `
+            <tr><td colspan="3">
+              <div style="font-size:12.5px; padding:8px 0;">
+                ${h.snapshot.regiones.map(r=>`${r.nombre}: PDV laptop ${r.pdv_laptop} · Cambaceo ${r.cambaceo} · Desktop ${r.desktop}`).join('<br>')}
               </div>
             </td></tr>` : ''}
           `).join('')}
