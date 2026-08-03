@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap" rel="stylesheet">
 <meta name="version" content="20260724184425">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com; style-src 'self' 'unsafe-inline';">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -118,6 +119,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 }
 .role-admin{background:var(--blue-bg);color:var(--blue-text)}
 .role-proveedor{background:var(--amber-bg);color:var(--amber-text)}
+.role-consulta{background:var(--green-bg);color:var(--green-text)}
 .topbar-right{display:flex;align-items:center;gap:12px}
 .topbar-right .btn-logout{
   font-size:12px;color:var(--text2);background:none;border:1px solid var(--border2);
@@ -322,12 +324,10 @@ tbody tr:hover td{background:var(--surface2)}
 <!-- ══ LOGIN ══════════════════════════════════════════ -->
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo">
-      <div class="dot-mark">
-        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>
-      </div>
-      <div class="brand">PrimeMX <span>· Consumibles</span></div>
+    <div class="login-logo" style="justify-content:center;margin-bottom:8px">
+      <div style="display:flex;align-items:baseline;justify-content:center"><span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:36px;letter-spacing:-1px;color:#1a1a18">PR<span style="color:#00AEEF">I</span>ME</span><span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:30px;letter-spacing:-1px;color:#1a1a18">MX</span></div>
     </div>
+    <div style="font-size:11px;color:#aaa;letter-spacing:.08em;text-transform:uppercase;text-align:center;margin-bottom:24px">Gestión de consumibles</div>
     <h2>Iniciar sesión</h2>
     <p>Ingresa tus credenciales para continuar</p>
     <div class="login-error" id="login-error"></div>
@@ -351,7 +351,7 @@ tbody tr:hover td{background:var(--surface2)}
 <div id="app-screen">
   <div class="topbar">
     <div class="topbar-left">
-      <div class="topbar-logo"><span class="dot"></span> PrimeMX · Consumibles</div>
+      <div class="topbar-logo"><div style="display:flex;align-items:baseline;gap:0"><span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:22px;letter-spacing:-1px;color:#1a1a18">PR<span style="color:#00AEEF">I</span>ME</span><span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:18px;letter-spacing:-1px;color:#1a1a18">MX</span></div></div>
       <span class="role-badge" id="role-badge"></span>
     </div>
     <div class="topbar-right">
@@ -426,7 +426,8 @@ const FIREBASE_CONFIG = {
 ═══════════════════════════════════════════════════ */
 const USERS = {
   admin:     { pass: "c4d9cVrCN&x%lb#T", role: "admin",     display: "Administrador" },
-  proveedor: { pass: "Pq5hH1T3#pdKTp&d",  role: "proveedor", display: "Proveedor"     }
+  proveedor: { pass: "Pq5hH1T3#pdKTp&d",  role: "proveedor", display: "Proveedor"     },
+  mgiron:    { pass: "mgiron26",           role: "consulta",  display: "Consulta"      }
 };
 
 /* ─── Init Firebase ─── */
@@ -528,6 +529,9 @@ function startApp() {
   if(currentUser.role === "proveedor") {
     document.getElementById("sidebar").style.display = "none";
   }
+  if(currentUser.role === "consulta") {
+    document.getElementById("sidebar").style.display = "none";
+  }
   loadTickets();
 }
 
@@ -596,6 +600,7 @@ function navigate(p) {
 function render() {
   const c = document.getElementById("main-content");
   if(currentUser.role==="proveedor") { c.innerHTML = renderProveedor(); }
+  else if(currentUser.role==="consulta") { c.innerHTML = renderConsulta(); }
   else if(page==="tickets")        { c.innerHTML = renderTickets(); }
   else if(page==="dashboard")      { c.innerHTML = renderDashboard(); }
   else if(page==="top-tiendas")    { c.innerHTML = renderTopTiendas(); }
@@ -756,6 +761,55 @@ ${(()=>{
         <button class="btn sm" onclick="openModal('${t.id}')" title="Editar">${svgIcon("edit")}</button>
         <button class="btn sm danger" onclick="confirmDel('${t.id}')" title="Eliminar">${svgIcon("trash")}</button>
       </div></td>
+    </tr>`).join("")}
+    </tbody>
+  </table></div>
+</div>`;
+}
+
+/* ══════════════ CONSULTA VIEW ══════════════════ */
+function renderConsulta() {
+  const list = getFiltered();
+  const ab   = tickets.filter(t=>t.estatus==="ABIERTO").length;
+  const cerr = tickets.filter(t=>t.estatus==="CERRADO").length;
+  const tp   = tickets.filter(t=>t.entregado&&t.solicitud).map(t=>(new Date(t.entregado)-new Date(t.solicitud))/86400000);
+  const prom = tp.length ? Math.round(tp.reduce((a,b)=>a+b,0)/tp.length) : 0;
+  return `
+<div class="page-hdr">
+  <div class="page-hdr-left"><h2>Tickets de consumibles</h2><p>Vista de consulta — solo lectura</p></div>
+</div>
+<div class="metrics">
+  <div class="mc"><div class="mc-label">Total tickets 2026</div><div class="mc-value">${tickets.length}</div><div class="mc-sub">registros</div></div>
+  <div class="mc"><div class="mc-label" style="color:var(--blue-text)">Abiertos</div><div class="mc-value" style="color:var(--blue)">${ab}</div><div class="mc-sub">pendientes de atender</div></div>
+  <div class="mc"><div class="mc-label" style="color:var(--green-text)">Cerrados</div><div class="mc-value" style="color:var(--green)">${cerr}</div><div class="mc-sub">${tickets.length?Math.round(cerr/tickets.length*100):0}% resolución</div></div>
+  <div class="mc"><div class="mc-label">Tiempo promedio de entrega</div><div class="mc-value">${prom} d</div><div class="mc-sub">días hasta entrega</div></div>
+</div>
+<div class="card">
+  <div class="card-header">
+    <div class="filters">
+      <input type="text" id="f-busq" placeholder="Buscar tienda, ticket, CECO…" value="${filt.busq}" style="width:210px">
+      <select id="f-anio"><option value="">Todos los años</option>${anios().map(a=>`<option value="${a}"${filt.anio===a?" selected":""}>${a}</option>`).join("")}</select>
+      <select id="f-mes"><option value="">Todos los meses</option>${meses().map(m=>`<option value="${m}"${filt.mes===m?" selected":""}>${m}</option>`).join("")}</select>
+      <select id="f-tipo"><option value="">Todos los tipos</option>${TIPOS.map(t=>`<option value="${t}"${filt.tipo===t?" selected":""}>${t}</option>`).join("")}</select>
+      <select id="f-est"><option value="">Todos los estatus</option>${ESTATUS.map(e=>`<option value="${e}"${filt.estatus===e?" selected":""}>${e}</option>`).join("")}</select>
+    </div>
+    <span style="font-size:12px;color:var(--text3)">${list.length} resultado${list.length!==1?"s":""}</span>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr>
+      <th>Ticket</th><th>Tienda / CECO</th><th>Tipo</th><th>Solicitud</th><th>Entregado</th><th>Días</th><th>Estatus</th>
+    </tr></thead>
+    <tbody>
+    ${list.length===0?`<tr><td colspan="7"><div class="empty">${svgIcon("inbox")}<p>Sin resultados</p></div></td></tr>`:""}
+    ${list.map(t=>`<tr>
+      <td style="font-weight:700;font-size:12px">${t.id}</td>
+      <td><div style="font-size:13px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.tienda}">${t.tienda}</div>
+      <div style="font-size:11px;color:var(--text3)">CECO ${t.ceco}</div></td>
+      <td><span class="badge b-${tipoClass(t.tipo)}">${t.tipo}</span></td>
+      <td style="font-size:12px">${t.solicitud||"—"}</td>
+      <td style="font-size:12px">${t.entregado||"—"}</td>
+      <td style="font-size:12px;text-align:center">${dias(t)}</td>
+      <td><span class="badge b-${estatusClass(t.estatus)}">${t.estatus}</span></td>
     </tr>`).join("")}
     </tbody>
   </table></div>
