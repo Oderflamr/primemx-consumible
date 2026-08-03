@@ -6,6 +6,7 @@
 <title>PrimeMX · Directorio de Tiendas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#F4F6F5;
@@ -337,42 +338,6 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   font-size:13.5px;
 }
 .detail-row:last-child{border-bottom:none;}
-.fallas-section{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;}
-.fallas-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-.fallas-title-row h3{font-size:13.5px;margin:0;font-weight:700;color:var(--ink);}
-.falla-card{border-radius:9px;padding:10px 12px;margin-bottom:8px;}
-.falla-card.abierta{background:var(--warn-soft);}
-.falla-card.cerrada{background:var(--ok-soft);}
-.falla-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
-.falla-badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;text-transform:uppercase;}
-.falla-badge.abierta{background:var(--warn);}
-.falla-badge.cerrada{background:var(--ok);}
-.falla-tipo{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:5px;}
-.falla-fecha{font-size:11px;color:var(--ink-soft);white-space:nowrap;}
-.falla-meta{display:flex;gap:14px;margin-top:8px;font-size:11.5px;color:var(--ink-soft);flex-wrap:wrap;}
-.falla-cierre-row{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-.falla-cierre-row input{font-size:11.5px;border:1px solid var(--line);border-radius:5px;padding:3px 6px;}
-.falla-cierre-row button{font-size:11px;background:#fff;border:1px solid var(--line);border-radius:5px;padding:4px 9px;cursor:pointer;}
-.falla-form{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:12px;margin-bottom:10px;}
-.falla-form .field{margin-bottom:8px;}
-.falla-form label{font-size:11px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:3px;}
-.falla-form input,.falla-form select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-size:13px;}
-.falla-empty{font-size:12.5px;color:var(--ink-soft);padding:6px 0;}
-.report-modal{max-width:1180px !important;width:calc(100% - 32px) !important;}
-.report-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;}
-.report-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;cursor:pointer;transition:border-color .12s ease;}
-.report-card:hover{border-color:var(--signal);}
-.report-card.active{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal);}
-.report-card .num{font-family:var(--font-mono);font-size:22px;font-weight:600;}
-.report-card .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;margin-top:2px;}
-.report-table-wrap{overflow-x:auto;}
-.report-table{width:100%;font-size:12px;border-collapse:collapse;table-layout:auto;}
-.report-table th{padding:7px 8px;text-align:left;color:var(--ink-soft);border-bottom:1px solid var(--line);white-space:nowrap;}
-.report-table td{padding:7px 8px;border-top:1px solid var(--line);word-break:break-word;}
-.report-table td.num-cell,.report-table th.num-cell{text-align:center;}
-.report-table td.total-cell{text-align:right;font-weight:600;}
-.report-table input[type="date"]{width:118px;}
-.report-table button{white-space:nowrap;}
 .detail-row .k{color:var(--ink-soft);}
 .detail-row .v{font-weight:500;text-align:right;}
 .detail-row .v.mono{font-family:var(--font-mono);font-size:12.5px;}
@@ -402,6 +367,10 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
 <div id="login-screen">
   <div class="login-card">
     <div class="login-signal"><span></span><span></span><span></span><span></span></div>
+    <div style="display:flex;align-items:baseline;justify-content:center;margin-bottom:14px;">
+      <span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:22px;letter-spacing:-1px;color:#1a1a18">PR<span style="color:#00AEEF">I</span>ME</span>
+      <span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:18px;letter-spacing:-1px;color:#1a1a18">MX</span>
+    </div>
     <h1>Directorio de Tiendas</h1>
     <p class="sub">PrimeMX · Acceso al portal</p>
     <div class="login-error" id="login-error">Usuario o contraseña incorrectos.</div>
@@ -424,7 +393,10 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
 <div id="app">
   <header class="topbar">
     <div class="brand">
-      <div class="mark">PX</div>
+      <div style="display:flex;align-items:baseline;">
+        <span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:22px;letter-spacing:-1px;color:#1a1a18">PR<span style="color:#00AEEF">I</span>ME</span>
+        <span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:18px;letter-spacing:-1px;color:#1a1a18">MX</span>
+      </div>
       <div>
         <h1>Directorio de Tiendas</h1>
         <p class="brand-sub" id="store-count-sub">PrimeMX</p>
@@ -433,6 +405,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
     <div class="user-chip">
       <span id="user-label"></span>
       <span class="role-tag" id="role-tag">consulta</span>
+      <a href="dashboard.html" style="color:var(--signal-dark); text-decoration:none; font-weight:600; font-size:13px; margin-right:6px;">Caídas de Internet →</a>
       <button class="btn btn-ghost" id="logout-btn" style="padding:7px 12px;font-size:12.5px;">Salir</button>
     </div>
   </header>
@@ -457,7 +430,6 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
       </select>
       <div class="spacer"></div>
       <div class="toolbar-actions">
-        <button class="btn btn-ghost" id="fallas-report-btn">Reportes de fallas</button>
         <button class="btn btn-ghost" id="export-btn">Exportar CSV</button>
         <button class="btn btn-ghost" id="reload-catalog-btn" style="display:none;">Actualizar catálogo</button>
         <button class="btn btn-primary" id="new-store-btn" style="display:none;">+ Nueva tienda</button>
@@ -703,110 +675,8 @@ function renderStats(){
     <div class="stat-card"><div class="num" style="color:var(--ok)">${activas}</div><div class="lbl">Activas</div></div>
     <div class="stat-card"><div class="num" style="color:var(--warn)">${inactivas}</div><div class="lbl">Inactivas</div></div>
     <div class="stat-card"><div class="num">${carriers}</div><div class="lbl">Carriers distintos</div></div>
-    <div class="stat-card" id="open-tickets-card" style="cursor:pointer;"><div class="num" style="color:var(--warn)">…</div><div class="lbl">Tickets abiertos</div></div>
   `;
   document.getElementById('store-count-sub').textContent = `${total} tiendas registradas`;
-  document.getElementById('open-tickets-card').addEventListener('click', openOpenTicketsModal);
-  loadOpenTicketsCount();
-}
-
-let openTicketsList = [];
-
-async function loadOpenTicketsCount(){
-  const card = document.getElementById('open-tickets-card');
-  if(!card) return;
-  try{
-    const snap = await db.collectionGroup('fallas').get();
-    const records = [];
-    snap.forEach(doc=>{
-      const data = doc.data();
-      if(data.fecha_cierre) return;
-      const storeId = doc.ref.parent.parent.id;
-      const store = allStores.find(s=>s.id===storeId);
-      records.push({
-        id: doc.id, storeId,
-        plaza: store?.plaza || 'Tienda no encontrada',
-        carrier: store?.carrier || 'Sin carrier',
-        tipo: data.tipo || '',
-        folio_proveedor: data.folio_proveedor || '',
-        ticket: data.ticket || '',
-        fecha_captura: data.fecha_captura,
-        fecha_cierre: null
-      });
-    });
-    openTicketsList = records;
-    card.innerHTML = `<div class="num" style="color:var(--warn)">${records.length}</div><div class="lbl">Tickets abiertos</div>`;
-  }catch(err){
-    console.error(err);
-    card.innerHTML = `<div class="num" style="color:var(--warn)">—</div><div class="lbl">Tickets abiertos</div>`;
-  }
-}
-
-function openOpenTicketsModal(){
-  document.getElementById('modal-content').classList.add('report-modal');
-  const isAdmin = currentUser.role === 'admin';
-  const canManage = canManageFallas();
-  if(openTicketsList.length === 0){
-    document.getElementById('modal-content').innerHTML = `
-      <h2>Tickets abiertos</h2>
-      <p class="modal-sub">Tiendas con fallas pendientes de cierre</p>
-      <p class="falla-empty">No hay tickets abiertos por el momento.</p>
-      <div class="modal-actions"><button class="btn btn-ghost" id="close-modal-btn">Cerrar</button></div>
-    `;
-    document.getElementById('modal-overlay').classList.add('show');
-    document.getElementById('close-modal-btn').addEventListener('click', closeModal);
-    return;
-  }
-  document.getElementById('modal-content').innerHTML = `
-    <h2>Tickets abiertos</h2>
-    <p class="modal-sub">${openTicketsList.length} tienda${openTicketsList.length===1?'':'s'} con fallas pendientes de seguimiento</p>
-    <div class="report-table-wrap">
-      <table class="report-table">
-        <thead><tr>
-          <th>Tienda</th><th>Carrier</th><th>Tipo</th><th>Folio</th><th>Ticket</th><th>Captura</th>${canManage?'<th>Cierre</th>':''}${isAdmin?'<th>Acciones</th>':''}
-        </tr></thead>
-        <tbody>
-        ${openTicketsList.map(f=>`
-          <tr>
-            <td>${esc(f.plaza)}</td><td>${esc(f.carrier)}</td><td>${esc(f.tipo)}</td><td>${esc(f.folio_proveedor)||'—'}</td><td>${esc(f.ticket)||'—'}</td>
-            <td>${fmtFechaHora(f.fecha_captura)}</td>
-            ${canManage?`<td><input type="date" id="open-cierre-${f.id}" style="width:110px;"> <button data-id="${f.id}" data-store="${f.storeId}" class="btn-guardar-cierre-open" style="font-size:11px;padding:3px 8px;">Guardar</button></td>`:''}
-            ${isAdmin?`<td><button data-id="${f.id}" data-store="${f.storeId}" class="btn-editar-falla-open" style="font-size:11px;padding:3px 8px;margin-right:4px;">Editar</button><button data-id="${f.id}" data-store="${f.storeId}" class="btn-eliminar-falla-open" style="font-size:11px;padding:3px 8px;color:var(--warn);">Eliminar</button></td>`:''}
-          </tr>
-        `).join('')}
-        </tbody>
-      </table>
-    </div>
-    <div class="modal-actions"><button class="btn btn-ghost" id="close-modal-btn">Cerrar</button></div>
-  `;
-  document.getElementById('modal-overlay').classList.add('show');
-  document.getElementById('close-modal-btn').addEventListener('click', closeModal);
-
-  document.querySelectorAll('.btn-guardar-cierre-open').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const val = document.getElementById(`open-cierre-${btn.dataset.id}`).value;
-      if(!val){ toast('Selecciona una fecha de cierre','error'); return; }
-      try{
-        await fallasRef(btn.dataset.store).doc(btn.dataset.id).update({fecha_cierre: val});
-        toast('Falla cerrada', 'ok');
-        await loadOpenTicketsCount();
-        openOpenTicketsModal();
-      }catch(err){
-        console.error(err);
-        toast('Error al guardar la fecha de cierre','error');
-      }
-    });
-  });
-  document.querySelectorAll('.btn-editar-falla-open').forEach(btn=>{
-    const f = openTicketsList.find(r=>r.id===btn.dataset.id && r.storeId===btn.dataset.store);
-    btn.addEventListener('click', ()=> openEditFallaForm(btn.dataset.store, btn.dataset.id, f));
-  });
-  document.querySelectorAll('.btn-eliminar-falla-open').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      allFallasRecords = openTicketsList;
-      confirmDeleteFalla(btn.dataset.store, btn.dataset.id);
-    });
-  });
 }
 
 /* ══════════════════ FILTROS Y BÚSQUEDA ══════════════════ */
@@ -899,185 +769,6 @@ function renderGrid(){
 }
 
 /* ══════════════════ MODAL: VER DETALLE ══════════════════ */
-// Solo el admin y el usuario marafic pueden registrar fallas / poner fecha de cierre
-function canManageFallas(){
-  return currentUser.role === 'admin' || currentUser.username === 'marafic';
-}
-
-function fallasRef(storeId){
-  return db.collection(COLLECTION).doc(storeId).collection('fallas');
-}
-
-function fmtFechaHora(iso){
-  if(!iso) return '—';
-  const d = new Date(iso);
-  if(isNaN(d)) return iso;
-  const dd = String(d.getDate()).padStart(2,'0');
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2,'0');
-  const mi = String(d.getMinutes()).padStart(2,'0');
-  return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
-}
-
-async function loadAndRenderFallas(storeId){
-  const container = document.getElementById('fallas-list');
-  if(!container) return;
-  try{
-    const snap = await fallasRef(storeId).orderBy('fecha_captura','desc').get();
-    const fallas = snap.docs.map(d=>({id:d.id, ...d.data()}));
-    renderFallasList(storeId, fallas);
-  }catch(err){
-    console.error(err);
-    container.innerHTML = '<p class="falla-empty">No se pudo cargar el historial de fallas.</p>';
-  }
-}
-
-function renderFallasList(storeId, fallas){
-  const container = document.getElementById('fallas-list');
-  if(!container) return;
-  if(fallas.length === 0){
-    container.innerHTML = '<p class="falla-empty">Sin fallas registradas para esta tienda.</p>';
-    return;
-  }
-  const ultima = fallas[0]; // ya viene ordenado desc por fecha_captura: la más reciente
-  const canManage = canManageFallas();
-  const isAdmin = currentUser.role === 'admin';
-  const abierta = !ultima.fecha_cierre;
-  const cierreHtml = abierta
-    ? (canManage ? `
-        <div class="falla-cierre-row">
-          <span style="font-size:11px;color:var(--ink-soft);">Fecha de cierre:</span>
-          <input type="date" id="cierre-input-${ultima.id}">
-          <button data-id="${ultima.id}" class="btn-guardar-cierre">Guardar</button>
-        </div>` : '')
-    : `<div style="margin-top:8px;font-size:11.5px;color:var(--ink-soft);">Cerrado: <strong>${esc(ultima.fecha_cierre)}</strong></div>`;
-  const adminFallaActions = isAdmin ? `
-    <div class="falla-cierre-row">
-      <button data-id="${ultima.id}" class="btn-editar-falla-card" style="font-size:11px;padding:4px 9px;">Editar</button>
-      <button data-id="${ultima.id}" class="btn-eliminar-falla-card" style="font-size:11px;padding:4px 9px;color:var(--warn);">Eliminar</button>
-    </div>` : '';
-  container.innerHTML = `
-    <div class="falla-card ${abierta?'abierta':'cerrada'}">
-      <div class="falla-top">
-        <div>
-          <span class="falla-badge ${abierta?'abierta':'cerrada'}">${abierta?'Abierto':'Cerrado'}</span>
-          <div class="falla-tipo">${esc(ultima.tipo)}</div>
-        </div>
-        <div class="falla-fecha">${fmtFechaHora(ultima.fecha_captura)}</div>
-      </div>
-      <div class="falla-meta">
-        <span>Folio proveedor: <strong>${esc(ultima.folio_proveedor)||'—'}</strong></span>
-        <span>Ticket: <strong>${esc(ultima.ticket)||'—'}</strong></span>
-      </div>
-      ${cierreHtml}
-      ${adminFallaActions}
-    </div>
-    ${fallas.length>1 ? `<p class="falla-empty">Mostrando la falla más reciente · ${fallas.length} registradas en total. Ve al reporte de fallas para ver el historial completo.</p>` : ''}
-  `;
-
-  container.querySelectorAll('.btn-editar-falla-card').forEach(btn=>{
-    btn.addEventListener('click', ()=> openEditFallaForm(storeId, btn.dataset.id, {...ultima, storeId, plaza: allStores.find(s=>s.id===storeId)?.plaza||''}));
-  });
-  container.querySelectorAll('.btn-eliminar-falla-card').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      allFallasRecords = fallas.map(f=>({...f, storeId, plaza: allStores.find(s=>s.id===storeId)?.plaza||''}));
-      confirmDeleteFalla(storeId, btn.dataset.id);
-    });
-  });
-
-  container.querySelectorAll('.btn-guardar-cierre').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const fallaId = btn.dataset.id;
-      const input = document.getElementById(`cierre-input-${fallaId}`);
-      const val = input.value;
-      if(!val){ toast('Selecciona una fecha de cierre','error'); return; }
-      try{
-        await fallasRef(storeId).doc(fallaId).update({fecha_cierre: val});
-        toast('Falla cerrada', 'ok');
-        loadAndRenderFallas(storeId);
-      }catch(err){
-        console.error(err);
-        toast('Error al guardar la fecha de cierre','error');
-      }
-    });
-  });
-}
-
-function toggleFallaForm(storeId){
-  const wrap = document.getElementById('falla-form-wrap');
-  if(!wrap) return;
-  if(wrap.innerHTML.trim() !== ''){
-    wrap.innerHTML = '';
-    return;
-  }
-  const isAdmin = currentUser.role === 'admin';
-  // Valor por defecto para el campo de fecha/hora: ahora mismo, en formato compatible con input datetime-local
-  const now = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  const nowLocal = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-  wrap.innerHTML = `
-    <div class="falla-form">
-      <div class="field">
-        <label>Tipo de falla</label>
-        <select id="new-falla-tipo">
-          <option value="Sin servicio">Sin servicio</option>
-          <option value="Falla de velocidad">Falla de velocidad</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Folio de Proveedor</label>
-        <input type="text" id="new-falla-folio">
-      </div>
-      <div class="field">
-        <label>Ticket</label>
-        <input type="text" id="new-falla-ticket">
-      </div>
-      ${isAdmin ? `
-      <div class="field">
-        <label>Fecha y hora de captura</label>
-        <input type="datetime-local" id="new-falla-fecha" value="${nowLocal}">
-      </div>` : ''}
-      <div style="display:flex;justify-content:flex-end;gap:8px;">
-        <button class="btn btn-ghost" id="cancel-falla-btn" style="padding:7px 12px;font-size:12.5px;">Cancelar</button>
-        <button class="btn btn-primary" id="save-falla-btn" style="padding:7px 14px;font-size:12.5px;">Guardar</button>
-      </div>
-    </div>`;
-  document.getElementById('cancel-falla-btn').addEventListener('click', ()=>{ wrap.innerHTML=''; });
-  document.getElementById('save-falla-btn').addEventListener('click', async ()=>{
-    const tipo = document.getElementById('new-falla-tipo').value;
-    const folio = document.getElementById('new-falla-folio').value.trim();
-    const ticket = document.getElementById('new-falla-ticket').value.trim();
-    // Solo el admin puede elegir una fecha distinta a "ahora"; para marafic y demás
-    // usuarios la fecha de captura sigue siendo automática, como antes.
-    let fechaCaptura = new Date().toISOString();
-    if(isAdmin){
-      const fechaInput = document.getElementById('new-falla-fecha').value;
-      if(fechaInput){
-        const parsed = new Date(fechaInput);
-        if(!isNaN(parsed)) fechaCaptura = parsed.toISOString();
-      }
-    }
-    try{
-      await fallasRef(storeId).add({
-        tipo,
-        folio_proveedor: folio,
-        ticket,
-        fecha_captura: fechaCaptura,
-        fecha_cierre: null,
-        capturado_por: currentUser.username
-      });
-      toast('Falla registrada', 'ok');
-      wrap.innerHTML = '';
-      loadAndRenderFallas(storeId);
-    }catch(err){
-      console.error(err);
-      toast('Error al registrar la falla','error');
-    }
-  });
-}
-
 function openDetail(id){
   const s = allStores.find(x=>x.id===id);
   if(!s) return;
@@ -1105,26 +796,15 @@ function openDetail(id){
     <h2>${esc(s.plaza||'Detalle de tienda')}</h2>
     <p class="modal-sub">Centro de Costo ${esc(s.cc||'—')}</p>
     <div>${rowsHtml}</div>
-    <div class="fallas-section">
-      <div class="fallas-title-row">
-        <h3>Fallas de servicio</h3>
-        ${canManageFallas() ? `<button class="btn btn-ghost" id="new-falla-btn" style="padding:6px 12px;font-size:12px;">+ Registrar falla</button>` : ''}
-      </div>
-      <div id="falla-form-wrap"></div>
-      <div id="fallas-list"><p class="falla-empty">Cargando...</p></div>
-    </div>
     ${adminActions}
   `;
   document.getElementById('modal-overlay').classList.add('show');
   document.getElementById('close-modal-btn').addEventListener('click', closeModal);
   document.getElementById('edit-store-btn')?.addEventListener('click', ()=> openForm(id));
   document.getElementById('delete-store-btn')?.addEventListener('click', ()=> confirmDelete(id));
-  document.getElementById('new-falla-btn')?.addEventListener('click', ()=> toggleFallaForm(id));
-  loadAndRenderFallas(id);
 }
 function closeModal(){
   document.getElementById('modal-overlay').classList.remove('show');
-  document.getElementById('modal-content').classList.remove('report-modal');
 }
 document.getElementById('modal-overlay').addEventListener('click', function(e){
   if(e.target === this) closeModal();
@@ -1132,307 +812,6 @@ document.getElementById('modal-overlay').addEventListener('click', function(e){
 
 /* ══════════════════ MODAL: ALTA / EDICIÓN (solo admin) ══════════════════ */
 document.getElementById('new-store-btn').addEventListener('click', ()=> openForm(null));
-document.getElementById('fallas-report-btn').addEventListener('click', openFallasReport);
-
-const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-
-async function openFallasReport(){
-  document.getElementById('modal-content').classList.add('report-modal');
-  document.getElementById('modal-content').innerHTML = `
-    <h2>Reportes de fallas de servicio</h2>
-    <p class="modal-sub">Año ${new Date().getFullYear()} · haz clic en un carrier para ver el detalle por tienda</p>
-    <div class="report-cards" id="report-cards"><p class="falla-empty">Cargando...</p></div>
-    <div id="report-detail"></div>
-    <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:14px;">
-      <label style="font-size:11px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:6px;text-transform:uppercase;">Buscar falla por ticket o folio de proveedor</label>
-      <input type="text" id="falla-search-input" placeholder="Ej. INC-5521 o TP-88213" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;">
-      <div id="falla-search-results" style="margin-top:12px;"></div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="close-modal-btn">Cerrar</button>
-    </div>
-  `;
-  document.getElementById('modal-overlay').classList.add('show');
-  document.getElementById('close-modal-btn').addEventListener('click', closeModal);
-  document.getElementById('falla-search-input').addEventListener('input', renderFallaSearchResults);
-  await loadFallasReport();
-}
-
-let allFallasRecords = [];
-
-async function loadFallasReport(){
-  const cardsEl = document.getElementById('report-cards');
-  try{
-    const snap = await db.collectionGroup('fallas').get();
-    const year = new Date().getFullYear();
-    const records = [];
-    snap.forEach(doc=>{
-      const data = doc.data();
-      const fecha = new Date(data.fecha_captura);
-      if(isNaN(fecha) || fecha.getFullYear() !== year) return;
-      const storeId = doc.ref.parent.parent.id;
-      const store = allStores.find(s=>s.id===storeId);
-      records.push({
-        id: doc.id,
-        storeId,
-        plaza: store?.plaza || 'Tienda no encontrada',
-        carrier: store?.carrier || 'Sin carrier',
-        tecnologia: store?.tecnologia || '',
-        month: fecha.getMonth(),
-        tipo: data.tipo || '',
-        folio_proveedor: data.folio_proveedor || '',
-        ticket: data.ticket || '',
-        fecha_captura: data.fecha_captura,
-        fecha_cierre: data.fecha_cierre || null
-      });
-    });
-    allFallasRecords = records;
-
-    const carriers = [...new Set(allStores.map(s=>s.carrier).filter(Boolean))].sort();
-    const countsByCarrier = {};
-    carriers.forEach(c=> countsByCarrier[c] = 0);
-    records.forEach(r=>{ if(countsByCarrier[r.carrier] !== undefined) countsByCarrier[r.carrier]++; });
-
-    cardsEl.innerHTML = carriers.map(c=>`
-      <div class="report-card" data-carrier="${esc(c)}">
-        <div class="num" style="${countsByCarrier[c]>0?'color:var(--warn)':''}">${countsByCarrier[c]}</div>
-        <div class="lbl">Fallas ${esc(c)}</div>
-      </div>
-    `).join('');
-
-    cardsEl.querySelectorAll('.report-card').forEach(card=>{
-      card.addEventListener('click', ()=>{
-        cardsEl.querySelectorAll('.report-card').forEach(c=>c.classList.remove('active'));
-        card.classList.add('active');
-        renderCarrierDetail(card.dataset.carrier, records);
-      });
-    });
-  }catch(err){
-    console.error(err);
-    cardsEl.innerHTML = '<p class="falla-empty">No se pudo cargar el reporte de fallas.</p>';
-  }
-}
-
-function renderCarrierDetail(carrier, records){
-  const detailEl = document.getElementById('report-detail');
-  const filtered = records.filter(r=>r.carrier === carrier);
-  if(filtered.length === 0){
-    detailEl.innerHTML = `<p class="falla-empty">Sin fallas registradas para ${esc(carrier)} este año.</p>`;
-    return;
-  }
-  const byStore = {};
-  filtered.forEach(r=>{
-    if(!byStore[r.storeId]){
-      byStore[r.storeId] = {plaza:r.plaza, carrier:r.carrier, tecnologia:r.tecnologia, months:Array(12).fill(0)};
-    }
-    byStore[r.storeId].months[r.month]++;
-  });
-  const rows = Object.values(byStore).map(row=>({...row, total: row.months.reduce((a,b)=>a+b,0)}));
-  rows.sort((a,b)=> b.total - a.total);
-
-  const monthHeaders = MESES.map(m=>`<th class="num-cell">${m}</th>`).join('');
-  const bodyRows = rows.map((row,i)=>`
-    <tr>
-      <td>${i+1}</td>
-      <td>${esc(row.plaza)}</td>
-      <td>${esc(row.carrier)}</td>
-      <td>${esc(row.tecnologia)}</td>
-      ${row.months.map(v=>`<td class="num-cell">${v>0?v:'-'}</td>`).join('')}
-      <td class="total-cell">${row.total}</td>
-    </tr>
-  `).join('');
-
-  detailEl.innerHTML = `
-    <div class="report-table-wrap">
-      <table class="report-table">
-        <thead><tr>
-          <th>#</th><th>Tienda</th><th>Carrier</th><th>Tecnología</th>
-          ${monthHeaders}
-          <th class="num-cell">Total</th>
-        </tr></thead>
-        <tbody>${bodyRows}</tbody>
-      </table>
-    </div>
-  `;
-}
-
-/* ══════════════════ BUSCAR FALLA POR TICKET / FOLIO ══════════════════ */
-function renderFallaSearchResults(){
-  const q = document.getElementById('falla-search-input').value.trim().toLowerCase();
-  const resultsEl = document.getElementById('falla-search-results');
-  if(!q){ resultsEl.innerHTML = ''; return; }
-  const matches = allFallasRecords.filter(f=>
-    String(f.ticket||'').toLowerCase().includes(q) ||
-    String(f.folio_proveedor||'').toLowerCase().includes(q)
-  );
-  if(matches.length === 0){
-    resultsEl.innerHTML = '<p class="falla-empty">Sin coincidencias.</p>';
-    return;
-  }
-  const isAdmin = currentUser.role === 'admin';
-  const canManage = canManageFallas();
-  resultsEl.innerHTML = `
-    <div class="report-table-wrap">
-      <table class="report-table">
-        <thead><tr>
-          <th>Tienda</th><th>Carrier</th><th>Tipo</th><th>Folio</th><th>Ticket</th><th>Captura</th><th>Estatus</th><th>Cierre</th>${isAdmin?'<th>Acciones</th>':''}
-        </tr></thead>
-        <tbody>
-        ${matches.map(f=>{
-          const abierta = !f.fecha_cierre;
-          const cierreCell = abierta
-            ? (canManage ? `<input type="date" id="search-cierre-${f.id}" style="width:110px;"> <button data-id="${f.id}" data-store="${f.storeId}" class="btn-guardar-cierre-search" style="font-size:11px;padding:3px 8px;">Guardar</button>` : '—')
-            : esc(f.fecha_cierre);
-          const acciones = isAdmin ? `
-            <button data-id="${f.id}" data-store="${f.storeId}" class="btn-editar-falla" style="font-size:11px;padding:3px 8px;margin-right:4px;">Editar</button>
-            <button data-id="${f.id}" data-store="${f.storeId}" class="btn-eliminar-falla" style="font-size:11px;padding:3px 8px;color:var(--warn);">Eliminar</button>` : '';
-          return `<tr>
-            <td>${esc(f.plaza)}</td><td>${esc(f.carrier)}</td><td>${esc(f.tipo)}</td><td>${esc(f.folio_proveedor)||'—'}</td><td>${esc(f.ticket)||'—'}</td>
-            <td>${fmtFechaHora(f.fecha_captura)}</td>
-            <td><span class="falla-badge ${abierta?'abierta':'cerrada'}">${abierta?'Abierto':'Cerrado'}</span></td>
-            <td>${cierreCell}</td>
-            ${isAdmin?`<td>${acciones}</td>`:''}
-          </tr>`;
-        }).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  resultsEl.querySelectorAll('.btn-guardar-cierre-search').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const val = document.getElementById(`search-cierre-${btn.dataset.id}`).value;
-      if(!val){ toast('Selecciona una fecha de cierre','error'); return; }
-      try{
-        await fallasRef(btn.dataset.store).doc(btn.dataset.id).update({fecha_cierre: val});
-        toast('Falla cerrada', 'ok');
-        await loadFallasReport();
-        renderFallaSearchResults();
-      }catch(err){
-        console.error(err);
-        toast('Error al guardar la fecha de cierre','error');
-      }
-    });
-  });
-  resultsEl.querySelectorAll('.btn-editar-falla').forEach(btn=>{
-    btn.addEventListener('click', ()=> openEditFallaForm(btn.dataset.store, btn.dataset.id));
-  });
-  resultsEl.querySelectorAll('.btn-eliminar-falla').forEach(btn=>{
-    btn.addEventListener('click', ()=> confirmDeleteFalla(btn.dataset.store, btn.dataset.id));
-  });
-}
-
-function openEditFallaForm(storeId, fallaId, fallaData){
-  const f = fallaData || allFallasRecords.find(r=>r.id===fallaId && r.storeId===storeId);
-  if(!f) return;
-  const pad = n => String(n).padStart(2,'0');
-  const d = new Date(f.fecha_captura);
-  const fechaLocal = isNaN(d) ? '' : `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-
-  const editOverlay = document.createElement('div');
-  editOverlay.className = 'modal-overlay show';
-  editOverlay.id = 'edit-falla-overlay';
-  editOverlay.innerHTML = `
-    <div class="modal">
-      <h2>Editar falla</h2>
-      <p class="modal-sub">${esc(f.plaza)}</p>
-      <div class="field">
-        <label>Tipo de falla</label>
-        <select id="edit-falla-tipo">
-          <option value="Sin servicio" ${f.tipo==='Sin servicio'?'selected':''}>Sin servicio</option>
-          <option value="Falla de velocidad" ${f.tipo==='Falla de velocidad'?'selected':''}>Falla de velocidad</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Folio de Proveedor</label>
-        <input type="text" id="edit-falla-folio" value="${esc(f.folio_proveedor)}">
-      </div>
-      <div class="field">
-        <label>Ticket</label>
-        <input type="text" id="edit-falla-ticket" value="${esc(f.ticket)}">
-      </div>
-      <div class="field">
-        <label>Fecha y hora de captura</label>
-        <input type="datetime-local" id="edit-falla-fecha" value="${fechaLocal}">
-      </div>
-      <div class="field">
-        <label>Fecha de cierre (dejar vacío si sigue abierta)</label>
-        <input type="date" id="edit-falla-cierre" value="${esc(f.fecha_cierre)||''}">
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="cancel-edit-falla-btn">Cancelar</button>
-        <button class="btn btn-primary" id="save-edit-falla-btn">Guardar cambios</button>
-      </div>
-    </div>`;
-  document.body.appendChild(editOverlay);
-  document.getElementById('cancel-edit-falla-btn').addEventListener('click', ()=> editOverlay.remove());
-  editOverlay.addEventListener('click', e=>{ if(e.target===editOverlay) editOverlay.remove(); });
-  document.getElementById('save-edit-falla-btn').addEventListener('click', async ()=>{
-    const tipo = document.getElementById('edit-falla-tipo').value;
-    const folio = document.getElementById('edit-falla-folio').value.trim();
-    const ticket = document.getElementById('edit-falla-ticket').value.trim();
-    const fechaInput = document.getElementById('edit-falla-fecha').value;
-    const cierreInput = document.getElementById('edit-falla-cierre').value;
-    const parsed = new Date(fechaInput);
-    try{
-      await fallasRef(storeId).doc(fallaId).update({
-        tipo,
-        folio_proveedor: folio,
-        ticket,
-        fecha_captura: isNaN(parsed) ? f.fecha_captura : parsed.toISOString(),
-        fecha_cierre: cierreInput || null
-      });
-      toast('Falla actualizada', 'ok');
-      editOverlay.remove();
-      if(document.getElementById('report-cards')){
-        await loadFallasReport();
-        renderFallaSearchResults();
-      }
-      if(document.getElementById('fallas-list')){
-        loadAndRenderFallas(storeId);
-      }
-    }catch(err){
-      console.error(err);
-      toast('Error al actualizar la falla','error');
-    }
-  });
-}
-
-function confirmDeleteFalla(storeId, fallaId){
-  const f = allFallasRecords.find(r=>r.id===fallaId && r.storeId===storeId);
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay show';
-  overlay.innerHTML = `
-    <div class="modal">
-      <h2>Eliminar falla</h2>
-      <p class="modal-sub">Esta acción no se puede deshacer.</p>
-      <p>¿Confirmas eliminar el registro de falla de <strong>${esc(f?.plaza||'')}</strong> (ticket ${esc(f?.ticket)||'—'})?</p>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="cancel-del-falla-btn">Cancelar</button>
-        <button class="btn btn-danger" id="confirm-del-falla-btn">Eliminar</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  document.getElementById('cancel-del-falla-btn').addEventListener('click', ()=> overlay.remove());
-  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
-  document.getElementById('confirm-del-falla-btn').addEventListener('click', async ()=>{
-    try{
-      await fallasRef(storeId).doc(fallaId).delete();
-      toast('Falla eliminada', 'ok');
-      overlay.remove();
-      if(document.getElementById('report-cards')){
-        await loadFallasReport();
-        renderFallaSearchResults();
-      }
-      if(document.getElementById('fallas-list')){
-        loadAndRenderFallas(storeId);
-      }
-    }catch(err){
-      console.error(err);
-      toast('Error al eliminar la falla','error');
-    }
-  });
-}
 document.getElementById('reload-catalog-btn').addEventListener('click', confirmReloadCatalog);
 
 function confirmReloadCatalog(){
