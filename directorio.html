@@ -701,8 +701,24 @@ function renderStats(){
     <div class="stat-card"><div class="num" style="color:var(--ok)">${activas}</div><div class="lbl">Activas</div></div>
     <div class="stat-card"><div class="num" style="color:var(--warn)">${inactivas}</div><div class="lbl">Inactivas</div></div>
     <div class="stat-card"><div class="num">${carriers}</div><div class="lbl">Carriers distintos</div></div>
+    <div class="stat-card" id="open-tickets-card"><div class="num" style="color:var(--warn)">…</div><div class="lbl">Tickets abiertos</div></div>
   `;
   document.getElementById('store-count-sub').textContent = `${total} tiendas registradas`;
+  loadOpenTicketsCount();
+}
+
+async function loadOpenTicketsCount(){
+  const card = document.getElementById('open-tickets-card');
+  if(!card) return;
+  try{
+    const snap = await db.collectionGroup('fallas').get();
+    let abiertos = 0;
+    snap.forEach(doc=>{ if(!doc.data().fecha_cierre) abiertos++; });
+    card.innerHTML = `<div class="num" style="color:var(--warn)">${abiertos}</div><div class="lbl">Tickets abiertos</div>`;
+  }catch(err){
+    console.error(err);
+    card.innerHTML = `<div class="num" style="color:var(--warn)">—</div><div class="lbl">Tickets abiertos</div>`;
+  }
 }
 
 /* ══════════════════ FILTROS Y BÚSQUEDA ══════════════════ */
@@ -838,6 +854,7 @@ function renderFallasList(storeId, fallas){
   }
   const ultima = fallas[0]; // ya viene ordenado desc por fecha_captura: la más reciente
   const canManage = canManageFallas();
+  const isAdmin = currentUser.role === 'admin';
   const abierta = !ultima.fecha_cierre;
   const cierreHtml = abierta
     ? (canManage ? `
@@ -847,6 +864,11 @@ function renderFallasList(storeId, fallas){
           <button data-id="${ultima.id}" class="btn-guardar-cierre">Guardar</button>
         </div>` : '')
     : `<div style="margin-top:8px;font-size:11.5px;color:var(--ink-soft);">Cerrado: <strong>${esc(ultima.fecha_cierre)}</strong></div>`;
+  const adminFallaActions = isAdmin ? `
+    <div class="falla-cierre-row">
+      <button data-id="${ultima.id}" class="btn-editar-falla-card" style="font-size:11px;padding:4px 9px;">Editar</button>
+      <button data-id="${ultima.id}" class="btn-eliminar-falla-card" style="font-size:11px;padding:4px 9px;color:var(--warn);">Eliminar</button>
+    </div>` : '';
   container.innerHTML = `
     <div class="falla-card ${abierta?'abierta':'cerrada'}">
       <div class="falla-top">
@@ -861,9 +883,20 @@ function renderFallasList(storeId, fallas){
         <span>Ticket: <strong>${esc(ultima.ticket)||'—'}</strong></span>
       </div>
       ${cierreHtml}
+      ${adminFallaActions}
     </div>
     ${fallas.length>1 ? `<p class="falla-empty">Mostrando la falla más reciente · ${fallas.length} registradas en total. Ve al reporte de fallas para ver el historial completo.</p>` : ''}
   `;
+
+  container.querySelectorAll('.btn-editar-falla-card').forEach(btn=>{
+    btn.addEventListener('click', ()=> openEditFallaForm(storeId, btn.dataset.id, {...ultima, storeId, plaza: allStores.find(s=>s.id===storeId)?.plaza||''}));
+  });
+  container.querySelectorAll('.btn-eliminar-falla-card').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      allFallasRecords = fallas.map(f=>({...f, storeId, plaza: allStores.find(s=>s.id===storeId)?.plaza||''}));
+      confirmDeleteFalla(storeId, btn.dataset.id);
+    });
+  });
 
   container.querySelectorAll('.btn-guardar-cierre').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -1022,14 +1055,22 @@ async function openFallasReport(){
     <p class="modal-sub">Año ${new Date().getFullYear()} · haz clic en un carrier para ver el detalle por tienda</p>
     <div class="report-cards" id="report-cards"><p class="falla-empty">Cargando...</p></div>
     <div id="report-detail"></div>
+    <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:14px;">
+      <label style="font-size:11px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:6px;text-transform:uppercase;">Buscar falla por ticket o folio de proveedor</label>
+      <input type="text" id="falla-search-input" placeholder="Ej. INC-5521 o TP-88213" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;">
+      <div id="falla-search-results" style="margin-top:12px;"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="close-modal-btn">Cerrar</button>
     </div>
   `;
   document.getElementById('modal-overlay').classList.add('show');
   document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+  document.getElementById('falla-search-input').addEventListener('input', renderFallaSearchResults);
   await loadFallasReport();
 }
+
+let allFallasRecords = [];
 
 async function loadFallasReport(){
   const cardsEl = document.getElementById('report-cards');
@@ -1044,13 +1085,20 @@ async function loadFallasReport(){
       const storeId = doc.ref.parent.parent.id;
       const store = allStores.find(s=>s.id===storeId);
       records.push({
+        id: doc.id,
         storeId,
         plaza: store?.plaza || 'Tienda no encontrada',
         carrier: store?.carrier || 'Sin carrier',
         tecnologia: store?.tecnologia || '',
-        month: fecha.getMonth()
+        month: fecha.getMonth(),
+        tipo: data.tipo || '',
+        folio_proveedor: data.folio_proveedor || '',
+        ticket: data.ticket || '',
+        fecha_captura: data.fecha_captura,
+        fecha_cierre: data.fecha_cierre || null
       });
     });
+    allFallasRecords = records;
 
     const carriers = [...new Set(allStores.map(s=>s.carrier).filter(Boolean))].sort();
     const countsByCarrier = {};
@@ -1118,6 +1166,184 @@ function renderCarrierDetail(carrier, records){
       </table>
     </div>
   `;
+}
+
+/* ══════════════════ BUSCAR FALLA POR TICKET / FOLIO ══════════════════ */
+function renderFallaSearchResults(){
+  const q = document.getElementById('falla-search-input').value.trim().toLowerCase();
+  const resultsEl = document.getElementById('falla-search-results');
+  if(!q){ resultsEl.innerHTML = ''; return; }
+  const matches = allFallasRecords.filter(f=>
+    String(f.ticket||'').toLowerCase().includes(q) ||
+    String(f.folio_proveedor||'').toLowerCase().includes(q)
+  );
+  if(matches.length === 0){
+    resultsEl.innerHTML = '<p class="falla-empty">Sin coincidencias.</p>';
+    return;
+  }
+  const isAdmin = currentUser.role === 'admin';
+  const canManage = canManageFallas();
+  resultsEl.innerHTML = `
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead><tr>
+          <th>Tienda</th><th>Carrier</th><th>Tipo</th><th>Folio</th><th>Ticket</th><th>Captura</th><th>Estatus</th><th>Cierre</th>${isAdmin?'<th>Acciones</th>':''}
+        </tr></thead>
+        <tbody>
+        ${matches.map(f=>{
+          const abierta = !f.fecha_cierre;
+          const cierreCell = abierta
+            ? (canManage ? `<input type="date" id="search-cierre-${f.id}" style="width:110px;"> <button data-id="${f.id}" data-store="${f.storeId}" class="btn-guardar-cierre-search" style="font-size:11px;padding:3px 8px;">Guardar</button>` : '—')
+            : esc(f.fecha_cierre);
+          const acciones = isAdmin ? `
+            <button data-id="${f.id}" data-store="${f.storeId}" class="btn-editar-falla" style="font-size:11px;padding:3px 8px;margin-right:4px;">Editar</button>
+            <button data-id="${f.id}" data-store="${f.storeId}" class="btn-eliminar-falla" style="font-size:11px;padding:3px 8px;color:var(--warn);">Eliminar</button>` : '';
+          return `<tr>
+            <td>${esc(f.plaza)}</td><td>${esc(f.carrier)}</td><td>${esc(f.tipo)}</td><td>${esc(f.folio_proveedor)||'—'}</td><td>${esc(f.ticket)||'—'}</td>
+            <td>${fmtFechaHora(f.fecha_captura)}</td>
+            <td><span class="falla-badge ${abierta?'abierta':'cerrada'}">${abierta?'Abierto':'Cerrado'}</span></td>
+            <td>${cierreCell}</td>
+            ${isAdmin?`<td>${acciones}</td>`:''}
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  resultsEl.querySelectorAll('.btn-guardar-cierre-search').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const val = document.getElementById(`search-cierre-${btn.dataset.id}`).value;
+      if(!val){ toast('Selecciona una fecha de cierre','error'); return; }
+      try{
+        await fallasRef(btn.dataset.store).doc(btn.dataset.id).update({fecha_cierre: val});
+        toast('Falla cerrada', 'ok');
+        await loadFallasReport();
+        renderFallaSearchResults();
+      }catch(err){
+        console.error(err);
+        toast('Error al guardar la fecha de cierre','error');
+      }
+    });
+  });
+  resultsEl.querySelectorAll('.btn-editar-falla').forEach(btn=>{
+    btn.addEventListener('click', ()=> openEditFallaForm(btn.dataset.store, btn.dataset.id));
+  });
+  resultsEl.querySelectorAll('.btn-eliminar-falla').forEach(btn=>{
+    btn.addEventListener('click', ()=> confirmDeleteFalla(btn.dataset.store, btn.dataset.id));
+  });
+}
+
+function openEditFallaForm(storeId, fallaId, fallaData){
+  const f = fallaData || allFallasRecords.find(r=>r.id===fallaId && r.storeId===storeId);
+  if(!f) return;
+  const pad = n => String(n).padStart(2,'0');
+  const d = new Date(f.fecha_captura);
+  const fechaLocal = isNaN(d) ? '' : `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+  const editOverlay = document.createElement('div');
+  editOverlay.className = 'modal-overlay show';
+  editOverlay.id = 'edit-falla-overlay';
+  editOverlay.innerHTML = `
+    <div class="modal">
+      <h2>Editar falla</h2>
+      <p class="modal-sub">${esc(f.plaza)}</p>
+      <div class="field">
+        <label>Tipo de falla</label>
+        <select id="edit-falla-tipo">
+          <option value="Sin servicio" ${f.tipo==='Sin servicio'?'selected':''}>Sin servicio</option>
+          <option value="Falla de velocidad" ${f.tipo==='Falla de velocidad'?'selected':''}>Falla de velocidad</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Folio de Proveedor</label>
+        <input type="text" id="edit-falla-folio" value="${esc(f.folio_proveedor)}">
+      </div>
+      <div class="field">
+        <label>Ticket</label>
+        <input type="text" id="edit-falla-ticket" value="${esc(f.ticket)}">
+      </div>
+      <div class="field">
+        <label>Fecha y hora de captura</label>
+        <input type="datetime-local" id="edit-falla-fecha" value="${fechaLocal}">
+      </div>
+      <div class="field">
+        <label>Fecha de cierre (dejar vacío si sigue abierta)</label>
+        <input type="date" id="edit-falla-cierre" value="${esc(f.fecha_cierre)||''}">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="cancel-edit-falla-btn">Cancelar</button>
+        <button class="btn btn-primary" id="save-edit-falla-btn">Guardar cambios</button>
+      </div>
+    </div>`;
+  document.body.appendChild(editOverlay);
+  document.getElementById('cancel-edit-falla-btn').addEventListener('click', ()=> editOverlay.remove());
+  editOverlay.addEventListener('click', e=>{ if(e.target===editOverlay) editOverlay.remove(); });
+  document.getElementById('save-edit-falla-btn').addEventListener('click', async ()=>{
+    const tipo = document.getElementById('edit-falla-tipo').value;
+    const folio = document.getElementById('edit-falla-folio').value.trim();
+    const ticket = document.getElementById('edit-falla-ticket').value.trim();
+    const fechaInput = document.getElementById('edit-falla-fecha').value;
+    const cierreInput = document.getElementById('edit-falla-cierre').value;
+    const parsed = new Date(fechaInput);
+    try{
+      await fallasRef(storeId).doc(fallaId).update({
+        tipo,
+        folio_proveedor: folio,
+        ticket,
+        fecha_captura: isNaN(parsed) ? f.fecha_captura : parsed.toISOString(),
+        fecha_cierre: cierreInput || null
+      });
+      toast('Falla actualizada', 'ok');
+      editOverlay.remove();
+      if(document.getElementById('report-cards')){
+        await loadFallasReport();
+        renderFallaSearchResults();
+      }
+      if(document.getElementById('fallas-list')){
+        loadAndRenderFallas(storeId);
+      }
+    }catch(err){
+      console.error(err);
+      toast('Error al actualizar la falla','error');
+    }
+  });
+}
+
+function confirmDeleteFalla(storeId, fallaId){
+  const f = allFallasRecords.find(r=>r.id===fallaId && r.storeId===storeId);
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay show';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>Eliminar falla</h2>
+      <p class="modal-sub">Esta acción no se puede deshacer.</p>
+      <p>¿Confirmas eliminar el registro de falla de <strong>${esc(f?.plaza||'')}</strong> (ticket ${esc(f?.ticket)||'—'})?</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="cancel-del-falla-btn">Cancelar</button>
+        <button class="btn btn-danger" id="confirm-del-falla-btn">Eliminar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('cancel-del-falla-btn').addEventListener('click', ()=> overlay.remove());
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  document.getElementById('confirm-del-falla-btn').addEventListener('click', async ()=>{
+    try{
+      await fallasRef(storeId).doc(fallaId).delete();
+      toast('Falla eliminada', 'ok');
+      overlay.remove();
+      if(document.getElementById('report-cards')){
+        await loadFallasReport();
+        renderFallaSearchResults();
+      }
+      if(document.getElementById('fallas-list')){
+        loadAndRenderFallas(storeId);
+      }
+    }catch(err){
+      console.error(err);
+      toast('Error al eliminar la falla','error');
+    }
+  });
 }
 document.getElementById('reload-catalog-btn').addEventListener('click', confirmReloadCatalog);
 
