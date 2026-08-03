@@ -337,6 +337,27 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   font-size:13.5px;
 }
 .detail-row:last-child{border-bottom:none;}
+.fallas-section{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;}
+.fallas-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.fallas-title-row h3{font-size:13.5px;margin:0;font-weight:700;color:var(--ink);}
+.falla-card{border-radius:9px;padding:10px 12px;margin-bottom:8px;}
+.falla-card.abierta{background:var(--warn-soft);}
+.falla-card.cerrada{background:var(--ok-soft);}
+.falla-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+.falla-badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;text-transform:uppercase;}
+.falla-badge.abierta{background:var(--warn);}
+.falla-badge.cerrada{background:var(--ok);}
+.falla-tipo{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:5px;}
+.falla-fecha{font-size:11px;color:var(--ink-soft);white-space:nowrap;}
+.falla-meta{display:flex;gap:14px;margin-top:8px;font-size:11.5px;color:var(--ink-soft);flex-wrap:wrap;}
+.falla-cierre-row{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.falla-cierre-row input{font-size:11.5px;border:1px solid var(--line);border-radius:5px;padding:3px 6px;}
+.falla-cierre-row button{font-size:11px;background:#fff;border:1px solid var(--line);border-radius:5px;padding:4px 9px;cursor:pointer;}
+.falla-form{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:12px;margin-bottom:10px;}
+.falla-form .field{margin-bottom:8px;}
+.falla-form label{font-size:11px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:3px;}
+.falla-form input,.falla-form select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-size:13px;}
+.falla-empty{font-size:12.5px;color:var(--ink-soft);padding:6px 0;}
 .detail-row .k{color:var(--ink-soft);}
 .detail-row .v{font-weight:500;text-align:right;}
 .detail-row .v.mono{font-family:var(--font-mono);font-size:12.5px;}
@@ -760,6 +781,146 @@ function renderGrid(){
 }
 
 /* ══════════════════ MODAL: VER DETALLE ══════════════════ */
+// Solo el admin y el usuario marafic pueden registrar fallas / poner fecha de cierre
+function canManageFallas(){
+  return currentUser.role === 'admin' || currentUser.username === 'marafic';
+}
+
+function fallasRef(storeId){
+  return db.collection(COLLECTION).doc(storeId).collection('fallas');
+}
+
+function fmtFechaHora(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  if(isNaN(d)) return iso;
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+}
+
+async function loadAndRenderFallas(storeId){
+  const container = document.getElementById('fallas-list');
+  if(!container) return;
+  try{
+    const snap = await fallasRef(storeId).orderBy('fecha_captura','desc').get();
+    const fallas = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    renderFallasList(storeId, fallas);
+  }catch(err){
+    console.error(err);
+    container.innerHTML = '<p class="falla-empty">No se pudo cargar el historial de fallas.</p>';
+  }
+}
+
+function renderFallasList(storeId, fallas){
+  const container = document.getElementById('fallas-list');
+  if(!container) return;
+  if(fallas.length === 0){
+    container.innerHTML = '<p class="falla-empty">Sin fallas registradas para esta tienda.</p>';
+    return;
+  }
+  const canManage = canManageFallas();
+  container.innerHTML = fallas.map(f=>{
+    const abierta = !f.fecha_cierre;
+    const cierreHtml = abierta
+      ? (canManage ? `
+          <div class="falla-cierre-row">
+            <span style="font-size:11px;color:var(--ink-soft);">Fecha de cierre:</span>
+            <input type="date" id="cierre-input-${f.id}">
+            <button data-id="${f.id}" class="btn-guardar-cierre">Guardar</button>
+          </div>` : '')
+      : `<div style="margin-top:8px;font-size:11.5px;color:var(--ink-soft);">Cerrado: <strong>${esc(f.fecha_cierre)}</strong></div>`;
+    return `
+      <div class="falla-card ${abierta?'abierta':'cerrada'}">
+        <div class="falla-top">
+          <div>
+            <span class="falla-badge ${abierta?'abierta':'cerrada'}">${abierta?'Abierto':'Cerrado'}</span>
+            <div class="falla-tipo">${esc(f.tipo)}</div>
+          </div>
+          <div class="falla-fecha">${fmtFechaHora(f.fecha_captura)}</div>
+        </div>
+        <div class="falla-meta">
+          <span>Folio proveedor: <strong>${esc(f.folio_proveedor)||'—'}</strong></span>
+          <span>Ticket: <strong>${esc(f.ticket)||'—'}</strong></span>
+        </div>
+        ${cierreHtml}
+      </div>`;
+  }).join('');
+
+  container.querySelectorAll('.btn-guardar-cierre').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const fallaId = btn.dataset.id;
+      const input = document.getElementById(`cierre-input-${fallaId}`);
+      const val = input.value;
+      if(!val){ toast('Selecciona una fecha de cierre','error'); return; }
+      try{
+        await fallasRef(storeId).doc(fallaId).update({fecha_cierre: val});
+        toast('Falla cerrada', 'ok');
+        loadAndRenderFallas(storeId);
+      }catch(err){
+        console.error(err);
+        toast('Error al guardar la fecha de cierre','error');
+      }
+    });
+  });
+}
+
+function toggleFallaForm(storeId){
+  const wrap = document.getElementById('falla-form-wrap');
+  if(!wrap) return;
+  if(wrap.innerHTML.trim() !== ''){
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="falla-form">
+      <div class="field">
+        <label>Tipo de falla</label>
+        <select id="new-falla-tipo">
+          <option value="Sin servicio">Sin servicio</option>
+          <option value="Falla de velocidad">Falla de velocidad</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Folio de Proveedor</label>
+        <input type="text" id="new-falla-folio">
+      </div>
+      <div class="field">
+        <label>Ticket</label>
+        <input type="text" id="new-falla-ticket">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-ghost" id="cancel-falla-btn" style="padding:7px 12px;font-size:12.5px;">Cancelar</button>
+        <button class="btn btn-primary" id="save-falla-btn" style="padding:7px 14px;font-size:12.5px;">Guardar</button>
+      </div>
+    </div>`;
+  document.getElementById('cancel-falla-btn').addEventListener('click', ()=>{ wrap.innerHTML=''; });
+  document.getElementById('save-falla-btn').addEventListener('click', async ()=>{
+    const tipo = document.getElementById('new-falla-tipo').value;
+    const folio = document.getElementById('new-falla-folio').value.trim();
+    const ticket = document.getElementById('new-falla-ticket').value.trim();
+    try{
+      await fallasRef(storeId).add({
+        tipo,
+        folio_proveedor: folio,
+        ticket,
+        fecha_captura: new Date().toISOString(),
+        fecha_cierre: null,
+        capturado_por: currentUser.username
+      });
+      toast('Falla registrada', 'ok');
+      wrap.innerHTML = '';
+      loadAndRenderFallas(storeId);
+    }catch(err){
+      console.error(err);
+      toast('Error al registrar la falla','error');
+    }
+  });
+}
+
 function openDetail(id){
   const s = allStores.find(x=>x.id===id);
   if(!s) return;
@@ -787,12 +948,22 @@ function openDetail(id){
     <h2>${esc(s.plaza||'Detalle de tienda')}</h2>
     <p class="modal-sub">Centro de Costo ${esc(s.cc||'—')}</p>
     <div>${rowsHtml}</div>
+    <div class="fallas-section">
+      <div class="fallas-title-row">
+        <h3>Fallas de servicio</h3>
+        ${canManageFallas() ? `<button class="btn btn-ghost" id="new-falla-btn" style="padding:6px 12px;font-size:12px;">+ Registrar falla</button>` : ''}
+      </div>
+      <div id="falla-form-wrap"></div>
+      <div id="fallas-list"><p class="falla-empty">Cargando...</p></div>
+    </div>
     ${adminActions}
   `;
   document.getElementById('modal-overlay').classList.add('show');
   document.getElementById('close-modal-btn').addEventListener('click', closeModal);
   document.getElementById('edit-store-btn')?.addEventListener('click', ()=> openForm(id));
   document.getElementById('delete-store-btn')?.addEventListener('click', ()=> confirmDelete(id));
+  document.getElementById('new-falla-btn')?.addEventListener('click', ()=> toggleFallaForm(id));
+  loadAndRenderFallas(id);
 }
 function closeModal(){
   document.getElementById('modal-overlay').classList.remove('show');
