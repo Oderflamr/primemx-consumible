@@ -701,24 +701,110 @@ function renderStats(){
     <div class="stat-card"><div class="num" style="color:var(--ok)">${activas}</div><div class="lbl">Activas</div></div>
     <div class="stat-card"><div class="num" style="color:var(--warn)">${inactivas}</div><div class="lbl">Inactivas</div></div>
     <div class="stat-card"><div class="num">${carriers}</div><div class="lbl">Carriers distintos</div></div>
-    <div class="stat-card" id="open-tickets-card"><div class="num" style="color:var(--warn)">…</div><div class="lbl">Tickets abiertos</div></div>
+    <div class="stat-card" id="open-tickets-card" style="cursor:pointer;"><div class="num" style="color:var(--warn)">…</div><div class="lbl">Tickets abiertos</div></div>
   `;
   document.getElementById('store-count-sub').textContent = `${total} tiendas registradas`;
+  document.getElementById('open-tickets-card').addEventListener('click', openOpenTicketsModal);
   loadOpenTicketsCount();
 }
+
+let openTicketsList = [];
 
 async function loadOpenTicketsCount(){
   const card = document.getElementById('open-tickets-card');
   if(!card) return;
   try{
     const snap = await db.collectionGroup('fallas').get();
-    let abiertos = 0;
-    snap.forEach(doc=>{ if(!doc.data().fecha_cierre) abiertos++; });
-    card.innerHTML = `<div class="num" style="color:var(--warn)">${abiertos}</div><div class="lbl">Tickets abiertos</div>`;
+    const records = [];
+    snap.forEach(doc=>{
+      const data = doc.data();
+      if(data.fecha_cierre) return;
+      const storeId = doc.ref.parent.parent.id;
+      const store = allStores.find(s=>s.id===storeId);
+      records.push({
+        id: doc.id, storeId,
+        plaza: store?.plaza || 'Tienda no encontrada',
+        carrier: store?.carrier || 'Sin carrier',
+        tipo: data.tipo || '',
+        folio_proveedor: data.folio_proveedor || '',
+        ticket: data.ticket || '',
+        fecha_captura: data.fecha_captura,
+        fecha_cierre: null
+      });
+    });
+    openTicketsList = records;
+    card.innerHTML = `<div class="num" style="color:var(--warn)">${records.length}</div><div class="lbl">Tickets abiertos</div>`;
   }catch(err){
     console.error(err);
     card.innerHTML = `<div class="num" style="color:var(--warn)">—</div><div class="lbl">Tickets abiertos</div>`;
   }
+}
+
+function openOpenTicketsModal(){
+  document.getElementById('modal-content').classList.add('report-modal');
+  const isAdmin = currentUser.role === 'admin';
+  const canManage = canManageFallas();
+  if(openTicketsList.length === 0){
+    document.getElementById('modal-content').innerHTML = `
+      <h2>Tickets abiertos</h2>
+      <p class="modal-sub">Tiendas con fallas pendientes de cierre</p>
+      <p class="falla-empty">No hay tickets abiertos por el momento.</p>
+      <div class="modal-actions"><button class="btn btn-ghost" id="close-modal-btn">Cerrar</button></div>
+    `;
+    document.getElementById('modal-overlay').classList.add('show');
+    document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+    return;
+  }
+  document.getElementById('modal-content').innerHTML = `
+    <h2>Tickets abiertos</h2>
+    <p class="modal-sub">${openTicketsList.length} tienda${openTicketsList.length===1?'':'s'} con fallas pendientes de seguimiento</p>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead><tr>
+          <th>Tienda</th><th>Carrier</th><th>Tipo</th><th>Folio</th><th>Ticket</th><th>Captura</th>${canManage?'<th>Cierre</th>':''}${isAdmin?'<th>Acciones</th>':''}
+        </tr></thead>
+        <tbody>
+        ${openTicketsList.map(f=>`
+          <tr>
+            <td>${esc(f.plaza)}</td><td>${esc(f.carrier)}</td><td>${esc(f.tipo)}</td><td>${esc(f.folio_proveedor)||'—'}</td><td>${esc(f.ticket)||'—'}</td>
+            <td>${fmtFechaHora(f.fecha_captura)}</td>
+            ${canManage?`<td><input type="date" id="open-cierre-${f.id}" style="width:110px;"> <button data-id="${f.id}" data-store="${f.storeId}" class="btn-guardar-cierre-open" style="font-size:11px;padding:3px 8px;">Guardar</button></td>`:''}
+            ${isAdmin?`<td><button data-id="${f.id}" data-store="${f.storeId}" class="btn-editar-falla-open" style="font-size:11px;padding:3px 8px;margin-right:4px;">Editar</button><button data-id="${f.id}" data-store="${f.storeId}" class="btn-eliminar-falla-open" style="font-size:11px;padding:3px 8px;color:var(--warn);">Eliminar</button></td>`:''}
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="close-modal-btn">Cerrar</button></div>
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+  document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+
+  document.querySelectorAll('.btn-guardar-cierre-open').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const val = document.getElementById(`open-cierre-${btn.dataset.id}`).value;
+      if(!val){ toast('Selecciona una fecha de cierre','error'); return; }
+      try{
+        await fallasRef(btn.dataset.store).doc(btn.dataset.id).update({fecha_cierre: val});
+        toast('Falla cerrada', 'ok');
+        await loadOpenTicketsCount();
+        openOpenTicketsModal();
+      }catch(err){
+        console.error(err);
+        toast('Error al guardar la fecha de cierre','error');
+      }
+    });
+  });
+  document.querySelectorAll('.btn-editar-falla-open').forEach(btn=>{
+    const f = openTicketsList.find(r=>r.id===btn.dataset.id && r.storeId===btn.dataset.store);
+    btn.addEventListener('click', ()=> openEditFallaForm(btn.dataset.store, btn.dataset.id, f));
+  });
+  document.querySelectorAll('.btn-eliminar-falla-open').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      allFallasRecords = openTicketsList;
+      confirmDeleteFalla(btn.dataset.store, btn.dataset.id);
+    });
+  });
 }
 
 /* ══════════════════ FILTROS Y BÚSQUEDA ══════════════════ */
