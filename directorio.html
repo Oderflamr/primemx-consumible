@@ -358,6 +358,19 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
 .falla-form label{font-size:11px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:3px;}
 .falla-form input,.falla-form select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-size:13px;}
 .falla-empty{font-size:12.5px;color:var(--ink-soft);padding:6px 0;}
+.report-modal{max-width:960px !important;}
+.report-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;}
+.report-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;cursor:pointer;transition:border-color .12s ease;}
+.report-card:hover{border-color:var(--signal);}
+.report-card.active{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal);}
+.report-card .num{font-family:var(--font-mono);font-size:22px;font-weight:600;}
+.report-card .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;margin-top:2px;}
+.report-table-wrap{overflow-x:auto;}
+.report-table{width:100%;font-size:12px;border-collapse:collapse;white-space:nowrap;}
+.report-table th{padding:6px 8px;text-align:left;color:var(--ink-soft);border-bottom:1px solid var(--line);}
+.report-table td{padding:6px 8px;border-top:1px solid var(--line);}
+.report-table td.num-cell,.report-table th.num-cell{text-align:center;}
+.report-table td.total-cell{text-align:right;font-weight:600;}
 .detail-row .k{color:var(--ink-soft);}
 .detail-row .v{font-weight:500;text-align:right;}
 .detail-row .v.mono{font-family:var(--font-mono);font-size:12.5px;}
@@ -442,6 +455,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
       </select>
       <div class="spacer"></div>
       <div class="toolbar-actions">
+        <button class="btn btn-ghost" id="fallas-report-btn">Reportes de fallas</button>
         <button class="btn btn-ghost" id="export-btn">Exportar CSV</button>
         <button class="btn btn-ghost" id="reload-catalog-btn" style="display:none;">Actualizar catálogo</button>
         <button class="btn btn-primary" id="new-store-btn" style="display:none;">+ Nueva tienda</button>
@@ -822,33 +836,34 @@ function renderFallasList(storeId, fallas){
     container.innerHTML = '<p class="falla-empty">Sin fallas registradas para esta tienda.</p>';
     return;
   }
+  const ultima = fallas[0]; // ya viene ordenado desc por fecha_captura: la más reciente
   const canManage = canManageFallas();
-  container.innerHTML = fallas.map(f=>{
-    const abierta = !f.fecha_cierre;
-    const cierreHtml = abierta
-      ? (canManage ? `
-          <div class="falla-cierre-row">
-            <span style="font-size:11px;color:var(--ink-soft);">Fecha de cierre:</span>
-            <input type="date" id="cierre-input-${f.id}">
-            <button data-id="${f.id}" class="btn-guardar-cierre">Guardar</button>
-          </div>` : '')
-      : `<div style="margin-top:8px;font-size:11.5px;color:var(--ink-soft);">Cerrado: <strong>${esc(f.fecha_cierre)}</strong></div>`;
-    return `
-      <div class="falla-card ${abierta?'abierta':'cerrada'}">
-        <div class="falla-top">
-          <div>
-            <span class="falla-badge ${abierta?'abierta':'cerrada'}">${abierta?'Abierto':'Cerrado'}</span>
-            <div class="falla-tipo">${esc(f.tipo)}</div>
-          </div>
-          <div class="falla-fecha">${fmtFechaHora(f.fecha_captura)}</div>
+  const abierta = !ultima.fecha_cierre;
+  const cierreHtml = abierta
+    ? (canManage ? `
+        <div class="falla-cierre-row">
+          <span style="font-size:11px;color:var(--ink-soft);">Fecha de cierre:</span>
+          <input type="date" id="cierre-input-${ultima.id}">
+          <button data-id="${ultima.id}" class="btn-guardar-cierre">Guardar</button>
+        </div>` : '')
+    : `<div style="margin-top:8px;font-size:11.5px;color:var(--ink-soft);">Cerrado: <strong>${esc(ultima.fecha_cierre)}</strong></div>`;
+  container.innerHTML = `
+    <div class="falla-card ${abierta?'abierta':'cerrada'}">
+      <div class="falla-top">
+        <div>
+          <span class="falla-badge ${abierta?'abierta':'cerrada'}">${abierta?'Abierto':'Cerrado'}</span>
+          <div class="falla-tipo">${esc(ultima.tipo)}</div>
         </div>
-        <div class="falla-meta">
-          <span>Folio proveedor: <strong>${esc(f.folio_proveedor)||'—'}</strong></span>
-          <span>Ticket: <strong>${esc(f.ticket)||'—'}</strong></span>
-        </div>
-        ${cierreHtml}
-      </div>`;
-  }).join('');
+        <div class="falla-fecha">${fmtFechaHora(ultima.fecha_captura)}</div>
+      </div>
+      <div class="falla-meta">
+        <span>Folio proveedor: <strong>${esc(ultima.folio_proveedor)||'—'}</strong></span>
+        <span>Ticket: <strong>${esc(ultima.ticket)||'—'}</strong></span>
+      </div>
+      ${cierreHtml}
+    </div>
+    ${fallas.length>1 ? `<p class="falla-empty">Mostrando la falla más reciente · ${fallas.length} registradas en total. Ve al reporte de fallas para ver el historial completo.</p>` : ''}
+  `;
 
   container.querySelectorAll('.btn-guardar-cierre').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -967,6 +982,7 @@ function openDetail(id){
 }
 function closeModal(){
   document.getElementById('modal-overlay').classList.remove('show');
+  document.getElementById('modal-content').classList.remove('report-modal');
 }
 document.getElementById('modal-overlay').addEventListener('click', function(e){
   if(e.target === this) closeModal();
@@ -974,6 +990,114 @@ document.getElementById('modal-overlay').addEventListener('click', function(e){
 
 /* ══════════════════ MODAL: ALTA / EDICIÓN (solo admin) ══════════════════ */
 document.getElementById('new-store-btn').addEventListener('click', ()=> openForm(null));
+document.getElementById('fallas-report-btn').addEventListener('click', openFallasReport);
+
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+async function openFallasReport(){
+  document.getElementById('modal-content').classList.add('report-modal');
+  document.getElementById('modal-content').innerHTML = `
+    <h2>Reportes de fallas de servicio</h2>
+    <p class="modal-sub">Año ${new Date().getFullYear()} · haz clic en un carrier para ver el detalle por tienda</p>
+    <div class="report-cards" id="report-cards"><p class="falla-empty">Cargando...</p></div>
+    <div id="report-detail"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="close-modal-btn">Cerrar</button>
+    </div>
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+  document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+  await loadFallasReport();
+}
+
+async function loadFallasReport(){
+  const cardsEl = document.getElementById('report-cards');
+  try{
+    const snap = await db.collectionGroup('fallas').get();
+    const year = new Date().getFullYear();
+    const records = [];
+    snap.forEach(doc=>{
+      const data = doc.data();
+      const fecha = new Date(data.fecha_captura);
+      if(isNaN(fecha) || fecha.getFullYear() !== year) return;
+      const storeId = doc.ref.parent.parent.id;
+      const store = allStores.find(s=>s.id===storeId);
+      records.push({
+        storeId,
+        plaza: store?.plaza || 'Tienda no encontrada',
+        carrier: store?.carrier || 'Sin carrier',
+        tecnologia: store?.tecnologia || '',
+        month: fecha.getMonth()
+      });
+    });
+
+    const carriers = [...new Set(allStores.map(s=>s.carrier).filter(Boolean))].sort();
+    const countsByCarrier = {};
+    carriers.forEach(c=> countsByCarrier[c] = 0);
+    records.forEach(r=>{ if(countsByCarrier[r.carrier] !== undefined) countsByCarrier[r.carrier]++; });
+
+    cardsEl.innerHTML = carriers.map(c=>`
+      <div class="report-card" data-carrier="${esc(c)}">
+        <div class="num" style="${countsByCarrier[c]>0?'color:var(--warn)':''}">${countsByCarrier[c]}</div>
+        <div class="lbl">Fallas ${esc(c)}</div>
+      </div>
+    `).join('');
+
+    cardsEl.querySelectorAll('.report-card').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        cardsEl.querySelectorAll('.report-card').forEach(c=>c.classList.remove('active'));
+        card.classList.add('active');
+        renderCarrierDetail(card.dataset.carrier, records);
+      });
+    });
+  }catch(err){
+    console.error(err);
+    cardsEl.innerHTML = '<p class="falla-empty">No se pudo cargar el reporte de fallas.</p>';
+  }
+}
+
+function renderCarrierDetail(carrier, records){
+  const detailEl = document.getElementById('report-detail');
+  const filtered = records.filter(r=>r.carrier === carrier);
+  if(filtered.length === 0){
+    detailEl.innerHTML = `<p class="falla-empty">Sin fallas registradas para ${esc(carrier)} este año.</p>`;
+    return;
+  }
+  const byStore = {};
+  filtered.forEach(r=>{
+    if(!byStore[r.storeId]){
+      byStore[r.storeId] = {plaza:r.plaza, carrier:r.carrier, tecnologia:r.tecnologia, months:Array(12).fill(0)};
+    }
+    byStore[r.storeId].months[r.month]++;
+  });
+  const rows = Object.values(byStore).map(row=>({...row, total: row.months.reduce((a,b)=>a+b,0)}));
+  rows.sort((a,b)=> b.total - a.total);
+
+  const monthHeaders = MESES.map(m=>`<th class="num-cell">${m}</th>`).join('');
+  const bodyRows = rows.map((row,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td>${esc(row.plaza)}</td>
+      <td>${esc(row.carrier)}</td>
+      <td>${esc(row.tecnologia)}</td>
+      ${row.months.map(v=>`<td class="num-cell">${v>0?v:'-'}</td>`).join('')}
+      <td class="total-cell">${row.total}</td>
+    </tr>
+  `).join('');
+
+  detailEl.innerHTML = `
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead><tr>
+          <th>#</th><th>Tienda</th><th>Carrier</th><th>Tecnología</th>
+          ${monthHeaders}
+          <th class="num-cell">Total</th>
+        </tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+  `;
+}
 document.getElementById('reload-catalog-btn').addEventListener('click', confirmReloadCatalog);
 
 function confirmReloadCatalog(){
