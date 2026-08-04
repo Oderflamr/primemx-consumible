@@ -1803,25 +1803,25 @@ auth.onAuthStateChanged(async function(user){
           ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
           : (canEdit ? `<button id="btnEdit">Editar datos del mes</button>` : '')}</div>
       </div>
-      <div class="panel"><h3>Reporte Mensual TotalPlay</h3><canvas id="chartTendTP"></canvas></div>
-      <div class="panel"><h3>Reporte Mensual Telmex</h3><canvas id="chartTendTM"></canvas></div>
-      <div class="panel"><h3>Reporte Mensual Megacable</h3><canvas id="chartTendMC"></canvas></div>
-      <div class="panel"><h3>Reporte Mensual Starlink</h3><div class="foot">Starlink no tiene desglose mensual capturado todavía — solo se lleva el acumulado (${sl} caídas en total). Avísame si quieres que también se capture mes a mes.</div></div>
+      <div class="panel">
+        <h3>Caídas por mes y proveedor</h3>
+        <canvas id="chartTendencia"></canvas>
+      </div>
       ${editing ? editorTendencia() : ''}
     `;
     if(editing) wireTendenciaEditor(); else if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
     const hasta = idxMes(state.periodo_actual);
     const labels = MESES.slice(0,hasta+1);
-    function graficaProveedor(canvasId, prov, colorLinea){
-      charts['tend_'+prov] = new Chart(document.getElementById(canvasId), {
-        type:'line',
-        data:{ labels, datasets:[{ label:prov, data:state.tendencia.data[prov].slice(0,hasta+1), borderColor:colorLinea, backgroundColor:colorLinea, tension:.25, pointRadius:4, borderWidth:2.5 }] },
-        options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
-      });
-    }
-    graficaProveedor('chartTendTP','TotalPlay',COLOR.TotalPlay);
-    graficaProveedor('chartTendTM','Telmex',COLOR.Telmex);
-    graficaProveedor('chartTendMC','Metrocarrier',COLOR.Metrocarrier);
+    if(charts.tendencia) charts.tendencia.destroy();
+    charts.tendencia = new Chart(document.getElementById('chartTendencia'), {
+      type:'line',
+      data:{ labels, datasets:[
+        { label:'TotalPlay', data:state.tendencia.data.TotalPlay.slice(0,hasta+1), borderColor:COLOR.TotalPlay, backgroundColor:COLOR.TotalPlay, tension:.25, pointRadius:4, borderWidth:2.5 },
+        { label:'Telmex', data:state.tendencia.data.Telmex.slice(0,hasta+1), borderColor:COLOR.Telmex, backgroundColor:COLOR.Telmex, tension:.25, pointRadius:4, borderWidth:2.5 },
+        { label:'Metrocarrier', data:state.tendencia.data.Metrocarrier.slice(0,hasta+1), borderColor:COLOR.Metrocarrier, backgroundColor:COLOR.Metrocarrier, tension:.25, pointRadius:4, borderWidth:2.5 }
+      ]},
+      options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
+    });
   }
   function editorTendencia(){
     const provs=['TotalPlay','Telmex','Metrocarrier'];
