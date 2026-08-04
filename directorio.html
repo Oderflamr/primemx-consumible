@@ -1077,6 +1077,19 @@ function toggleFallaForm(storeId){
       toast('El Folio del proveedor y el Ticket son obligatorios para guardar.', 'error');
       return;
     }
+    // No se puede registrar una falla nueva si esta tienda ya tiene una sin cerrar —
+    // así evitamos contar dos veces la misma caída mientras no se resuelva la anterior.
+    try{
+      const abiertasSnap = await fallasRef(storeId).where('fecha_cierre', '==', null).get();
+      if(!abiertasSnap.empty){
+        toast('Esta tienda ya tiene un ticket sin cerrar. Cierra el anterior antes de registrar uno nuevo.', 'error');
+        return;
+      }
+    }catch(err){
+      console.error('No se pudo verificar si hay una falla abierta', err);
+      toast('No se pudo verificar si hay una falla abierta. Intenta de nuevo.', 'error');
+      return;
+    }
     // Solo el admin puede elegir una fecha distinta a "ahora"; para marafic y demás
     // usuarios la fecha de captura sigue siendo automática, como antes.
     let fechaCaptura = new Date().toISOString();
