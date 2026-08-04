@@ -1192,15 +1192,17 @@ async function loadFallasReport(){
   const cardsEl = document.getElementById('report-cards');
   try{
     const snap = await db.collectionGroup('fallas').get();
-    const year = new Date().getFullYear();
-    const records = [];
+    const now = new Date();
+    const year = now.getFullYear();
+    const mesActual = now.getMonth();
+    const registrosCrudos = [];
     snap.forEach(doc=>{
       const data = doc.data();
       const fecha = new Date(data.fecha_captura);
       if(isNaN(fecha) || fecha.getFullYear() !== year) return;
       const storeId = doc.ref.parent.parent.id;
       const store = allStores.find(s=>s.id===storeId);
-      records.push({
+      registrosCrudos.push({
         id: doc.id,
         storeId,
         plaza: store?.plaza || 'Tienda no encontrada',
@@ -1214,15 +1216,57 @@ async function loadFallasReport(){
         fecha_cierre: data.fecha_cierre || null
       });
     });
-    allFallasRecords = records;
+    allFallasRecords = registrosCrudos; // se usa para el buscador de ticket/folio, sin congelar
 
-    const ORDEN_CARRIERS = ['TotalPlay','Telmex','Megacable','Starlink'];
-    const carriersDisponibles = new Set(allStores.map(s=>s.carrier).filter(Boolean));
-    const carriers = ORDEN_CARRIERS.filter(c=>carriersDisponibles.has(c))
-      .concat([...carriersDisponibles].filter(c=>!ORDEN_CARRIERS.includes(c)).sort());
+    // Meses ya cerrados (antes del mes actual) quedan congelados para siempre: la primera
+    // vez que se abre el reporte después de que un mes cerró, se guarda un "snapshot" fijo
+    // en Firestore; de ahí en adelante ese mes ya no se recalcula ni cambia, aunque después
+    // se edite o borre una falla.
+    const records = registrosCrudos.filter(r=>r.month === mesActual);
+    for(let m=0; m<mesActual; m++){
+      const docId = `${year}-${m}`;
+      const congeladoRef = db.collection('reportes_mensuales_fallas').doc(docId);
+      let congelado;
+      try{
+        const congeladoSnap = await congeladoRef.get();
+        congelado = congeladoSnap.exists ? congeladoSnap.data().registros : null;
+      }catch(e){ congelado = null; }
+      if(!congelado){
+        const delMes = registrosCrudos.filter(r=>r.month === m);
+        const agrupado = {};
+        delMes.forEach(r=>{
+          const key = r.storeId;
+          if(!agrupado[key]) agrupado[key] = {storeId:r.storeId, plaza:r.plaza, carrier:r.carrier, tecnologia:r.tecnologia, month:m, count:0};
+          agrupado[key].count++;
+        });
+        congelado = Object.values(agrupado);
+        try{ await congeladoRef.set({ registros: congelado, congelado_en: new Date().toISOString() }); }
+        catch(e){ console.error('No se pudo congelar el mes', docId, e); }
+      }
+      records.push(...congelado);
+    }
+
+    const ORDEN_CARRIERS = ['TOTALPLAY','TELMEX','MEGACABLE','STARLINK'];
+    function normalizarCarrier(c){
+      return String(c||'').toUpperCase().replace(/[^A-Z]/g,''); // quita espacios/acentos/símbolos
+    }
+    function claveOrden(c){
+      const n = normalizarCarrier(c);
+      if(n.startsWith('TOTALPLAY')) return 0;
+      if(n.startsWith('TELMEX')) return 1;
+      if(n.startsWith('MEGA')) return 2;
+      if(n.startsWith('STARLI')) return 3; // cubre "STARLINK" y la variante "STARLIK"
+      return 99;
+    }
+    const carriers = [...new Set(allStores.map(s=>s.carrier).filter(Boolean))]
+      .sort((a,b)=>{
+        const ka = claveOrden(a), kb = claveOrden(b);
+        if(ka !== kb) return ka - kb;
+        return a.localeCompare(b);
+      });
     const countsByCarrier = {};
     carriers.forEach(c=> countsByCarrier[c] = 0);
-    records.forEach(r=>{ if(countsByCarrier[r.carrier] !== undefined) countsByCarrier[r.carrier]++; });
+    records.forEach(r=>{ if(countsByCarrier[r.carrier] !== undefined) countsByCarrier[r.carrier] += (r.count || 1); });
 
     cardsEl.innerHTML = carriers.map(c=>`
       <div class="report-card" data-carrier="${esc(c)}">
@@ -1267,7 +1311,7 @@ function renderCarrierDetail(carrier, records, targetId){
     if(!byStore[r.storeId]){
       byStore[r.storeId] = {plaza:r.plaza, carrier:r.carrier, tecnologia:r.tecnologia, months:Array(12).fill(0)};
     }
-    byStore[r.storeId].months[r.month]++;
+    byStore[r.storeId].months[r.month] += (r.count || 1);
   });
   const rows = Object.values(byStore).map(row=>({...row, total: row.months.reduce((a,b)=>a+b,0)}));
   rows.sort((a,b)=> b.total - a.total);
