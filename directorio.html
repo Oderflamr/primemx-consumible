@@ -441,7 +441,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
     <div class="user-chip">
       <span id="user-label"></span>
       <span class="role-tag" id="role-tag">consulta</span>
-      <a href="dashboard.html" style="color:var(--signal-dark); text-decoration:none; font-weight:600; font-size:13px; margin-right:6px;">Dashboard IT →</a>
+      <a id="link-a-dashboard" href="dashboard.html" style="color:var(--signal-dark); text-decoration:none; font-weight:600; font-size:13px; margin-right:6px;">Dashboard IT →</a>
       <button class="btn btn-ghost" id="logout-btn" style="padding:7px 12px;font-size:12.5px;">Salir</button>
     </div>
   </header>
@@ -606,6 +606,18 @@ document.getElementById('logout-btn').addEventListener('click', function(){
   auth.signOut();
 });
 
+// Cierre de sesión automático tras 5 minutos sin actividad.
+const LIMITE_INACTIVIDAD = 5 * 60 * 1000;
+let temporizadorInactividad = null;
+function reiniciarTemporizadorInactividad(){
+  if(!currentUser) return;
+  clearTimeout(temporizadorInactividad);
+  temporizadorInactividad = setTimeout(()=>{ auth.signOut(); }, LIMITE_INACTIVIDAD);
+}
+['mousedown','mousemove','keydown','scroll','touchstart','click'].forEach(evt=>{
+  document.addEventListener(evt, reiniciarTemporizadorInactividad, {passive:true});
+});
+
 // Se dispara automáticamente al iniciar sesión, cerrar sesión, o al cargar
 // la página si Firebase recuerda una sesión activa.
 auth.onAuthStateChanged(async function(user){
@@ -624,6 +636,9 @@ auth.onAuthStateChanged(async function(user){
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').classList.add('show');
     initApp();
+    reiniciarTemporizadorInactividad();
+    const enlaceDashboard = document.getElementById('link-a-dashboard');
+    if(enlaceDashboard) enlaceDashboard.style.display = (currentUser.username === 'marafic') ? 'none' : '';
   } else {
     currentUser = null;
     document.getElementById('app').classList.remove('show');
@@ -1036,11 +1051,11 @@ function toggleFallaForm(storeId){
         </select>
       </div>
       <div class="field">
-        <label>Folio de Proveedor</label>
+        <label>Folio de Proveedor *</label>
         <input type="text" id="new-falla-folio">
       </div>
       <div class="field">
-        <label>Ticket</label>
+        <label>Ticket *</label>
         <input type="text" id="new-falla-ticket">
       </div>
       ${isAdmin ? `
@@ -1058,6 +1073,10 @@ function toggleFallaForm(storeId){
     const tipo = document.getElementById('new-falla-tipo').value;
     const folio = document.getElementById('new-falla-folio').value.trim();
     const ticket = document.getElementById('new-falla-ticket').value.trim();
+    if(!folio || !ticket){
+      toast('El Folio del proveedor y el Ticket son obligatorios para guardar.', 'error');
+      return;
+    }
     // Solo el admin puede elegir una fecha distinta a "ahora"; para marafic y demás
     // usuarios la fecha de captura sigue siendo automática, como antes.
     let fechaCaptura = new Date().toISOString();
@@ -1149,7 +1168,7 @@ async function openFallasReport(){
   document.getElementById('modal-content').classList.add('report-modal');
   document.getElementById('modal-content').innerHTML = `
     <h2>Reportes de fallas de servicio</h2>
-    <p class="modal-sub">Año ${new Date().getFullYear()} · haz clic en un carrier para ver el detalle por tienda</p>
+    <p class="modal-sub">Año ${new Date().getFullYear()} · reporte mensual por cada proveedor</p>
     <div class="report-cards" id="report-cards"><p class="falla-empty">Cargando...</p></div>
     <div id="report-detail"></div>
     <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:14px;">
@@ -1209,21 +1228,27 @@ async function loadFallasReport(){
       </div>
     `).join('');
 
-    cardsEl.querySelectorAll('.report-card').forEach(card=>{
-      card.addEventListener('click', ()=>{
-        cardsEl.querySelectorAll('.report-card').forEach(c=>c.classList.remove('active'));
-        card.classList.add('active');
-        renderCarrierDetail(card.dataset.carrier, records);
-      });
-    });
+    renderTodosLosCarriers(carriers, records);
   }catch(err){
     console.error(err);
     cardsEl.innerHTML = '<p class="falla-empty">No se pudo cargar el reporte de fallas.</p>';
   }
 }
 
-function renderCarrierDetail(carrier, records){
+function renderTodosLosCarriers(carriers, records){
   const detailEl = document.getElementById('report-detail');
+  detailEl.innerHTML = carriers.map(c=>`
+    <h3 style="margin-top:20px;">Reporte Mensual ${esc(c)}</h3>
+    <div id="report-detail-${esc(c).replace(/\s+/g,'_')}"></div>
+  `).join('');
+  carriers.forEach(c=>{
+    renderCarrierDetail(c, records, `report-detail-${c.replace(/\s+/g,'_')}`);
+  });
+}
+
+function renderCarrierDetail(carrier, records, targetId){
+  const detailEl = document.getElementById(targetId || 'report-detail');
+  if(!detailEl) return;
   const filtered = records.filter(r=>r.carrier === carrier);
   if(filtered.length === 0){
     detailEl.innerHTML = `<p class="falla-empty">Sin fallas registradas para ${esc(carrier)} este año.</p>`;
@@ -1382,6 +1407,10 @@ function openEditFallaForm(storeId, fallaId, fallaData){
     const ticket = document.getElementById('edit-falla-ticket').value.trim();
     const fechaInput = document.getElementById('edit-falla-fecha').value;
     const cierreInput = document.getElementById('edit-falla-cierre').value;
+    if(!folio || !ticket){
+      toast('El Folio del proveedor y el Ticket son obligatorios para guardar.', 'error');
+      return;
+    }
     const parsed = new Date(fechaInput);
     try{
       await fallasRef(storeId).doc(fallaId).update({
