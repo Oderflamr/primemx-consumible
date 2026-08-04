@@ -1216,7 +1216,10 @@ async function loadFallasReport(){
     });
     allFallasRecords = records;
 
-    const carriers = [...new Set(allStores.map(s=>s.carrier).filter(Boolean))].sort();
+    const ORDEN_CARRIERS = ['TotalPlay','Telmex','Megacable','Starlink'];
+    const carriersDisponibles = new Set(allStores.map(s=>s.carrier).filter(Boolean));
+    const carriers = ORDEN_CARRIERS.filter(c=>carriersDisponibles.has(c))
+      .concat([...carriersDisponibles].filter(c=>!ORDEN_CARRIERS.includes(c)).sort());
     const countsByCarrier = {};
     carriers.forEach(c=> countsByCarrier[c] = 0);
     records.forEach(r=>{ if(countsByCarrier[r.carrier] !== undefined) countsByCarrier[r.carrier]++; });
@@ -1237,11 +1240,16 @@ async function loadFallasReport(){
 
 function renderTodosLosCarriers(carriers, records){
   const detailEl = document.getElementById('report-detail');
-  detailEl.innerHTML = carriers.map(c=>`
+  const carriersConFallas = carriers.filter(c=> records.some(r=>r.carrier===c));
+  if(!carriersConFallas.length){
+    detailEl.innerHTML = '<p class="falla-empty">No hay fallas registradas este año.</p>';
+    return;
+  }
+  detailEl.innerHTML = carriersConFallas.map(c=>`
     <h3 style="margin-top:20px;">Reporte Mensual ${esc(c)}</h3>
     <div id="report-detail-${esc(c).replace(/\s+/g,'_')}"></div>
   `).join('');
-  carriers.forEach(c=>{
+  carriersConFallas.forEach(c=>{
     renderCarrierDetail(c, records, `report-detail-${c.replace(/\s+/g,'_')}`);
   });
 }
