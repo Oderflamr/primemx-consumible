@@ -658,7 +658,27 @@ async function initApp(){
   document.getElementById('filter-activo').style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
 
   await ensureSeed();
+  await cargarFallasAbiertasGlobal();
   await loadStores();
+}
+
+// Set con los IDs de tienda que tienen AL MENOS una falla sin cerrar — se usa para
+// mostrar el aviso "ABIERTO" en la tarjeta de la tienda en los resultados de búsqueda.
+let tiendasConFallaAbierta = new Set();
+async function cargarFallasAbiertasGlobal(){
+  try{
+    const snap = await db.collectionGroup('fallas').where('fecha_cierre','==',null).get();
+    tiendasConFallaAbierta = new Set(snap.docs.map(d=>d.ref.parent.parent.id));
+  }catch(err){
+    console.error('No se pudo cargar el estado de fallas abiertas', err);
+    tiendasConFallaAbierta = new Set();
+  }
+}
+// Se vuelve a llamar cada vez que se registra o se cierra una falla, para que la
+// tarjeta refleje el cambio sin tener que recargar toda la página.
+async function refrescarFallasAbiertasYGrid(){
+  await cargarFallasAbiertasGlobal();
+  renderGrid();
 }
 
 async function ensureSeed(){
@@ -814,6 +834,7 @@ function openOpenTicketsModal(){
         await fallasRef(btn.dataset.store).doc(btn.dataset.id).update({fecha_cierre: val});
         toast('Falla cerrada', 'ok');
         await loadOpenTicketsCount();
+        await refrescarFallasAbiertasYGrid();
         openOpenTicketsModal();
       }catch(err){
         console.error(err);
@@ -896,6 +917,7 @@ function renderGrid(){
     <div class="store-card" data-id="${s.id}" ${borderStyle}>
       <div class="row-top">
         <span class="cc">${esc(s.cc||'—')}</span>
+        ${tiendasConFallaAbierta.has(s.id) ? `<span style="font-size:10.5px; font-weight:700; color:#fff; letter-spacing:.3px; background:#C0392B; border-radius:6px; padding:2px 8px;">ABIERTO</span>` : ''}
         <span class="status-dot ${String(s.activo)==='1' ? 'on':'off'}" title="${String(s.activo)==='1'?'Activo':'Inactivo'}"></span>
       </div>
       <p class="plaza">${esc(s.plaza||'Sin nombre')}</p>
@@ -1019,6 +1041,7 @@ function renderFallasList(storeId, fallas){
       try{
         await fallasRef(storeId).doc(fallaId).update({fecha_cierre: val});
         toast('Falla cerrada', 'ok');
+        await refrescarFallasAbiertasYGrid();
         loadAndRenderFallas(storeId);
       }catch(err){
         console.error(err);
@@ -1111,6 +1134,7 @@ function toggleFallaForm(storeId){
       });
       toast('Falla registrada', 'ok');
       wrap.innerHTML = '';
+      await refrescarFallasAbiertasYGrid();
       loadAndRenderFallas(storeId);
     }catch(err){
       console.error(err);
@@ -1405,6 +1429,7 @@ function renderFallaSearchResults(){
       try{
         await fallasRef(btn.dataset.store).doc(btn.dataset.id).update({fecha_cierre: val});
         toast('Falla cerrada', 'ok');
+        await refrescarFallasAbiertasYGrid();
         await loadFallasReport();
         renderFallaSearchResults();
       }catch(err){
