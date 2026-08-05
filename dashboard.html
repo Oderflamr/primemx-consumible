@@ -1040,14 +1040,16 @@ auth.onAuthStateChanged(async function(user){
     updated_at: '2026-07-22T17:30:00.000Z'
   };
 
-  const TABS = [
+  const INTERNET_TABS = [
+    {id:'resumen', label:'Resumen 2026'},
     {id:'tendencia', label:'Tendencia mensual'},
     {id:'yoy_tp', label:'TotalPlay YoY'},
-    {id:'yoy_tm', label:'Telmex YoY'},
-    {id:'resumen', label:'Resumen 2026'},
-    {id:'atencion', label:'Atención'},
     {id:'top_tp', label:'Top 15 TotalPlay'},
+    {id:'yoy_tm', label:'Telmex YoY'},
     {id:'top_tm', label:'Top 15 Telmex'},
+    {id:'atencion', label:'ETR'}
+  ];
+  const TABS = [
     {id:'migracion_carrier', label:'Migración de carrier'},
     {id:'ingenieros', label:'Tickets Soporte'},
     {id:'ticketsmc', label:'Tickets Mesa de control'},
@@ -1060,6 +1062,10 @@ auth.onAuthStateChanged(async function(user){
   let state = null;
   let tab = 'tendencia';
   let editing = false;
+  let internetMenuAbierto = false;
+  document.addEventListener('click', ()=>{
+    if(internetMenuAbierto){ internetMenuAbierto = false; render(); }
+  });
   let charts = {};
   let canEdit = false;
   // Inventario de Equipo: además del admin, estos dos usuarios específicos pueden editar
@@ -1741,12 +1747,32 @@ auth.onAuthStateChanged(async function(user){
           <button class="primary" id="btnAplicarCarga">Aplicar datos</button>
         </div>
       </div>` : ''}
-      <div class="tabs">${TABS.map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}</div>
+      <div class="tabs" style="position:relative; overflow:visible;">
+        <div class="tab ${INTERNET_TABS.some(t=>t.id===tab)?'active':''}" id="tabInternetBtn" style="display:inline-flex; align-items:center; gap:4px;">Internet <span style="font-size:10px;">▾</span></div>
+        ${internetMenuAbierto ? `<div id="menuInternet" style="position:absolute; top:100%; left:0; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:200px; z-index:50;">
+          ${INTERNET_TABS.map(t=>`<div class="tab-sub" data-tab="${t.id}" style="padding:8px 12px; font-size:13px; font-weight:${t.id===tab?'700':'500'}; color:${t.id===tab?'var(--tp)':'var(--ink)'}; cursor:pointer; border-radius:6px; white-space:nowrap;">${t.label}</div>`).join('')}
+        </div>` : ''}
+        ${TABS.map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}
+      </div>
       <div id="tabContent"></div>
       <div class="foot">Los datos se comparten con todo tu equipo (Firebase). ${canEdit ? 'Los cambios de cada pestaña se guardan juntos.' : 'Tu usuario tiene acceso de solo consulta.'}</div>
     `;
-    document.querySelectorAll('.tab').forEach(el=>{
-      el.onclick = () => { tab = el.dataset.tab; editing = false; render(); };
+    document.getElementById('tabInternetBtn').onclick = (e) => {
+      e.stopPropagation();
+      internetMenuAbierto = !internetMenuAbierto;
+      render();
+    };
+    document.querySelectorAll('.tab-sub').forEach(el=>{
+      el.onclick = (e) => {
+        e.stopPropagation();
+        tab = el.dataset.tab;
+        editing = false;
+        internetMenuAbierto = false;
+        render();
+      };
+    });
+    document.querySelectorAll('.tab[data-tab]').forEach(el=>{
+      el.onclick = () => { tab = el.dataset.tab; editing = false; internetMenuAbierto = false; render(); };
     });
     if(canEdit){
       document.getElementById('btnUpload').onclick = () => document.getElementById('fileTickets').click();
