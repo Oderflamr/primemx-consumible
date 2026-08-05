@@ -392,6 +392,10 @@ tbody tr:hover td{background:var(--surface2)}
         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Exportar CSV
       </button>
+      <button class="nav-btn" onclick="exportExcel()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar Excel (filtro actual)
+      </button>
     </div>
 
     <!-- Main -->
@@ -407,6 +411,7 @@ tbody tr:hover td{background:var(--surface2)}
 <!-- Firebase (compat SDK via CDN — no bundler needed) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
 /* ═══════════════════════════════════════════════════
@@ -1631,6 +1636,27 @@ function exportCSV() {
   a.download="primemx-consumibles.csv";
   a.click();
   toast(`${rows.length} registros exportados`);
+}
+
+function exportExcel() {
+  const cols=["id","tienda","ceco","sku","tipo","solicitud","entregado","estatus","guia","falla","observaciones","mes"];
+  const encabezados={
+    id:"ID", tienda:"Tienda", ceco:"CECO", sku:"SKU", tipo:"Tipo",
+    solicitud:"Fecha de solicitud", entregado:"Fecha de entrega", estatus:"Estatus",
+    guia:"Guía", falla:"Falla", observaciones:"Observaciones", mes:"Mes"
+  };
+  const filtrados = getFiltered();
+  const filas = filtrados.map(t=>{
+    const fila = {};
+    cols.forEach(c=>{ fila[encabezados[c]] = t[c]||""; });
+    return fila;
+  });
+  const ws = XLSX.utils.json_to_sheet(filas, { header: cols.map(c=>encabezados[c]) });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Consumibles");
+  const sufijoEstatus = filt.estatus ? ("-"+filt.estatus.toLowerCase()) : "-todos";
+  XLSX.writeFile(wb, `primemx-consumibles${sufijoEstatus}.xlsx`);
+  toast(`${filas.length} registros exportados a Excel`);
 }
 
 /* ══════════════ TOAST ═══════════════════════════ */
