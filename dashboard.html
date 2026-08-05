@@ -1053,7 +1053,7 @@ auth.onAuthStateChanged(async function(user){
     {id:'migracion_carrier', label:'Migración de carrier'},
     {id:'ingenieros', label:'Tickets Soporte'},
     {id:'ticketsmc', label:'Tickets Mesa de control'},
-    {id:'inventario', label:'Inventario de Equipo'},
+    {id:'inventario', label:'Adquisición de Equipo'},
     {id:'migracion_win11', label:'Migración Win11'},
     {id:'pdv_region', label:'Equipos PDV Región'},
     {id:'expansion', label:'Plan de expansión'}
@@ -2815,7 +2815,7 @@ auth.onAuthStateChanged(async function(user){
     const inv = state.inventario;
     const puedeEditar = canEditInventario();
     c.innerHTML = `
-      <div class="title">Inventario de Equipo ${state.anio}</div>
+      <div class="title">Adquisición de Equipo ${state.anio}</div>
       <div class="subtitle">Laptop y CPU — Estado de adquisición, entrega y asignación</div>
       <div class="editbar">${editing && puedeEditar
         ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
