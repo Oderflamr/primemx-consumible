@@ -396,6 +396,11 @@ tbody tr:hover td{background:var(--surface2)}
         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Exportar Excel (filtro actual)
       </button>
+      <button class="nav-btn" onclick="document.getElementById('input-confirmacion-proveedor').click()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Cargar confirmación proveedor
+      </button>
+      <input type="file" id="input-confirmacion-proveedor" accept=".xlsx,.xls" style="display:none" onchange="cargarConfirmacionProveedor(event)">
     </div>
 
     <!-- Main -->
@@ -924,7 +929,133 @@ async function provSaveObs(id) {
   if(ok) toast("Observaciones guardadas");
 }
 
-/* ══════════════ ADMIN — MODAL ═══════════════════ */
+/* ══════════════ CONFIRMACIÓN PROVEEDOR (cruce) ═══ */
+function cargarConfirmacionProveedor(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try{
+      const wb = XLSX.read(ev.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      procesarConfirmacionProveedor(rows, file.name);
+    }catch(err){
+      console.error(err);
+      toast('No se pudo leer el archivo del proveedor.', true);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = '';
+}
+
+function buscarCampo(row, posibles){
+  const keys = Object.keys(row);
+  for(const p of posibles){
+    const k = keys.find(k2=>k2.toLowerCase().trim()===p.toLowerCase());
+    if(k) return row[k];
+  }
+  return '';
+}
+
+function procesarConfirmacionProveedor(rows, nombreArchivo){
+  const entregados = rows.filter(r=>{
+    const estatus = String(buscarCampo(r, ['ESTATUS','ESTADO'])||'').toUpperCase().trim();
+    return estatus.startsWith('ENTREG');
+  });
+
+  const encontrados = [];
+  const noEncontrados = [];
+  entregados.forEach(r=>{
+    const cc = buscarCampo(r, ['CC','CECO']);
+    const location = buscarCampo(r, ['LOCATION NAME','TIENDA','LOCATION']);
+    const guia = buscarCampo(r, ['GUIA','GUÍA']);
+    const ticketRaw = String(buscarCampo(r, ['TICKET'])||'');
+    const recibio = buscarCampo(r, ['RECIBIO','RECIBIÓ']);
+    const fecha = buscarCampo(r, ['FECHA']);
+    const ticketsProveedor = ticketRaw.split('/').map(s=>s.trim()).filter(Boolean);
+    if(!ticketsProveedor.length) return;
+    ticketsProveedor.forEach(numTicket=>{
+      const interno = tickets.find(t=>t.id===numTicket);
+      if(interno && interno.estatus!=='CERRADO'){
+        encontrados.push({ id:numTicket, tienda: interno.tienda||location, ceco: interno.ceco||cc, guia, recibio, fecha, estatusActual: interno.estatus });
+      } else if(!interno){
+        noEncontrados.push({ id:numTicket, cc, location, guia, recibio, fecha, motivo:'No existe ese ticket en el sistema' });
+      } else {
+        noEncontrados.push({ id:numTicket, cc, location, guia, recibio, fecha, motivo:'Ya estaba Cerrado' });
+      }
+    });
+  });
+
+  mostrarModalCruceProveedor(encontrados, noEncontrados, nombreArchivo);
+}
+
+let ultimoCruceProveedor = [];
+
+function mostrarModalCruceProveedor(encontrados, noEncontrados, nombreArchivo){
+  ultimoCruceProveedor = encontrados;
+  const ov = document.createElement("div");
+  ov.className = "modal-overlay";
+  ov.id = "modal-overlay";
+  ov.onclick = e => { if(e.target===ov) closeModal(); };
+  ov.innerHTML = `
+<div class="modal" onclick="event.stopPropagation()" style="max-width:760px">
+  <div class="modal-hdr">
+    <h3>Cruce de confirmación del proveedor — ${nombreArchivo}</h3>
+    <button class="btn sm" onclick="closeModal()">&times;</button>
+  </div>
+  <div class="modal-body">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">
+      <strong>${encontrados.length}</strong> tickets confirmados como "Entregado" por el proveedor que <strong>siguen abiertos en el sistema</strong> — ve a cerrarlos manualmente uno por uno.
+    </p>
+    <div style="max-height:280px;overflow-y:auto;border:1px solid var(--border2);border-radius:var(--r);">
+      <table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+        <thead><tr style="background:var(--surface2);">
+          <th style="padding:6px 8px;text-align:left;">Ticket</th><th style="padding:6px 8px;text-align:left;">Tienda</th>
+          <th style="padding:6px 8px;text-align:left;">Guía</th><th style="padding:6px 8px;text-align:left;">Recibió</th>
+          <th style="padding:6px 8px;text-align:left;">Fecha</th><th style="padding:6px 8px;text-align:left;">Estatus actual</th>
+        </tr></thead>
+        <tbody>${encontrados.map(f=>`
+          <tr style="border-top:1px solid var(--border2);">
+            <td style="padding:6px 8px;">${f.id}</td><td style="padding:6px 8px;">${f.tienda}</td>
+            <td style="padding:6px 8px;">${f.guia}</td><td style="padding:6px 8px;">${f.recibio}</td>
+            <td style="padding:6px 8px;">${f.fecha}</td><td style="padding:6px 8px;">${f.estatusActual}</td>
+          </tr>`).join('') || '<tr><td colspan="6" style="padding:10px;text-align:center;color:var(--text3);">Ninguno — nada por cerrar de este archivo.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+    ${noEncontrados.length ? `
+    <p style="font-size:12px;color:var(--text3);margin:14px 0 6px;">${noEncontrados.length} filas del proveedor no se cruzaron (ya cerrados o el ticket no existe en el sistema):</p>
+    <div style="max-height:120px;overflow-y:auto;font-size:11.5px;color:var(--text3);">
+      ${noEncontrados.map(n=>`${n.id} — ${n.location||n.cc} — ${n.motivo}`).join('<br>')}
+    </div>` : ''}
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeModal()">Cerrar</button>
+    <button class="btn primary" onclick="descargarConcentradoCruce()" ${encontrados.length?'':'disabled'}>${svgIcon("check")} Descargar concentrado del día</button>
+  </div>
+</div>`;
+  document.body.appendChild(ov);
+}
+
+function descargarConcentradoCruce(){
+  const encontrados = ultimoCruceProveedor;
+  const encabezados = { id:'Ticket', tienda:'Tienda', ceco:'CECO', guia:'Guía', recibio:'Recibió', fecha:'Fecha', estatusActual:'Estatus actual en sistema' };
+  const cols = ['id','tienda','ceco','guia','recibio','fecha','estatusActual'];
+  const filas = encontrados.map(f=>{
+    const fila = {};
+    cols.forEach(c=>{ fila[encabezados[c]] = f[c]||''; });
+    return fila;
+  });
+  const ws = XLSX.utils.json_to_sheet(filas, { header: cols.map(c=>encabezados[c]) });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Por cerrar");
+  const hoy = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `concentrado-por-cerrar-${hoy}.xlsx`);
+  toast(`${filas.length} tickets en el concentrado del día`);
+}
+
+
 function openModal(id) {
   editId = id;
   const t = id ? tickets.find(x=>x.id===id) : null;
