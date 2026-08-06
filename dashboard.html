@@ -1047,10 +1047,10 @@ auth.onAuthStateChanged(async function(user){
     {id:'top_tp', label:'Top 15 TotalPlay'},
     {id:'yoy_tm', label:'Telmex YoY'},
     {id:'top_tm', label:'Top 15 Telmex'},
+    {id:'migracion_carrier', label:'Migración de carrier'},
     {id:'atencion', label:'ETR'}
   ];
   const TABS = [
-    {id:'migracion_carrier', label:'Migración de carrier'},
     {id:'ingenieros', label:'Tickets Soporte'},
     {id:'ticketsmc', label:'Tickets Mesa de control'},
     {id:'inventario', label:'Adquisición de Equipo'},
@@ -1060,7 +1060,7 @@ auth.onAuthStateChanged(async function(user){
   ];
 
   let state = null;
-  let tab = 'tendencia';
+  let tab = 'resumen';
   let editing = false;
   let internetMenuAbierto = false;
   document.addEventListener('click', ()=>{
