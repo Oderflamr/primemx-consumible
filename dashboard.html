@@ -539,7 +539,7 @@ auth.onAuthStateChanged(async function(user){
     resumen: {
       peer: { TotalPlay:0.71, Telmex:0.39, Megacable:0.27, Starlink:0.00 },
       atn:  { TotalPlay:'12 hrs', Telmex:'24-48h', Megacable:'8 hrs', Starlink:'8 hrs' },
-      clw: 15, lw: 17
+      semana_actual: { numero:0, inicio:null, fin:null, caidas:0 }
     },
     atencion: {
       TotalPlay: { tickets:366, avg:21.8, dias:0.91, min:0, mediana:18.5, max:172.9, dist:[76,87,74,117,12], pct24:65, pct48:90 },
@@ -1098,6 +1098,10 @@ auth.onAuthStateChanged(async function(user){
     if(!iso) return 'aún no se ha guardado';
     return new Date(iso).toLocaleString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   }
+  function fmtFechaCorta(iso){
+    if(!iso) return '—';
+    return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short'});
+  }
   // toast(msg, type) se reutiliza del portal (definida en el shell de login/Firebase)
   function fmtPct(n,total){ return total ? `${(n/total*100).toFixed(1)}%` : '0.0%'; }
 
@@ -1120,6 +1124,8 @@ auth.onAuthStateChanged(async function(user){
       if(!state.win11_pendientes) state.win11_pendientes = clone(DEFAULTS.win11_pendientes);
       if(!state.win11_pendientes_historial) state.win11_pendientes_historial = clone(DEFAULTS.win11_pendientes_historial);
       if(!state.win11_observaciones) state.win11_observaciones = clone(DEFAULTS.win11_observaciones);
+      if(!state.resumen.semana_actual) state.resumen.semana_actual = clone(DEFAULTS.resumen.semana_actual);
+      delete state.resumen.clw; delete state.resumen.lw;
       if(!state.inventario.masaryk_detalle) state.inventario.masaryk_detalle = clone(DEFAULTS.inventario.masaryk_detalle);
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
       if(!state.ticketsmc.categoria_agente) state.ticketsmc.categoria_agente = clone(DEFAULTS.ticketsmc.categoria_agente);
@@ -1283,6 +1289,20 @@ auth.onAuthStateChanged(async function(user){
     let rechazoCancelMC = 0;
     let maxMonthIdx = -1, totalCaidas = 0;
 
+    // Caídas de la semana en curso (lunes a domingo), calculado sobre la fecha real de hoy.
+    const hoy = new Date();
+    const diaSemana = (hoy.getDay() + 6) % 7; // 0=lunes ... 6=domingo
+    const lunesActual = new Date(hoy); lunesActual.setDate(hoy.getDate() - diaSemana); lunesActual.setHours(0,0,0,0);
+    const domingoActual = new Date(lunesActual); domingoActual.setDate(lunesActual.getDate() + 6); domingoActual.setHours(23,59,59,999);
+    function numeroSemanaISO(d){
+      const t = new Date(d.getTime());
+      t.setHours(0,0,0,0);
+      t.setDate(t.getDate() + 3 - ((t.getDay()+6)%7));
+      const enero1 = new Date(t.getFullYear(),0,1);
+      return Math.round(((t - enero1) / 86400000 - 3 + ((enero1.getDay()+6)%7)) / 7) + 1;
+    }
+    let caidasSemanaActual = 0;
+
     // Detecta tickets duplicados de caída: misma tienda, categoría "Sin servicio", creados con
     // 90 minutos o menos de diferencia, ambos con Estado "Cerrado". El segundo (el más nuevo de
     // cada pareja) se trata igual que un "Rechazado" — no cuenta como caída real.
@@ -1402,6 +1422,7 @@ auth.onAuthStateChanged(async function(user){
       if(idsDuplicados.has(row['ID'])) return; // duplicado de otra caída de la misma tienda (<=90 min)
       monthCounts[prov][mIdx]++;
       totalCaidas++;
+      if(fc >= lunesActual && fc <= domingoActual) caidasSemanaActual++;
 
       if(prov==='TotalPlay' || prov==='Telmex'){
         const store = extraerNombreCanonico(row['Cliente']) || 'Sin nombre';
@@ -1496,7 +1517,13 @@ auth.onAuthStateChanged(async function(user){
         tiendasTP: tops.TotalPlay.length,
         tiendasTM: tops.Telmex.length,
         criticasTP: tops.TotalPlay.filter(r=>r.meses.reduce((a,b)=>a+b,0)>=5).length,
-        criticasTM: tops.Telmex.filter(r=>r.meses.reduce((a,b)=>a+b,0)>=5).length
+        criticasTM: tops.Telmex.filter(r=>r.meses.reduce((a,b)=>a+b,0)>=5).length,
+        semana_actual: {
+          numero: numeroSemanaISO(hoy),
+          inicio: lunesActual.toISOString(),
+          fin: domingoActual.toISOString(),
+          caidas: caidasSemanaActual
+        }
       }
     };
   }
@@ -1510,6 +1537,8 @@ auth.onAuthStateChanged(async function(user){
     state.tendencia.velocidad.Telmex = datos.velocidad_data.Telmex;
     state.tendencia.velocidad.Metrocarrier = datos.velocidad_data.Metrocarrier;
     state.periodo_actual = datos.periodo_actual;
+    if(!state.resumen) state.resumen = {};
+    state.resumen.semana_actual = datos.resumen.semana_actual;
     state.atencion.TotalPlay = datos.atencion.TotalPlay;
     state.atencion.Telmex = datos.atencion.Telmex;
     state.atencion.Metrocarrier = datos.atencion.Metrocarrier;
@@ -1961,14 +1990,31 @@ auth.onAuthStateChanged(async function(user){
     const sl=Number(state.tendencia.caidas_extra.Starlink||0);
     const total = tp+tm+mg+sl;
     const r = state.resumen;
+    const TIENDAS_CATALOGO = { TotalPlay:478, Telmex:138, Megacable:5 }; // total de tiendas por carrier (catálogo)
+    function autoPeer(prov, caidas){
+      const totalTiendas = TIENDAS_CATALOGO[prov];
+      if(!totalTiendas) return r.peer[prov]; // Starlink: no viene del catálogo de tickets, se queda con el valor guardado
+      return Math.round((caidas / totalTiendas) * 100) / 100;
+    }
+    function autoAtn(prov){
+      const clave = prov==='Megacable' ? 'Metrocarrier' : prov;
+      if(prov==='Starlink' || !state.atencion[clave]) return r.atn[prov];
+      return state.atencion[clave].avg + ' hrs';
+    }
     function card(prov,caidas){
+      const peerVal = autoPeer(prov,caidas);
+      const atnVal = autoAtn(prov);
       return `<div class="card"><div class="head" style="background:${CARD_COLOR[prov]}">${prov}</div>
         <div class="body">
           <div class="big" style="font-size:22px">${caidas}</div><div class="lbl">Caídas · ${fmtPct(caidas,total)} del total</div>
           <div class="rule"></div>
-          <div style="font-size:12px;color:var(--sub)">Peer: <b style="color:var(--ink)">${r.peer[prov]}</b> &nbsp;·&nbsp; Atn: <b style="color:var(--ink)">${r.atn[prov]}</b></div>
+          <div style="font-size:12px;color:var(--sub)">Peer: <b style="color:var(--ink)">${peerVal}</b> &nbsp;·&nbsp; Atn: <b style="color:var(--ink)">${atnVal}</b></div>
         </div></div>`;
     }
+    const sem = r.semana_actual;
+    const textoSemana = (sem && sem.numero)
+      ? `Semana ${sem.numero} (${fmtFechaCorta(sem.inicio)} – ${fmtFechaCorta(sem.fin)}): <b>${sem.caidas}</b> caídas`
+      : 'Carga un archivo de tickets para ver la semana en curso.';
     c.innerHTML = `
       ${canEdit ? `
       <div class="uploadbar">
@@ -1988,48 +2034,29 @@ auth.onAuthStateChanged(async function(user){
           Tiendas con caídas — TotalPlay: <b>${cargaPendiente.resumen.tiendasTP}</b> (${cargaPendiente.resumen.criticasTP} críticas) ·
           Telmex: <b>${cargaPendiente.resumen.tiendasTM}</b> (${cargaPendiente.resumen.criticasTM} críticas)
         </div>
-        <div class="foot">Esto reemplaza Tendencia mensual, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier). YoY 2025, Peer/Atn/CLW-LW y Megacable/Starlink no se tocan.</div>
+        <div class="foot">Esto reemplaza Tendencia mensual, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier). Peer y Atn se recalculan solos; Megacable/Starlink no se tocan.</div>
         <div class="editbar" style="margin-top:10px;">
           <button id="btnCancelCarga">Cancelar</button>
           <button class="primary" id="btnAplicarCarga">Aplicar datos</button>
         </div>
       </div>` : ''}
-      <div class="title">Total de caídas ${state.anio}</div>
-      <div class="subtitle">CLW: ${r.clw} · LW: ${r.lw}</div>
-      <div class="cards">${card('TotalPlay',tp)}${card('Telmex',tm)}${card('Megacable',mg)}${card('Starlink',sl)}</div>
-      <div class="panel"><div style="font-size:15px;"><b>${total}</b> <span style="color:var(--sub);font-size:12.5px;">total caídas ${state.anio}</span></div></div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+        <div>
+          <div class="title" style="margin-bottom:2px;">Total de caídas ${state.anio}</div>
+          <div class="subtitle">${textoSemana}</div>
+        </div>
+        <div class="panel" style="text-align:center; padding:14px 26px; margin:0;">
+          <div style="font-size:24px; font-weight:800;">${total}</div>
+          <div class="foot" style="margin-top:2px;">total caídas ${state.anio}</div>
+        </div>
+      </div>
+      <div class="cards" style="margin-top:16px;">${card('TotalPlay',tp)}${card('Telmex',tm)}${card('Megacable',mg)}${card('Starlink',sl)}</div>
       <div class="panel">
-        <div class="editbar">${editing
-          ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
-          : (canEdit ? `<button id="btnEdit">Editar Peer / Atn / CLW-LW</button>` : '')}</div>
         <h3>Caídas por proveedor</h3>
         <canvas id="chartResumen"></canvas>
       </div>
-      ${editing ? `<div class="panel"><h3>Campos manuales (no vienen del log de tickets)</h3>
-        <table><thead><tr><th>Proveedor</th><th>Peer</th><th>Atn</th></tr></thead><tbody>
-        ${['TotalPlay','Telmex','Megacable','Starlink'].map(p=>`<tr><td>${p}</td>
-          <td><input type="number" step="0.01" min="0" data-peer="${p}" value="${r.peer[p]}"></td>
-          <td><input type="text" data-atn="${p}" value="${r.atn[p]}" style="width:80px;"></td></tr>`).join('')}
-        </tbody></table>
-        <div class="servicios-grid" style="grid-template-columns:repeat(2,1fr); margin-top:14px;">
-          <div class="sv-field"><label>CLW (semana actual)</label><input type="number" min="0" id="clwInput" value="${r.clw}"></div>
-          <div class="sv-field"><label>LW (semana anterior)</label><input type="number" min="0" id="lwInput" value="${r.lw}"></div>
-        </div>
-        <div class="foot">"Peer" y "Atn" no se calculan solos — confírmalos con quien arma el reporte hoy y captúralos aquí.</div>
-      </div>` : ''}
+      <div class="foot" style="margin-top:6px;">Peer = caídas ÷ tiendas del catálogo, redondeado a 2 decimales. Atn = mismo promedio que aparece en "ETR". Starlink sigue siendo manual (no viene del archivo de tickets).</div>
     `;
-    if(editing){
-      document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
-      document.getElementById('btnSave').onclick=()=>{
-        document.querySelectorAll('input[data-peer]').forEach(i=>{ r.peer[i.dataset.peer]=Number(i.value||0); });
-        document.querySelectorAll('input[data-atn]').forEach(i=>{ r.atn[i.dataset.atn]=i.value; });
-        r.clw = Number(document.getElementById('clwInput').value||0);
-        r.lw = Number(document.getElementById('lwInput').value||0);
-        save();
-      };
-    } else {
-      if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
-    }
     if(canEdit){
       document.getElementById('btnUpload').onclick = () => document.getElementById('fileTickets').click();
       document.getElementById('fileTickets').onchange = handleFileUpload;
