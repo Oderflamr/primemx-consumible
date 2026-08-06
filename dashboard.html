@@ -541,6 +541,19 @@ auth.onAuthStateChanged(async function(user){
       atn:  { TotalPlay:'12 hrs', Telmex:'24-48h', Megacable:'8 hrs', Starlink:'8 hrs' },
       semana_actual: { numero:0, inicio:null, fin:null, caidas:0 }
     },
+    catalogo_no_coincide: [
+      { nombre:'PRM TDA PLAZA CARMEL TUXTLA', sugerencia:'PRM TDA CARMEL TUXTLA', similitud:87.5 },
+      { nombre:'PRM TDA CHIHUAHUA PLAZA VILLAS CAMARGO', sugerencia:'PRM TDA PLAZA VILLAS CAMARGO', similitud:84.8 },
+      { nombre:'PRM TDA PLAZA PLATINUM CHIHUAHUA', sugerencia:'PRM TDA PLAZA R ALMADA CHIHUAHUA', similitud:81.2 },
+      { nombre:'PRM TDA LOLA BELTRAN CULIACAN', sugerencia:'PRM TDA PLAZA PABELLON CULIACAN', similitud:80.0 },
+      { nombre:'PRM TDA SORIANA PENUELAS QUERETARO', sugerencia:'PRM TDA SORIANA PEÑUELAS', similitud:79.3 },
+      { nombre:'PRM TDA GUADALAJARA FAHO LEGALIDAD', sugerencia:'PRM TDA GUADALAJARA FAHO PABLO CASALS', similitud:78.9 },
+      { nombre:'PRM TDA VISTAHERMOSA', sugerencia:'PRM TDA CUERNAVACA VISTAHERMOSA', similitud:78.4 },
+      { nombre:'PRM TDA MI PLAZA CABO SAN LUCAS', sugerencia:'PRM TDA MI PLAZA LOS CABOS', similitud:77.2 },
+      { nombre:'PRM TDA SAHUAYO', sugerencia:'PRM TDA CHIHUAHUA', similitud:75.0 },
+      { nombre:'PRM TDA JUAREZ CENTRO QRO', sugerencia:'PRM TDA TUXTLA CENTRO', similitud:73.9 },
+      { nombre:'PRM TDA GUADALAJARA FAHO WASHINGTON', sugerencia:'PRM TDA GUADALAJARA CENTRO', similitud:68.9 }
+    ],
     atencion: {
       TotalPlay: { tickets:366, avg:21.8, dias:0.91, min:0, mediana:18.5, max:172.9, dist:[76,87,74,117,12], pct24:65, pct48:90 },
       Telmex: { tickets:48, avg:96.7, dias:4.03, min:1.3, mediana:32.8, max:2464.5, dist:[7,7,1,20,13], pct24:31, pct48:63 },
@@ -1075,7 +1088,7 @@ auth.onAuthStateChanged(async function(user){
     if(canEdit) return true;
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_INVENTARIO.includes(currentUser.username));
   }
-  const USUARIOS_PDV_REGION = ['lalzaga'];
+  const USUARIOS_PDV_REGION = ['lalzaga', 'daguilar', 'ecastillo', 'amartinez', 'asanchez'];
   function canEditPdvRegion(){
     if(canEdit) return true;
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_PDV_REGION.includes(currentUser.username));
@@ -1125,6 +1138,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.win11_pendientes_historial) state.win11_pendientes_historial = clone(DEFAULTS.win11_pendientes_historial);
       if(!state.win11_observaciones) state.win11_observaciones = clone(DEFAULTS.win11_observaciones);
       if(!state.resumen.semana_actual) state.resumen.semana_actual = clone(DEFAULTS.resumen.semana_actual);
+      if(!state.catalogo_no_coincide) state.catalogo_no_coincide = clone(DEFAULTS.catalogo_no_coincide);
       delete state.resumen.clw; delete state.resumen.lw;
       if(!state.inventario.masaryk_detalle) state.inventario.masaryk_detalle = clone(DEFAULTS.inventario.masaryk_detalle);
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
@@ -1174,7 +1188,25 @@ auth.onAuthStateChanged(async function(user){
     'PRM TDA IRAPUATO BERRIOZABAL CENTRO': 'PRM TDA IRAPUATO DE BERRIOZABAL',
     'PRM TDA HEB LOS MORALES SAN NICOLAS': 'PRM TDA HEB LOS MORALES NICOLAS',
     'PRM TDA MIGUEL ANGEL DE QUEVEDO CDMX': 'PRM TDA MIGUEL A DE QUEVEDO CDMX',
-    'PRM TDA GOMEZ PALACIO LAS ROSAS': 'PRM TDA TORREON GOMEZ PALACIO LAS ROSAS'
+    'PRM TDA GOMEZ PALACIO LAS ROSAS': 'PRM TDA TORREON GOMEZ PALACIO LAS ROSAS',
+    'PRM TDA GRAN PLAZA LOS SOLES MICH': 'PRM TDA GRAN PLAZA LOS SOLES MCH',
+    'PRM TDA MACROPLAZA MORELIA': 'PRM TDA MACRO PLAZA MORELIA',
+    'PRM TDA CD CUAUHTEMOC PLAZA SIERRA MAD': 'PRM TDA CD CUAUHTEMOC PLAZA SIERRA MADRE',
+    'PRM TDA ZACATECAS PLAZA PORTAL FRESNIL': 'PRM TDA ZACATECAS PLAZA PORTAL FRESNILLO',
+    'PRM TDA TLAXCALA AV BENITO JUAREZ': 'PRM TDA TLAXCALA BENITO JUAREZ',
+    'PRM TDA CABO SAN LUCAS PLAZA PUERTO PA': 'PRM TDA CABO SAN LUCAS PLAZA PUERTO PARAISO',
+    'PRM TDA SAN MARTIN TEXMELUCAN PLAZA CR': 'PRM TDA SAN MARTIN TEXMELUCAN PLAZA CRYSTAL',
+    'PRM TDA HIPER CORDILLERAS JALISCO': 'PRM TDA HIPER CORDILLERAS JAL',
+    'PRM TDA 5 DE MAYO HUEXOTITLA': 'PRM TDA 5 DE MAYO HUEXOTITLA PUE',
+    'PRM TDA PLAZA LAS HACIENDAS MEX': 'PRM TDA PLAZA LAS HACIENDAS',
+    'PRM TDA PLAZA JUAREZ MALL CHIHUAHUA': 'PRM TDA PLAZA JUAREZ MALL CHIH',
+    'PRM TDA PLAZA CRYSTAL XAL': 'PRM TDA PLAZA CRYSTAL',
+    'PRM TDA SORIANA ROJO GOMEZ': 'PRM TDA SORIANA ROJO GOMEZ CDMX',
+    'PRM TDA LA CANTERA TEPIC': 'PRM TDA PLAZA LA CANTERA TEPIC',
+    'PRM TDA SUN MALL MTY': 'PRM TDA SUN MALL',
+    'PRM TDA 4 RIOS CULIACAN': 'PRM TDA PLAZA 4 RIOS CULIACAN',
+    'PRM TDA PASEO AKIA MICHOACAN': 'PRM TDA PASEO AKIA MCH',
+    'PRM TDA MULTICENTER EL SALTO': 'PRM TDA  MULTICENTER EL SALTO'
   };
 
   function extraerNombreCanonico(cliente){
@@ -1189,6 +1221,32 @@ auth.onAuthStateChanged(async function(user){
   }
   // Busca Carrier/Tecnología en el catálogo por nombre canónico exacto (mayúsculas), con un
   // segundo intento quitando/agregando "TDA" (el catálogo no siempre lo incluye).
+  // Similitud entre dos textos (distancia de Levenshtein normalizada, 0 a 1).
+  // Se usa para sugerir la tienda del catálogo más parecida cuando un nombre no coincide.
+  function similitudTexto(a, b){
+    if(a === b) return 1;
+    const m = a.length, n = b.length;
+    if(!m || !n) return 0;
+    let prev = new Array(n+1).fill(0).map((_,i)=>i);
+    for(let i=1; i<=m; i++){
+      const curr = [i];
+      for(let j=1; j<=n; j++){
+        curr[j] = a[i-1]===b[j-1] ? prev[j-1] : 1 + Math.min(prev[j-1], prev[j], curr[j-1]);
+      }
+      prev = curr;
+    }
+    const dist = prev[n];
+    return 1 - dist / Math.max(m,n);
+  }
+  function sugerirTiendaParecida(nombre, nombresCatalogo){
+    let mejor = null, mejorSim = 0;
+    nombresCatalogo.forEach(cand=>{
+      const sim = similitudTexto(nombre, cand);
+      if(sim > mejorSim){ mejorSim = sim; mejor = cand; }
+    });
+    return { sugerencia: mejor, similitud: Math.round(mejorSim*1000)/10 };
+  }
+
   function buscarCatalogo(nombreCanonico){
     const up = String(nombreCanonico).toUpperCase();
     let info = CATALOGO_TIENDAS[up];
@@ -1495,6 +1553,25 @@ auth.onAuthStateChanged(async function(user){
       return fila;
     });
 
+    // Nombres de "Cliente" que no coinciden con el catálogo (ni siquiera con el intento TDA/sin-TDA).
+    // Se guardan con la tienda más parecida que se encontró, para que se revisen a mano — no se
+    // corrigen solos porque el "más parecido" a veces es una tienda genuinamente distinta.
+    const nombresCatalogo = Object.keys(CATALOGO_TIENDAS);
+    const nombresVistos = new Set();
+    const catalogoNoCoincide = [];
+    rows.forEach(row=>{
+      const nombre = extraerNombreCanonico(row['Cliente']);
+      if(!nombre || nombresVistos.has(nombre)) return;
+      nombresVistos.add(nombre);
+      const info = buscarCatalogo(nombre);
+      if(info.carrier !== '—') return; // sí coincide, no hay nada que reportar
+      const { sugerencia, similitud } = sugerirTiendaParecida(nombre, nombresCatalogo);
+      if(similitud >= 60){
+        catalogoNoCoincide.push({ nombre, sugerencia, similitud });
+      }
+    });
+    catalogoNoCoincide.sort((a,b)=> b.similitud - a.similitud);
+
     return {
       fileName,
       periodo_actual: MESES[hasta],
@@ -1512,6 +1589,8 @@ auth.onAuthStateChanged(async function(user){
       agentes_mc: agentesMC,
       mc_categorias: mcCategorias,
       mc_categoria_agente: mcCategoriaAgente,
+
+      catalogo_no_coincide: catalogoNoCoincide,
       resumen: {
         totalCaidas, mesesCubiertos: hasta+1,
         tiendasTP: tops.TotalPlay.length,
@@ -1539,6 +1618,7 @@ auth.onAuthStateChanged(async function(user){
     state.periodo_actual = datos.periodo_actual;
     if(!state.resumen) state.resumen = {};
     state.resumen.semana_actual = datos.resumen.semana_actual;
+    state.catalogo_no_coincide = datos.catalogo_no_coincide || [];
     state.atencion.TotalPlay = datos.atencion.TotalPlay;
     state.atencion.Telmex = datos.atencion.Telmex;
     state.atencion.Metrocarrier = datos.atencion.Metrocarrier;
@@ -2186,6 +2266,31 @@ auth.onAuthStateChanged(async function(user){
       </div>
     `;
   }
+  function renderPanelCatalogoAmartinez(){
+    const lista = state.catalogo_no_coincide || [];
+    if(!lista.length){
+      return `<div class="panel" style="margin-top:20px; border-color:#8B5CF6;">
+        <h3>Revisión de catálogo (solo tú la ves)</h3>
+        <div class="foot">Ningún nombre pendiente por revisar en la última carga — todo lo que se pudo emparejar automáticamente ya se corrigió.</div>
+      </div>`;
+    }
+    return `
+      <div class="panel" style="margin-top:20px; border-color:#8B5CF6;">
+        <h3>Revisión de catálogo (solo tú la ves)</h3>
+        <div class="foot" style="margin-bottom:10px;">
+          Estos nombres de "Cliente" del archivo de tickets no coincidieron con ninguna tienda del catálogo — el "más parecido" que encontré puede ser el correcto, o puede ser una tienda distinta de verdad. Confírmame cuáles corregir y las agrego para que no vuelvan a salir en la siguiente carga.
+        </div>
+        <table>
+          <thead><tr><th style="text-align:left;">Nombre en tickets</th><th style="text-align:left;">Sugerencia más cercana</th><th>Similitud</th></tr></thead>
+          <tbody>${lista.map(r=>`<tr>
+            <td style="text-align:left;">${r.nombre}</td>
+            <td style="text-align:left;">${r.sugerencia}</td>
+            <td>${r.similitud}%</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    `;
+  }
   function renderTop(c, key, prov){
     const rows = state[key];
     c.innerHTML = `
@@ -2201,6 +2306,7 @@ auth.onAuthStateChanged(async function(user){
           <p>Da clic en <b>"Editar tabla"</b> y agrega tienda por tienda con su conteo mensual; el total y el estatus se calculan solos.</p>
         </div>` : renderTopTable(rows, editing)}
       ${renderVelocidadTrend(prov)}
+      ${(prov==='TotalPlay' && typeof currentUser!=='undefined' && currentUser && currentUser.username==='amartinez') ? renderPanelCatalogoAmartinez() : ''}
     `;
     if(editing){
       document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
