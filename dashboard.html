@@ -1723,30 +1723,6 @@ auth.onAuthStateChanged(async function(user){
     app.className = canEdit ? 'is-admin' : '';
     app.innerHTML = `
       <div class="status-line" style="margin-bottom:14px;"><span class="dot"></span> Última actualización: ${fmtFecha(state.updated_at)}</div>
-      ${canEdit ? `
-      <div class="uploadbar">
-        <div class="txt">
-          <b>Cargar reporte de tickets (.xlsx, año completo)</b> — recalcula Tendencia, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier) a partir de las categorías "Internet y telefonia".
-          ${state.carga.archivo ? `<div class="upload-summary">Último archivo: ${state.carga.archivo} · ${state.carga.tickets_caidas} tickets de caídas procesados · ${fmtFecha(state.carga.fecha)}</div>` : ''}
-          <div id="uploadError"></div>
-        </div>
-        <input type="file" id="fileTickets" accept=".xlsx,.xls" style="display:none">
-        <button class="upload" id="btnUpload">Cargar archivo</button>
-      </div>` : ''}
-      ${cargaPendiente ? `
-      <div class="panel" style="border-color:var(--tm);">
-        <h3 style="color:var(--tm);">Confirmar carga · ${cargaPendiente.fileName}</h3>
-        <div style="font-size:13px; line-height:1.8;">
-          Tickets de caídas identificados: <b>${cargaPendiente.resumen.totalCaidas}</b> (Ene–${cargaPendiente.periodo_actual})<br>
-          Tiendas con caídas — TotalPlay: <b>${cargaPendiente.resumen.tiendasTP}</b> (${cargaPendiente.resumen.criticasTP} críticas) ·
-          Telmex: <b>${cargaPendiente.resumen.tiendasTM}</b> (${cargaPendiente.resumen.criticasTM} críticas)
-        </div>
-        <div class="foot">Esto reemplaza Tendencia mensual, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier). YoY 2025, Peer/Atn/CLW-LW y Megacable/Starlink no se tocan.</div>
-        <div class="editbar" style="margin-top:10px;">
-          <button id="btnCancelCarga">Cancelar</button>
-          <button class="primary" id="btnAplicarCarga">Aplicar datos</button>
-        </div>
-      </div>` : ''}
       <div class="tabs" style="position:relative; overflow:visible;">
         <div class="tab ${INTERNET_TABS.some(t=>t.id===tab)?'active':''}" id="tabInternetBtn" style="display:inline-flex; align-items:center; gap:4px;">Internet <span style="font-size:10px;">▾</span></div>
         ${internetMenuAbierto ? `<div id="menuInternet" style="position:absolute; top:100%; left:0; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:200px; z-index:50;">
@@ -1774,14 +1750,6 @@ auth.onAuthStateChanged(async function(user){
     document.querySelectorAll('.tab[data-tab]').forEach(el=>{
       el.onclick = () => { tab = el.dataset.tab; editing = false; internetMenuAbierto = false; render(); };
     });
-    if(canEdit){
-      document.getElementById('btnUpload').onclick = () => document.getElementById('fileTickets').click();
-      document.getElementById('fileTickets').onchange = handleFileUpload;
-      if(cargaPendiente){
-        document.getElementById('btnCancelCarga').onclick = ()=>{ cargaPendiente = null; render(); };
-        document.getElementById('btnAplicarCarga').onclick = ()=>{ aplicarDatosTickets(cargaPendiente); };
-      }
-    }
     renderTab();
   }
 
@@ -2002,6 +1970,30 @@ auth.onAuthStateChanged(async function(user){
         </div></div>`;
     }
     c.innerHTML = `
+      ${canEdit ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar reporte de tickets (.xlsx, año completo)</b> — recalcula Tendencia, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier) a partir de las categorías "Internet y telefonia".
+          ${state.carga.archivo ? `<div class="upload-summary">Último archivo: ${state.carga.archivo} · ${state.carga.tickets_caidas} tickets de caídas procesados · ${fmtFecha(state.carga.fecha)}</div>` : ''}
+          <div id="uploadError"></div>
+        </div>
+        <input type="file" id="fileTickets" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUpload">Cargar archivo</button>
+      </div>` : ''}
+      ${cargaPendiente ? `
+      <div class="panel" style="border-color:var(--tm);">
+        <h3 style="color:var(--tm);">Confirmar carga · ${cargaPendiente.fileName}</h3>
+        <div style="font-size:13px; line-height:1.8;">
+          Tickets de caídas identificados: <b>${cargaPendiente.resumen.totalCaidas}</b> (Ene–${cargaPendiente.periodo_actual})<br>
+          Tiendas con caídas — TotalPlay: <b>${cargaPendiente.resumen.tiendasTP}</b> (${cargaPendiente.resumen.criticasTP} críticas) ·
+          Telmex: <b>${cargaPendiente.resumen.tiendasTM}</b> (${cargaPendiente.resumen.criticasTM} críticas)
+        </div>
+        <div class="foot">Esto reemplaza Tendencia mensual, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier). YoY 2025, Peer/Atn/CLW-LW y Megacable/Starlink no se tocan.</div>
+        <div class="editbar" style="margin-top:10px;">
+          <button id="btnCancelCarga">Cancelar</button>
+          <button class="primary" id="btnAplicarCarga">Aplicar datos</button>
+        </div>
+      </div>` : ''}
       <div class="title">Total de caídas ${state.anio}</div>
       <div class="subtitle">CLW: ${r.clw} · LW: ${r.lw}</div>
       <div class="cards">${card('TotalPlay',tp)}${card('Telmex',tm)}${card('Megacable',mg)}${card('Starlink',sl)}</div>
@@ -2037,6 +2029,14 @@ auth.onAuthStateChanged(async function(user){
       };
     } else {
       if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
+    }
+    if(canEdit){
+      document.getElementById('btnUpload').onclick = () => document.getElementById('fileTickets').click();
+      document.getElementById('fileTickets').onchange = handleFileUpload;
+      if(cargaPendiente){
+        document.getElementById('btnCancelCarga').onclick = ()=>{ cargaPendiente = null; render(); };
+        document.getElementById('btnAplicarCarga').onclick = ()=>{ aplicarDatosTickets(cargaPendiente); };
+      }
     }
     charts.resumen = new Chart(document.getElementById('chartResumen'), {
       type:'bar',
@@ -2372,6 +2372,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="uploadbar">
         <div class="txt">
           <b>Cargar detalle de equipos pendientes por migrar (.xlsx)</b> — reemplaza la lista de abajo con lo que traiga el archivo.
+          ${(state.win11_pendientes_historial && state.win11_pendientes_historial.length) ? `<div class="upload-summary">Último archivo: ${state.win11_pendientes_historial[0].archivo} · ${state.win11_pendientes_historial[0].total} equipos · por ${state.win11_pendientes_historial[0].usuario} · ${fmtFecha(state.win11_pendientes_historial[0].fecha)}</div>` : ''}
           <div id="uploadErrorWin11"></div>
         </div>
         <input type="file" id="fileWin11" accept=".xlsx,.xls" style="display:none">
