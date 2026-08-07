@@ -294,6 +294,46 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   button.upload:disabled{opacity:.55; cursor:default;}
   .upload-summary{font-size:11.5px; color:var(--good); margin-top:2px;}
   .upload-error{font-size:11.5px; color:var(--crit); margin-top:2px;}
+
+  /* ===== Budget IT 2026 ===== */
+  #tbl-budget-it{min-width:1200px;}
+  #tbl-budget-it td.bi-prov{text-align:left; font-weight:600; white-space:nowrap;}
+  #tbl-budget-it td.bi-cat{text-align:left; color:var(--sub); white-space:nowrap;}
+  #tbl-budget-it td.bi-locked{background:#F4F5F7; color:var(--sub); position:relative;}
+  #tbl-budget-it td.bi-locked::after{content:'🔒'; font-size:8px; position:absolute; top:1px; right:2px; opacity:.5;}
+  #tbl-budget-it input.bi-proyectado{color:var(--sub); font-style:italic; background:#FBFBFC;}
+  #tbl-budget-it tr.bi-totales td{font-weight:700; border-top:2px solid var(--ink); background:#FAFAFB;}
+  #tbl-budget-it tr.bi-presupuesto td{color:var(--sub); font-style:italic;}
+  #tbl-budget-it tr.bi-ahorro td.pos{color:var(--good); font-weight:700;}
+  #tbl-budget-it tr.bi-ahorro td.neg{color:var(--crit); font-weight:700;}
+  .bi-legend{display:flex; gap:16px; margin:10px 0 0; font-size:11.5px; color:var(--sub); flex-wrap:wrap;}
+  .bi-legend span{display:inline-flex; align-items:center; gap:5px;}
+  .bi-swatch{width:10px; height:10px; border-radius:3px; display:inline-block; border:1px solid var(--line);}
+  .bi-swatch.locked{background:#F4F5F7;}
+  .bi-swatch.real{background:#fff;}
+  .bi-swatch.proy{background:#FBFBFC; border-style:dashed;}
+  .bi-insight{display:flex; gap:9px; padding:10px 11px; border-radius:8px; background:#FAFAFB; border:1px solid var(--line); margin-bottom:9px; border-left:3px solid var(--line);}
+  .bi-insight.mejora{border-left-color:var(--med);}
+  .bi-insight.riesgo{border-left-color:var(--crit);}
+  .bi-insight.oportunidad{border-left-color:var(--good);}
+  .bi-insight .body b{display:block; font-size:12.5px; margin-bottom:2px;}
+  .bi-insight .body span{font-size:12px; color:var(--sub); line-height:1.4;}
+
+  /* Barra de progreso "presupuesto anual vs. proyección" (bullet bar) */
+  .bi-bullet-wrap{padding:10px 2px 0;}
+  .bi-bullet-track{position:relative; height:34px; border-radius:8px; background:#EEF1F1; border:1px solid var(--line); overflow:hidden;}
+  .bi-bullet-seg{position:absolute; top:0; left:0; height:100%;}
+  .bi-bullet-real{background:#0C8599; z-index:2;}
+  .bi-bullet-proj{background:repeating-linear-gradient(135deg, #0C8599 0 5px, #cfe9ec 5px 10px); opacity:.75; border-right:2px solid #0A6B79; z-index:1;}
+  .bi-bullet-labels{display:flex; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--sub);}
+  .bi-bullet-legend{display:flex; gap:14px; margin-top:10px; font-size:11px; color:var(--sub); flex-wrap:wrap;}
+  .bi-bullet-legend span{display:inline-flex; align-items:center; gap:5px;}
+  .bi-sw{width:12px; height:12px; border-radius:3px; display:inline-block;}
+  .bi-sw.real{background:#0C8599;}
+  .bi-sw.proj{background:repeating-linear-gradient(135deg, #0C8599 0 2px, #cfe9ec 2px 4px); border:1px solid #0A6B79;}
+  .bi-sw.gap{background:#fff; border:1.5px dashed var(--sub);}
+  .bi-bullet-callout{margin-top:12px; background:#E7F7EC; border-radius:8px; padding:9px 12px; font-size:12.5px; color:var(--good); font-weight:600;}
+  .bi-bullet-callout.warn{background:#FDECEC; color:var(--crit);}
 </style>
 </head>
 <body>
@@ -541,19 +581,6 @@ auth.onAuthStateChanged(async function(user){
       atn:  { TotalPlay:'12 hrs', Telmex:'24-48h', Megacable:'8 hrs', Starlink:'8 hrs' },
       semana_actual: { numero:0, inicio:null, fin:null, caidas:0 }
     },
-    catalogo_no_coincide: [
-      { nombre:'PRM TDA PLAZA CARMEL TUXTLA', sugerencia:'PRM TDA CARMEL TUXTLA', similitud:87.5 },
-      { nombre:'PRM TDA CHIHUAHUA PLAZA VILLAS CAMARGO', sugerencia:'PRM TDA PLAZA VILLAS CAMARGO', similitud:84.8 },
-      { nombre:'PRM TDA PLAZA PLATINUM CHIHUAHUA', sugerencia:'PRM TDA PLAZA R ALMADA CHIHUAHUA', similitud:81.2 },
-      { nombre:'PRM TDA LOLA BELTRAN CULIACAN', sugerencia:'PRM TDA PLAZA PABELLON CULIACAN', similitud:80.0 },
-      { nombre:'PRM TDA SORIANA PENUELAS QUERETARO', sugerencia:'PRM TDA SORIANA PEÑUELAS', similitud:79.3 },
-      { nombre:'PRM TDA GUADALAJARA FAHO LEGALIDAD', sugerencia:'PRM TDA GUADALAJARA FAHO PABLO CASALS', similitud:78.9 },
-      { nombre:'PRM TDA VISTAHERMOSA', sugerencia:'PRM TDA CUERNAVACA VISTAHERMOSA', similitud:78.4 },
-      { nombre:'PRM TDA MI PLAZA CABO SAN LUCAS', sugerencia:'PRM TDA MI PLAZA LOS CABOS', similitud:77.2 },
-      { nombre:'PRM TDA SAHUAYO', sugerencia:'PRM TDA CHIHUAHUA', similitud:75.0 },
-      { nombre:'PRM TDA JUAREZ CENTRO QRO', sugerencia:'PRM TDA TUXTLA CENTRO', similitud:73.9 },
-      { nombre:'PRM TDA GUADALAJARA FAHO WASHINGTON', sugerencia:'PRM TDA GUADALAJARA CENTRO', similitud:68.9 }
-    ],
     atencion: {
       TotalPlay: { tickets:366, avg:21.8, dias:0.91, min:0, mediana:18.5, max:172.9, dist:[76,87,74,117,12], pct24:65, pct48:90 },
       Telmex: { tickets:48, avg:96.7, dias:4.03, min:1.3, mediana:32.8, max:2464.5, dist:[7,7,1,20,13], pct24:31, pct48:63 },
@@ -1050,6 +1077,37 @@ auth.onAuthStateChanged(async function(user){
       {numero:null, clave:'', nombre:'PRM TDA PLAZA RAZA AVENUE', mes:'Cierre Agosto', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTALPLAY', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Cerrada', nota:'Entrega: 31 ago · Cierre operación: lunes 17 ago · Recolección de equipo (cómputo, impresora, gabinete, switch, AP, módem) y cancelación Internet: 18 ago · Vigencia del servicio: 10/11/2026'},
       {numero:null, clave:'', nombre:'PRM TDA OBREGON SONORA PUERTA', mes:'Cierre Agosto', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTALPLAY', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Cerrada', nota:'Entrega: 23 ago · Cierre operación: 08 ago · Recolección de equipo (cómputo, impresora, gabinete, switch, AP, módem) y cancelación Internet: 09 ago · Vigencia del servicio: 14/11/2026'}
     ], notas_generales: '', carga: { archivo: 'NVO_EXPANSION_2025.xlsx', fecha: '2026-07-22T17:57:29.394Z' } },
+    // Budget IT 2026: recreado de Budget 2026_IT.xlsx (hoja "Presupuesto 2026"). Enero-Junio son los
+    // valores reales ya conciliados (quedan congelados en la UI). Julio trae lo que ya estaba cargado
+    // en el Excel (algunos proveedores aún sin dato); Agosto-Diciembre quedan en null y se editan mes
+    // a mes conforme se cierran. El archivo original solo llegaba a Julio y su columna "Anual" por
+    // proveedor sumaba mal (SUM(H:L), le faltaban meses) — aquí no se replica ese bug: el total anual
+    // se calcula sumando las 12 celdas reales de cada momento.
+    budget_it: {
+      opex: [
+        {proveedor:'TOTALPLAY', categoria:'Internet', presupuesto_mes:900000, meses:[864908.69, 902868.65, 893060.68, 894083.86, 894458.77, 896681.02, null, null, null, null, null, null]},
+        {proveedor:'TELNOR', categoria:'Internet', presupuesto_mes:20000, meses:[8299.6, 8213.4, 8213.64, 10445.97, 11413.79, 9461.7, 9461.82, null, null, null, null, null]},
+        {proveedor:'TELMEX', categoria:'Internet', presupuesto_mes:150000, meses:[111530.28, 114463.93, 110104.34, 108110.15, 108736.3, 111307.78, 126529.39, null, null, null, null, null]},
+        {proveedor:'METROCARRIER', categoria:'Internet', presupuesto_mes:25000, meses:[18650, 18650, 18650, 21335.48, 20900, 22150, 22150, null, null, null, null, null]},
+        {proveedor:'TOTALPLAY AWS', categoria:'aws', presupuesto_mes:150000, meses:[127145.98, 112702.94, 103982.57, 108358.68, 98923.42, 107022.65, null, null, null, null, null, null]},
+        {proveedor:'TOTALPLAY OFFICE 365', categoria:'office 365', presupuesto_mes:600000, meses:[433495.7, 398465.97, 410921.28, 401904.23, 400010.76, 404693.63, null, null, null, null, null, null]},
+        {proveedor:'MARAFIC', categoria:'Help', presupuesto_mes:948000, meses:[922185, 922185, 922185, 922185, 917730, 917730, null, null, null, null, null, null]},
+        {proveedor:'CODSTER', categoria:'Desarrollo', presupuesto_mes:120000, meses:[117254.4, 117254.4, 117254.4, 117254.4, 117254.4, 117254.4, 117254.4, null, null, null, null, null]},
+        {proveedor:'IQSEC (KACE)', categoria:'App de Inventarios', presupuesto_mes:160000, meses:[142377.8, 141561.8, 142921.8, 142921.8, 142921.8, 142921.8, 142921.8, null, null, null, null, null]},
+        {proveedor:'REDSLOG', categoria:'Mensajeria', presupuesto_mes:100000, meses:[88921.44, 116254.46, 112375.29, 128608.91, 130872.22, 140591, null, null, null, null, null, null]},
+        {proveedor:'GRUPO LEYMARK', categoria:'CRM y Zapier', presupuesto_mes:619500, meses:[619000, 619000, 619000, 619000, 619500, 618500, null, null, null, null, null, null]},
+        {proveedor:'COLOUR KLUB', categoria:'Impresión', presupuesto_mes:413000, meses:[176350, 410360, 460370, 238200, 326950, 400090, null, null, null, null, null, null]},
+        {proveedor:'RED', categoria:'Red', presupuesto_mes:15000, meses:[0, 0, 15000, 15000, 15000, 15000, 15000, null, null, null, null, null]},
+        {proveedor:'REEMBOLSOS', categoria:'Reembolsos', presupuesto_mes:40000, meses:[40000, 40000, 40000, 40000, 40000, 40000, null, null, null, null, null, null]}
+      ],
+      capex: [
+        {proveedor:'PCI', presupuesto:100000, ejecutado:77231.43, mes_ejecucion:'Mayo', mes_plan:null},
+        {proveedor:'ANTISPAM', presupuesto:2500000, ejecutado:0, mes_ejecucion:null, mes_plan:'Diciembre'},
+        {proveedor:'Zoom (2)', presupuesto:5756.4, ejecutado:5756.4, mes_ejecucion:'Junio', mes_plan:null},
+        {proveedor:'LICENCIAS DE FIREWALL CORPORATIVO', presupuesto:200000, ejecutado:0, mes_ejecucion:null, mes_plan:'Diciembre'}
+      ],
+      historial: []
+    },
     updated_at: '2026-07-22T17:30:00.000Z'
   };
 
@@ -1069,7 +1127,8 @@ auth.onAuthStateChanged(async function(user){
     {id:'inventario', label:'Adquisición de Equipo'},
     {id:'migracion_win11', label:'Migración Win11'},
     {id:'pdv_region', label:'Equipos PDV Región'},
-    {id:'expansion', label:'Plan de expansión'}
+    {id:'expansion', label:'Plan de expansión'},
+    {id:'budget_it', label:'Budget IT 2026'}
   ];
 
   let state = null;
@@ -1088,7 +1147,7 @@ auth.onAuthStateChanged(async function(user){
     if(canEdit) return true;
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_INVENTARIO.includes(currentUser.username));
   }
-  const USUARIOS_PDV_REGION = ['lalzaga', 'daguilar', 'ecastillo', 'amartinez', 'asanchez'];
+  const USUARIOS_PDV_REGION = ['lalzaga'];
   function canEditPdvRegion(){
     if(canEdit) return true;
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_PDV_REGION.includes(currentUser.username));
@@ -1098,11 +1157,19 @@ auth.onAuthStateChanged(async function(user){
     if(canEdit) return true;
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_WIN11.includes(currentUser.username));
   }
+  // Budget IT 2026: además de admin, amartinez y mgiron pueden capturar Julio en adelante
+  // (Enero-Junio queda congelado para todos, incluido admin).
+  const USUARIOS_BUDGET_IT = ['amartinez','mgiron'];
+  function canEditBudgetIT(){
+    if(canEdit) return true;
+    return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_BUDGET_IT.includes(currentUser.username));
+  }
   let cargaPendiente = null;
   let cargaPendienteExpansion = null;
   let historialExpandido = null;
   let historialPdvExpandido = null;
   let historialWin11Expandido = null;
+  let historialBudgetItExpandido = null;
   let win11RegionCardExpandida = null;
 
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
@@ -1138,7 +1205,6 @@ auth.onAuthStateChanged(async function(user){
       if(!state.win11_pendientes_historial) state.win11_pendientes_historial = clone(DEFAULTS.win11_pendientes_historial);
       if(!state.win11_observaciones) state.win11_observaciones = clone(DEFAULTS.win11_observaciones);
       if(!state.resumen.semana_actual) state.resumen.semana_actual = clone(DEFAULTS.resumen.semana_actual);
-      if(!state.catalogo_no_coincide) state.catalogo_no_coincide = clone(DEFAULTS.catalogo_no_coincide);
       delete state.resumen.clw; delete state.resumen.lw;
       if(!state.inventario.masaryk_detalle) state.inventario.masaryk_detalle = clone(DEFAULTS.inventario.masaryk_detalle);
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
@@ -1146,11 +1212,13 @@ auth.onAuthStateChanged(async function(user){
       if(state.ticketsmc.rechazado_cancelado === undefined) state.ticketsmc.rechazado_cancelado = DEFAULTS.ticketsmc.rechazado_cancelado;
       if(!state.yoy_notas) state.yoy_notas = clone(DEFAULTS.yoy_notas);
       if(state.expansion.notas_generales === undefined) state.expansion.notas_generales = '';
+      if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
+      if(!state.budget_it.historial) state.budget_it.historial = [];
     }catch(e){ console.error(e); state = clone(DEFAULTS); }
     render();
   }
   async function save(){
-    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
+    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
     state.updated_at = new Date().toISOString();
     try{
       await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).set({
@@ -1188,25 +1256,7 @@ auth.onAuthStateChanged(async function(user){
     'PRM TDA IRAPUATO BERRIOZABAL CENTRO': 'PRM TDA IRAPUATO DE BERRIOZABAL',
     'PRM TDA HEB LOS MORALES SAN NICOLAS': 'PRM TDA HEB LOS MORALES NICOLAS',
     'PRM TDA MIGUEL ANGEL DE QUEVEDO CDMX': 'PRM TDA MIGUEL A DE QUEVEDO CDMX',
-    'PRM TDA GOMEZ PALACIO LAS ROSAS': 'PRM TDA TORREON GOMEZ PALACIO LAS ROSAS',
-    'PRM TDA GRAN PLAZA LOS SOLES MICH': 'PRM TDA GRAN PLAZA LOS SOLES MCH',
-    'PRM TDA MACROPLAZA MORELIA': 'PRM TDA MACRO PLAZA MORELIA',
-    'PRM TDA CD CUAUHTEMOC PLAZA SIERRA MAD': 'PRM TDA CD CUAUHTEMOC PLAZA SIERRA MADRE',
-    'PRM TDA ZACATECAS PLAZA PORTAL FRESNIL': 'PRM TDA ZACATECAS PLAZA PORTAL FRESNILLO',
-    'PRM TDA TLAXCALA AV BENITO JUAREZ': 'PRM TDA TLAXCALA BENITO JUAREZ',
-    'PRM TDA CABO SAN LUCAS PLAZA PUERTO PA': 'PRM TDA CABO SAN LUCAS PLAZA PUERTO PARAISO',
-    'PRM TDA SAN MARTIN TEXMELUCAN PLAZA CR': 'PRM TDA SAN MARTIN TEXMELUCAN PLAZA CRYSTAL',
-    'PRM TDA HIPER CORDILLERAS JALISCO': 'PRM TDA HIPER CORDILLERAS JAL',
-    'PRM TDA 5 DE MAYO HUEXOTITLA': 'PRM TDA 5 DE MAYO HUEXOTITLA PUE',
-    'PRM TDA PLAZA LAS HACIENDAS MEX': 'PRM TDA PLAZA LAS HACIENDAS',
-    'PRM TDA PLAZA JUAREZ MALL CHIHUAHUA': 'PRM TDA PLAZA JUAREZ MALL CHIH',
-    'PRM TDA PLAZA CRYSTAL XAL': 'PRM TDA PLAZA CRYSTAL',
-    'PRM TDA SORIANA ROJO GOMEZ': 'PRM TDA SORIANA ROJO GOMEZ CDMX',
-    'PRM TDA LA CANTERA TEPIC': 'PRM TDA PLAZA LA CANTERA TEPIC',
-    'PRM TDA SUN MALL MTY': 'PRM TDA SUN MALL',
-    'PRM TDA 4 RIOS CULIACAN': 'PRM TDA PLAZA 4 RIOS CULIACAN',
-    'PRM TDA PASEO AKIA MICHOACAN': 'PRM TDA PASEO AKIA MCH',
-    'PRM TDA MULTICENTER EL SALTO': 'PRM TDA  MULTICENTER EL SALTO'
+    'PRM TDA GOMEZ PALACIO LAS ROSAS': 'PRM TDA TORREON GOMEZ PALACIO LAS ROSAS'
   };
 
   function extraerNombreCanonico(cliente){
@@ -1221,32 +1271,6 @@ auth.onAuthStateChanged(async function(user){
   }
   // Busca Carrier/Tecnología en el catálogo por nombre canónico exacto (mayúsculas), con un
   // segundo intento quitando/agregando "TDA" (el catálogo no siempre lo incluye).
-  // Similitud entre dos textos (distancia de Levenshtein normalizada, 0 a 1).
-  // Se usa para sugerir la tienda del catálogo más parecida cuando un nombre no coincide.
-  function similitudTexto(a, b){
-    if(a === b) return 1;
-    const m = a.length, n = b.length;
-    if(!m || !n) return 0;
-    let prev = new Array(n+1).fill(0).map((_,i)=>i);
-    for(let i=1; i<=m; i++){
-      const curr = [i];
-      for(let j=1; j<=n; j++){
-        curr[j] = a[i-1]===b[j-1] ? prev[j-1] : 1 + Math.min(prev[j-1], prev[j], curr[j-1]);
-      }
-      prev = curr;
-    }
-    const dist = prev[n];
-    return 1 - dist / Math.max(m,n);
-  }
-  function sugerirTiendaParecida(nombre, nombresCatalogo){
-    let mejor = null, mejorSim = 0;
-    nombresCatalogo.forEach(cand=>{
-      const sim = similitudTexto(nombre, cand);
-      if(sim > mejorSim){ mejorSim = sim; mejor = cand; }
-    });
-    return { sugerencia: mejor, similitud: Math.round(mejorSim*1000)/10 };
-  }
-
   function buscarCatalogo(nombreCanonico){
     const up = String(nombreCanonico).toUpperCase();
     let info = CATALOGO_TIENDAS[up];
@@ -1553,25 +1577,6 @@ auth.onAuthStateChanged(async function(user){
       return fila;
     });
 
-    // Nombres de "Cliente" que no coinciden con el catálogo (ni siquiera con el intento TDA/sin-TDA).
-    // Se guardan con la tienda más parecida que se encontró, para que se revisen a mano — no se
-    // corrigen solos porque el "más parecido" a veces es una tienda genuinamente distinta.
-    const nombresCatalogo = Object.keys(CATALOGO_TIENDAS);
-    const nombresVistos = new Set();
-    const catalogoNoCoincide = [];
-    rows.forEach(row=>{
-      const nombre = extraerNombreCanonico(row['Cliente']);
-      if(!nombre || nombresVistos.has(nombre)) return;
-      nombresVistos.add(nombre);
-      const info = buscarCatalogo(nombre);
-      if(info.carrier !== '—') return; // sí coincide, no hay nada que reportar
-      const { sugerencia, similitud } = sugerirTiendaParecida(nombre, nombresCatalogo);
-      if(similitud >= 60){
-        catalogoNoCoincide.push({ nombre, sugerencia, similitud });
-      }
-    });
-    catalogoNoCoincide.sort((a,b)=> b.similitud - a.similitud);
-
     return {
       fileName,
       periodo_actual: MESES[hasta],
@@ -1589,8 +1594,6 @@ auth.onAuthStateChanged(async function(user){
       agentes_mc: agentesMC,
       mc_categorias: mcCategorias,
       mc_categoria_agente: mcCategoriaAgente,
-
-      catalogo_no_coincide: catalogoNoCoincide,
       resumen: {
         totalCaidas, mesesCubiertos: hasta+1,
         tiendasTP: tops.TotalPlay.length,
@@ -1618,7 +1621,6 @@ auth.onAuthStateChanged(async function(user){
     state.periodo_actual = datos.periodo_actual;
     if(!state.resumen) state.resumen = {};
     state.resumen.semana_actual = datos.resumen.semana_actual;
-    state.catalogo_no_coincide = datos.catalogo_no_coincide || [];
     state.atencion.TotalPlay = datos.atencion.TotalPlay;
     state.atencion.Telmex = datos.atencion.Telmex;
     state.atencion.Metrocarrier = datos.atencion.Metrocarrier;
@@ -1879,6 +1881,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='migracion_win11') return renderMigracionWin11(c);
     if(tab==='pdv_region') return renderPdvRegion(c);
     if(tab==='expansion') return renderExpansion(c);
+    if(tab==='budget_it') return renderBudgetIT(c);
   }
 
   // ---------- Tendencia mensual ----------
@@ -2266,31 +2269,6 @@ auth.onAuthStateChanged(async function(user){
       </div>
     `;
   }
-  function renderPanelCatalogoAmartinez(){
-    const lista = state.catalogo_no_coincide || [];
-    if(!lista.length){
-      return `<div class="panel" style="margin-top:20px; border-color:#8B5CF6;">
-        <h3>Revisión de catálogo (solo tú la ves)</h3>
-        <div class="foot">Ningún nombre pendiente por revisar en la última carga — todo lo que se pudo emparejar automáticamente ya se corrigió.</div>
-      </div>`;
-    }
-    return `
-      <div class="panel" style="margin-top:20px; border-color:#8B5CF6;">
-        <h3>Revisión de catálogo (solo tú la ves)</h3>
-        <div class="foot" style="margin-bottom:10px;">
-          Estos nombres de "Cliente" del archivo de tickets no coincidieron con ninguna tienda del catálogo — el "más parecido" que encontré puede ser el correcto, o puede ser una tienda distinta de verdad. Confírmame cuáles corregir y las agrego para que no vuelvan a salir en la siguiente carga.
-        </div>
-        <table>
-          <thead><tr><th style="text-align:left;">Nombre en tickets</th><th style="text-align:left;">Sugerencia más cercana</th><th>Similitud</th></tr></thead>
-          <tbody>${lista.map(r=>`<tr>
-            <td style="text-align:left;">${r.nombre}</td>
-            <td style="text-align:left;">${r.sugerencia}</td>
-            <td>${r.similitud}%</td>
-          </tr>`).join('')}</tbody>
-        </table>
-      </div>
-    `;
-  }
   function renderTop(c, key, prov){
     const rows = state[key];
     c.innerHTML = `
@@ -2306,7 +2284,6 @@ auth.onAuthStateChanged(async function(user){
           <p>Da clic en <b>"Editar tabla"</b> y agrega tienda por tienda con su conteo mensual; el total y el estatus se calculan solos.</p>
         </div>` : renderTopTable(rows, editing)}
       ${renderVelocidadTrend(prov)}
-      ${(prov==='TotalPlay' && typeof currentUser!=='undefined' && currentUser && currentUser.username==='amartinez') ? renderPanelCatalogoAmartinez() : ''}
     `;
     if(editing){
       document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
@@ -3222,6 +3199,285 @@ auth.onAuthStateChanged(async function(user){
             <tr><td colspan="3">
               <div style="font-size:12.5px; padding:8px 0;">
                 ${h.snapshot.regiones.map(r=>`${r.nombre}: PDV laptop ${r.pdv_laptop} · Cambaceo ${r.cambaceo} · Desktop ${r.desktop}`).join('<br>')}
+              </div>
+            </td></tr>` : ''}
+          `).join('')}
+          </tbody>
+        </table></div>
+      </div>
+    `;
+  }
+
+  // ---------- Budget IT 2026 ----------
+  const MESES_CORTOS_BI = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const CAPEX_MESES_BI = ['Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  function moneyIT(n){ return '$' + Math.round(n||0).toLocaleString('es-MX'); }
+  // Para meses sin dato real (null) se muestra una proyección: promedio de los hasta 3 meses reales
+  // más recientes anteriores a ese mes. No se guarda como dato real hasta que alguien lo edite.
+  function budgetItValorMes(serie, i){
+    if(serie[i]!==null && serie[i]!==undefined) return {valor:Number(serie[i]), esReal:true};
+    let vals = [];
+    for(let k=i-1; k>=0 && vals.length<3; k--){ if(serie[k]!==null && serie[k]!==undefined) vals.push(Number(serie[k])); }
+    return {valor: vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0, esReal:false};
+  }
+  // Nota: los valores calculados (reales + proyectados) se guardan en un arreglo aparte (valoresPorVendor),
+  // nunca sobre state.budget_it.opex directamente — así el objeto que se persiste en Firestore solo
+  // contiene los datos reales que alguien capturó, sin caché de cálculos.
+  function computeBudgetIT(){
+    const data = state.budget_it;
+    const valoresPorVendor = data.opex.map(v=> v.meses.map((_,i)=>budgetItValorMes(v.meses,i)));
+    const monthlyActual = new Array(12).fill(0);
+    valoresPorVendor.forEach(valores=> valores.forEach((o,i)=> monthlyActual[i]+=o.valor));
+    const monthlyBudget = data.opex.reduce((s,v)=>s+Number(v.presupuesto_mes||0),0);
+    const budgetSeries = new Array(12).fill(monthlyBudget);
+    const janJunActual = monthlyActual.slice(0,6).reduce((a,b)=>a+b,0);
+    const janJunBudget = monthlyBudget*6;
+    const ahorroJanJun = janJunBudget - janJunActual;
+    const opexAnnualProjected = monthlyActual.reduce((a,b)=>a+b,0);
+    const opexAnnualBudget = monthlyBudget*12;
+    const ahorroProyectado = opexAnnualBudget - opexAnnualProjected;
+    const capexBudget = data.capex.reduce((s,c)=>s+Number(c.presupuesto||0),0);
+    const capexEjecutado = data.capex.reduce((s,c)=>s+Number(c.ejecutado||0),0);
+    const capexPendiente = Math.max(capexBudget - capexEjecutado, 0);
+    const totalPresupuestoAnual = opexAnnualBudget + capexBudget;
+    const totalProyeccionAnual = opexAnnualProjected + capexEjecutado + capexPendiente;
+    const ahorroTotalProyectado = totalPresupuestoAnual - totalProyeccionAnual;
+    const catTotals = {};
+    data.opex.forEach((v,vi)=>{
+      const total6 = valoresPorVendor[vi].slice(0,6).reduce((a,o)=>a+o.valor,0);
+      catTotals[v.categoria] = (catTotals[v.categoria]||0) + total6;
+    });
+    return {monthlyActual, monthlyBudget, budgetSeries, janJunActual, janJunBudget, ahorroJanJun,
+      opexAnnualProjected, opexAnnualBudget, ahorroProyectado, capexBudget, capexEjecutado, capexPendiente,
+      totalPresupuestoAnual, totalProyeccionAnual, ahorroTotalProyectado, catTotals, valoresPorVendor};
+  }
+
+  function renderBudgetIT(c){
+    const data = state.budget_it;
+    const puedeEditar = canEditBudgetIT();
+    const d = computeBudgetIT();
+    const pctAhorro = d.ahorroProyectado/d.opexAnnualBudget*100;
+    const pctReal = Math.max(0, Math.min(100, d.janJunActual/d.opexAnnualBudget*100));
+    const pctProj = Math.max(0, Math.min(100-pctReal, (d.opexAnnualProjected-d.janJunActual)/d.opexAnnualBudget*100));
+
+    c.innerHTML = `
+      <div class="title">Budget IT 2026</div>
+      <div class="subtitle">Presupuesto y ejercido de proveedores de IT · corte mensual · recreado de Budget 2026_IT.xlsx</div>
+      <div class="editbar">${editing && puedeEditar
+        ? `<button id="btnCancelBI">Cancelar</button><button class="primary" id="btnSaveBI">Guardar cambios</button>`
+        : (puedeEditar ? `<button id="btnEditBI">Editar Jul–Dic</button>` : '')}</div>
+
+      <div class="cards" style="grid-template-columns:repeat(5,minmax(0,1fr));">
+        <div class="card"><div class="head" style="background:#0C8599">Presupuesto anual OPEX</div>
+          <div class="body"><div class="big" style="font-size:20px;">${moneyIT(d.opexAnnualBudget)}</div><div class="lbl">${moneyIT(d.monthlyBudget)}/mes</div></div></div>
+        <div class="card"><div class="head" style="background:#0C8599">Ejercido Ene–Jun</div>
+          <div class="body"><div class="big" style="font-size:20px;">${moneyIT(d.janJunActual)}</div><div class="lbl"><span class="status-badge estable">${moneyIT(d.ahorroJanJun)} de ahorro</span></div></div></div>
+        <div class="card"><div class="head" style="background:#0C8599">Proyección anual OPEX</div>
+          <div class="body"><div class="big" style="font-size:20px;">${moneyIT(d.opexAnnualProjected)}</div><div class="lbl"><span class="status-badge ${d.ahorroProyectado>=0?'estable':'critica'}">${d.ahorroProyectado>=0?'Ahorro':'Sobre-ejercicio'} ${fmtPct(Math.abs(d.ahorroProyectado), d.opexAnnualBudget)}</span></div></div></div>
+        <div class="card"><div class="head" style="background:#0C8599">CAPEX ejecutado</div>
+          <div class="body"><div class="big" style="font-size:20px;">${moneyIT(d.capexEjecutado)}</div><div class="lbl">${fmtPct(d.capexEjecutado, d.capexBudget)} del presupuesto CAPEX</div></div></div>
+        <div class="card"><div class="head" style="background:#0C8599">CAPEX pendiente</div>
+          <div class="body"><div class="big" style="font-size:20px;">${moneyIT(d.capexPendiente)}</div><div class="lbl"><span class="status-badge ${d.capexPendiente>0?'alerta':'estable'}">de ${moneyIT(d.capexBudget)}</span></div></div></div>
+      </div>
+
+      <div class="panel">
+        <h3>Presupuesto vs. ejercido — OPEX mensual (Ene–Jun congelado)</h3>
+        <div class="foot" style="margin-bottom:10px;">Enero–Junio son meses cerrados, de solo lectura. Julio en adelante es editable para amartinez, mgiron y admin. Las celdas en cursiva son una proyección (promedio de los últimos meses reales) mientras no se captura el dato real.</div>
+        <div style="overflow-x:auto;"><table id="tbl-budget-it">
+          <thead><tr><th style="text-align:left;">Proveedor</th><th style="text-align:left;">Categoría</th><th>Presup./mes</th>${MESES_CORTOS_BI.map(m=>`<th>${m}</th>`).join('')}<th>Anual</th></tr></thead>
+          <tbody>
+            ${data.opex.map((v,vi)=>{
+              const valores = d.valoresPorVendor[vi];
+              const anual = valores.reduce((s,o)=>s+o.valor,0);
+              let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td>${moneyIT(v.presupuesto_mes)}</td>`;
+              valores.forEach((o,i)=>{
+                if(i<6){
+                  cells += `<td class="bi-locked">${moneyIT(o.valor)}</td>`;
+                } else if(editing && puedeEditar){
+                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${v.meses[i]!==null && v.meses[i]!==undefined ? v.meses[i] : ''}" placeholder="${Math.round(o.valor)}" style="width:72px;"></td>`;
+                } else {
+                  cells += `<td style="${o.esReal?'':'color:var(--sub);font-style:italic;'}">${moneyIT(o.valor)}</td>`;
+                }
+              });
+              cells += `<td><b>${moneyIT(anual)}</b></td>`;
+              return `<tr>${cells}</tr>`;
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr class="bi-totales">
+              <td>Total OPEX</td><td></td><td>${moneyIT(d.monthlyBudget)}</td>
+              ${d.monthlyActual.map(v=>`<td>${moneyIT(v)}</td>`).join('')}
+              <td>${moneyIT(d.opexAnnualProjected)}</td>
+            </tr>
+            <tr class="bi-presupuesto">
+              <td>Presupuesto/mes</td><td></td><td></td>
+              ${d.budgetSeries.map(v=>`<td>${moneyIT(v)}</td>`).join('')}
+              <td>${moneyIT(d.opexAnnualBudget)}</td>
+            </tr>
+            <tr class="bi-ahorro">
+              <td>Ahorro del mes</td><td></td><td></td>
+              ${d.monthlyActual.map((v,i)=>{ const s=d.budgetSeries[i]-v; return `<td class="${s>=0?'pos':'neg'}">${moneyIT(s)}</td>`; }).join('')}
+              <td class="${d.ahorroProyectado>=0?'pos':'neg'}">${moneyIT(d.ahorroProyectado)}</td>
+            </tr>
+          </tfoot>
+        </table></div>
+        <div class="bi-legend">
+          <span><span class="bi-swatch locked"></span> Cerrado (Ene–Jun, no editable)</span>
+          <span><span class="bi-swatch real"></span> Editable — dato real capturado</span>
+          <span><span class="bi-swatch proy"></span> Editable — en cursiva mientras no se captura el dato real</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>CAPEX 2026 — ejecución de proyectos</h3>
+        <div class="foot" style="margin-bottom:10px;">Presupuesto anual (no mensual). Para los pendientes, elige el mes estimado de ejecución para incluirlos en la proyección anual.</div>
+        <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:16px;">
+          <div style="overflow-x:auto;"><table>
+            <thead><tr><th style="text-align:left;">Proyecto</th><th>Presupuesto</th><th>Ejecutado</th><th>Pendiente</th><th>Mes estimado</th></tr></thead>
+            <tbody>${data.capex.map((cx,ci)=>{
+              const pendiente = Math.max(cx.presupuesto-cx.ejecutado,0);
+              const status = pendiente<=0 ? `<span class="status-badge estable">Ejecutado</span>` : `<span class="status-badge alerta">Pendiente</span>`;
+              const sel = (pendiente>0 && editing && puedeEditar)
+                ? `<select data-bi-capex="${ci}">${CAPEX_MESES_BI.map(m=>`<option value="${m}" ${m===cx.mes_plan?'selected':''}>${m}</option>`).join('')}</select>`
+                : (pendiente>0 ? (cx.mes_plan||'—') : (cx.mes_ejecucion||'—'));
+              return `<tr><td style="text-align:left;">${cx.proveedor} ${status}</td><td>${moneyIT(cx.presupuesto)}</td><td>${moneyIT(cx.ejecutado)}</td><td>${moneyIT(pendiente)}</td><td style="text-align:left;">${sel}</td></tr>`;
+            }).join('')}</tbody>
+          </table></div>
+          <div><canvas id="chartBudgetItCapex"></canvas></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Análisis de proyección anual</h3>
+        <p style="font-size:13px; line-height:1.55; margin:0 0 14px;">Con el ritmo real de Enero–Junio (cerrado) y una proyección Julio–Diciembre basada en el promedio de los últimos meses reales por proveedor, el gasto OPEX 2026 terminaría en <b>${moneyIT(d.opexAnnualProjected)}</b> contra un presupuesto de <b>${moneyIT(d.opexAnnualBudget)}</b> — ${d.ahorroProyectado>=0?'un ahorro proyectado':'un sobre-ejercicio proyectado'} de <b>${moneyIT(Math.abs(d.ahorroProyectado))}</b> (${fmtPct(Math.abs(d.ahorroProyectado), d.opexAnnualBudget)}). Sumando los ${moneyIT(d.capexPendiente)} de CAPEX que aún no se ejecutan, el ${d.ahorroTotalProyectado>=0?'ahorro':'sobre-ejercicio'} total proyectado del presupuesto combinado de IT es de <b>${moneyIT(Math.abs(d.ahorroTotalProyectado))}</b> (${fmtPct(Math.abs(d.ahorroTotalProyectado), d.totalPresupuestoAnual)}). Se recalcula cada vez que se guarda un cambio en Julio–Diciembre.</p>
+        <div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:0;">
+          <div class="card"><div class="head" style="background:#4B5A6B">Presupuesto total 2026</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.totalPresupuestoAnual)}</div><div class="lbl">OPEX + CAPEX</div></div></div>
+          <div class="card"><div class="head" style="background:#4B5A6B">Proyección total 2026</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.totalProyeccionAnual)}</div></div></div>
+          <div class="card"><div class="head" style="background:#4B5A6B">Ahorro / sobre-ejercicio</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.ahorroTotalProyectado)}</div></div></div>
+          <div class="card"><div class="head" style="background:#4B5A6B">% del presupuesto total</div><div class="body"><div class="big" style="font-size:17px;">${fmtPct(Math.abs(d.ahorroTotalProyectado), d.totalPresupuestoAnual)}</div></div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Qué se podría mejorar</h3>
+        <div class="foot" style="margin-bottom:10px;">Hallazgos al recrear el archivo original — ninguno afecta lo ya cerrado (Ene–Jun), pero conviene tenerlos presentes.</div>
+        <div class="bi-insight mejora"><div class="body"><b>🛠️ La columna "Anual" del archivo original no sumaba bien</b><span>La fórmula era <code>SUM(H:L)</code> en casi todas las filas — solo Enero a Mayo, sin Junio ni Julio. Aquí la columna Anual suma las 12 celdas reales/proyectadas.</span></div></div>
+        <div class="bi-insight mejora"><div class="body"><b>🛠️ El ahorro promedio del Excel dividía entre 5 en vez de 6</b><span>Eso inflaba el ahorro proyectado a ~10.5% cuando el real (con los 6 meses cerrados) es ${fmtPct(Math.abs(d.ahorroProyectado), d.opexAnnualBudget)}.</span></div></div>
+        <div class="bi-insight riesgo"><div class="body"><b>⚠️ MARAFIC concentra ~24% del gasto mensual de OPEX</b><span>Es el proveedor individual más grande. Cualquier renegociación o incidente impacta el presupuesto de forma desproporcionada.</span></div></div>
+        <div class="bi-insight riesgo"><div class="body"><b>⚠️ ${fmtPct(d.capexPendiente, d.capexBudget)} del presupuesto CAPEX sigue sin ejecutarse</b><span>Principalmente el proyecto de Antispam ($2,500,000). Si se ejecuta de golpe en Q4 puede haber presión de flujo de caja.</span></div></div>
+        <div class="bi-insight oportunidad"><div class="body"><b>💡 Total Play Office 365 y AWS corren consistentemente debajo de su presupuesto</b><span>Son candidatos claros para bajar el presupuesto 2026 y liberar esa diferencia hacia otra partida.</span></div></div>
+      </div>
+
+      <div class="panel">
+        <h3>Gráficas</h3>
+        <div style="display:grid; grid-template-columns:1fr; gap:16px; margin-bottom:16px;">
+          <div><div class="foot" style="margin-bottom:6px;">Ejercido mensual vs. presupuesto</div><canvas id="chartBudgetItTrend"></canvas></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div><div class="foot" style="margin-bottom:6px;">Gasto Ene–Jun por categoría</div><canvas id="chartBudgetItCat"></canvas></div>
+          <div>
+            <div class="foot" style="margin-bottom:6px;">Presupuesto anual OPEX vs. proyección</div>
+            <div class="bi-bullet-wrap">
+              <div class="bi-bullet-track">
+                <div class="bi-bullet-seg bi-bullet-real" style="width:${pctReal}%;"></div>
+                <div class="bi-bullet-seg bi-bullet-proj" style="left:${pctReal}%; width:${pctProj}%;"></div>
+              </div>
+              <div class="bi-bullet-labels"><span>$0</span><span>${moneyIT(d.opexAnnualBudget)} (100% del presupuesto)</span></div>
+              <div class="bi-bullet-legend">
+                <span><span class="bi-sw real"></span> Ejercido Ene–Jun</span>
+                <span><span class="bi-sw proj"></span> Proyectado Jul–Dic</span>
+                <span><span class="bi-sw gap"></span> ${d.ahorroProyectado>=0?'Ahorro':'Sobre-ejercicio'} proyectado</span>
+              </div>
+              <div class="bi-bullet-callout ${d.ahorroProyectado>=0?'':'warn'}">${d.ahorroProyectado>=0?'✓ Ahorro proyectado':'⚠ Sobre-ejercicio proyectado'}: ${moneyIT(Math.abs(d.ahorroProyectado))} (${fmtPct(Math.abs(d.ahorroProyectado), d.opexAnnualBudget)} del presupuesto anual)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${canEdit ? renderHistorialBudgetIT() : ''}
+    `;
+
+    if(editing && puedeEditar){
+      document.getElementById('btnCancelBI').onclick = ()=>{ editing=false; render(); };
+      document.getElementById('btnSaveBI').onclick = ()=>{
+        document.querySelectorAll('[data-bi-v]').forEach(inp=>{
+          const vi = Number(inp.dataset.biV), mi = Number(inp.dataset.biM);
+          const raw = inp.value.trim();
+          data.opex[vi].meses[mi] = raw==='' ? null : Number(raw);
+        });
+        document.querySelectorAll('[data-bi-capex]').forEach(sel=>{
+          data.capex[Number(sel.dataset.biCapex)].mes_plan = sel.value;
+        });
+        const dSave = computeBudgetIT();
+        if(!state.budget_it.historial) state.budget_it.historial = [];
+        state.budget_it.historial.unshift({
+          fecha: new Date().toISOString(),
+          usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : 'desconocido',
+          resumen: { ejercido_anual_proyectado: dSave.opexAnnualProjected, ahorro_proyectado: dSave.ahorroProyectado, capex_pendiente: dSave.capexPendiente }
+        });
+        if(state.budget_it.historial.length > 30) state.budget_it.historial.length = 30;
+        editing = false;
+        save();
+      };
+    } else if(puedeEditar){
+      document.getElementById('btnEditBI').onclick = ()=>{ editing=true; render(); };
+    }
+    document.querySelectorAll('[data-hist-bi-ver]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const idx = Number(btn.dataset.histBiVer);
+        historialBudgetItExpandido = historialBudgetItExpandido===idx ? null : idx;
+        render();
+      };
+    });
+
+    const catEntries = Object.entries(d.catTotals).sort((a,b)=>b[1]-a[1]);
+    if(charts.budgetItTrend) charts.budgetItTrend.destroy();
+    charts.budgetItTrend = new Chart(document.getElementById('chartBudgetItTrend'), {
+      data:{ labels: MESES_CORTOS_BI,
+        datasets:[
+          {type:'bar', label:'Ejercido', data:d.monthlyActual, backgroundColor: d.monthlyActual.map((v,i)=> i<6 ? '#0C8599' : 'rgba(12,133,153,.55)'), borderRadius:4, maxBarThickness:30},
+          {type:'line', label:'Presupuesto', data:d.budgetSeries, borderColor:'#4B5A6B', borderDash:[5,4], borderWidth:2, pointRadius:0}
+        ]},
+      options:{plugins:{legend:{position:'bottom'}}, scales:{y:{ticks:{callback:(v)=>'$'+(v/1e6).toFixed(1)+'M'}}}}
+    });
+    if(charts.budgetItCat) charts.budgetItCat.destroy();
+    charts.budgetItCat = new Chart(document.getElementById('chartBudgetItCat'), {
+      type:'bar',
+      data:{labels:catEntries.map(e=>e[0]), datasets:[{data:catEntries.map(e=>e[1]), backgroundColor:'#0C8599', borderRadius:4, maxBarThickness:16}]},
+      options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:(v)=>'$'+(v/1e6).toFixed(1)+'M'}}}}
+    });
+    if(charts.budgetItCapex) charts.budgetItCapex.destroy();
+    charts.budgetItCapex = new Chart(document.getElementById('chartBudgetItCapex'), {
+      type:'bar',
+      data:{labels:['CAPEX 2026'], datasets:[
+        {label:'Ejecutado', data:[d.capexEjecutado], backgroundColor:'#00B050', borderRadius:4},
+        {label:'Pendiente', data:[d.capexPendiente], backgroundColor:'#C00000', borderRadius:4}
+      ]},
+      options:{indexAxis:'y', plugins:{legend:{position:'bottom'}}, scales:{x:{stacked:true, ticks:{callback:(v)=>'$'+(v/1e6).toFixed(1)+'M'}}, y:{stacked:true}}}
+    });
+  }
+
+  function renderHistorialBudgetIT(){
+    const hist = (state.budget_it && state.budget_it.historial) || [];
+    if(!hist.length){
+      return `<div class="panel"><h3>Historial de cambios</h3><div class="foot">Todavía no hay cambios guardados en esta pestaña.</div></div>`;
+    }
+    return `
+      <div class="panel">
+        <h3>Historial de cambios</h3>
+        <div class="foot" style="margin-bottom:10px;">Solo visible para admin. Se guardan los últimos 30 cambios, más reciente arriba.</div>
+        <div style="overflow-x:auto;"><table>
+          <thead><tr><th style="text-align:left;">Fecha</th><th style="text-align:left;">Usuario</th><th></th></tr></thead>
+          <tbody>${hist.map((h,i)=>`
+            <tr>
+              <td style="text-align:left;">${fmtFecha(h.fecha)}</td>
+              <td style="text-align:left;">${h.usuario}</td>
+              <td><button data-hist-bi-ver="${i}" style="padding:3px 8px;">${historialBudgetItExpandido===i ? 'Ocultar' : 'Ver'}</button></td>
+            </tr>
+            ${historialBudgetItExpandido===i ? `
+            <tr><td colspan="3">
+              <div style="font-size:12.5px; padding:8px 0; text-align:left;">
+                Proyección anual OPEX al guardar: ${moneyIT(h.resumen.ejercido_anual_proyectado)} · Ahorro proyectado: ${moneyIT(h.resumen.ahorro_proyectado)} · CAPEX pendiente: ${moneyIT(h.resumen.capex_pendiente)}
               </div>
             </td></tr>` : ''}
           `).join('')}
