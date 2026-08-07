@@ -296,9 +296,13 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .upload-error{font-size:11.5px; color:var(--crit); margin-top:2px;}
 
   /* ===== Budget IT 2026 ===== */
-  #tbl-budget-it{min-width:1200px;}
-  #tbl-budget-it td.bi-prov{text-align:left; font-weight:600; white-space:nowrap;}
-  #tbl-budget-it td.bi-cat{text-align:left; color:var(--sub); white-space:nowrap;}
+  #tbl-budget-it{min-width:1640px; table-layout:fixed;}
+  /* Proveedor / Categoría / Presup. quedan fijas (sticky) al hacer scroll horizontal para llegar al mes que se necesita editar */
+  #tbl-budget-it .bi-prov{position:sticky; left:0; z-index:2; background:#fff; text-align:left; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #tbl-budget-it .bi-cat{position:sticky; left:200px; z-index:2; background:#fff; text-align:left; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #tbl-budget-it .bi-presup{position:sticky; left:330px; z-index:2; background:#fff; border-right:2px solid var(--line);}
+  #tbl-budget-it thead th.bi-prov, #tbl-budget-it thead th.bi-cat, #tbl-budget-it thead th.bi-presup{background:#fff; z-index:3;}
+  #tbl-budget-it tr.bi-totales .bi-prov, #tbl-budget-it tr.bi-totales .bi-cat, #tbl-budget-it tr.bi-totales .bi-presup{background:#FAFAFB;}
   #tbl-budget-it td.bi-locked{background:#F4F5F7; color:var(--sub); position:relative;}
   #tbl-budget-it td.bi-locked::after{content:'🔒'; font-size:8px; position:absolute; top:1px; right:2px; opacity:.5;}
   #tbl-budget-it input.bi-proyectado{color:var(--sub); font-style:italic; background:#FBFBFC;}
@@ -1101,10 +1105,10 @@ auth.onAuthStateChanged(async function(user){
         {proveedor:'REEMBOLSOS', categoria:'Reembolsos', presupuesto_mes:40000, meses:[40000, 40000, 40000, 40000, 40000, 40000, null, null, null, null, null, null]}
       ],
       capex: [
-        {proveedor:'PCI', presupuesto:100000, ejecutado:77231.43, mes_ejecucion:'Mayo', mes_plan:null},
-        {proveedor:'ANTISPAM', presupuesto:2500000, ejecutado:0, mes_ejecucion:null, mes_plan:'Diciembre'},
-        {proveedor:'Zoom (2)', presupuesto:5756.4, ejecutado:5756.4, mes_ejecucion:'Junio', mes_plan:null},
-        {proveedor:'LICENCIAS DE FIREWALL CORPORATIVO', presupuesto:200000, ejecutado:0, mes_ejecucion:null, mes_plan:'Diciembre'}
+        {proveedor:'PCI', presupuesto:100000, ejecutado:77231.43, mes_ejecucion:'Mayo', mes_plan:null, incluir:true},
+        {proveedor:'ANTISPAM', presupuesto:2500000, ejecutado:0, mes_ejecucion:null, mes_plan:'Diciembre', incluir:true},
+        {proveedor:'Zoom (2)', presupuesto:5756.4, ejecutado:5756.4, mes_ejecucion:'Junio', mes_plan:null, incluir:true},
+        {proveedor:'LICENCIAS DE FIREWALL CORPORATIVO', presupuesto:200000, ejecutado:0, mes_ejecucion:null, mes_plan:'Diciembre', incluir:true}
       ],
       historial: []
     },
@@ -1214,6 +1218,7 @@ auth.onAuthStateChanged(async function(user){
       if(state.expansion.notas_generales === undefined) state.expansion.notas_generales = '';
       if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
       if(!state.budget_it.historial) state.budget_it.historial = [];
+      state.budget_it.capex.forEach(cx=>{ if(cx.incluir===undefined) cx.incluir = true; });
     }catch(e){ console.error(e); state = clone(DEFAULTS); }
     render();
   }
@@ -3236,8 +3241,10 @@ auth.onAuthStateChanged(async function(user){
     const opexAnnualProjected = monthlyActual.reduce((a,b)=>a+b,0);
     const opexAnnualBudget = monthlyBudget*12;
     const ahorroProyectado = opexAnnualBudget - opexAnnualProjected;
-    const capexBudget = data.capex.reduce((s,c)=>s+Number(c.presupuesto||0),0);
-    const capexEjecutado = data.capex.reduce((s,c)=>s+Number(c.ejecutado||0),0);
+    // Solo los proyectos con la casilla "incluir" marcada entran al cálculo de CAPEX y a sus gráficas.
+    const capexIncluidos = data.capex.filter(c=>c.incluir!==false);
+    const capexBudget = capexIncluidos.reduce((s,c)=>s+Number(c.presupuesto||0),0);
+    const capexEjecutado = capexIncluidos.reduce((s,c)=>s+Number(c.ejecutado||0),0);
     const capexPendiente = Math.max(capexBudget - capexEjecutado, 0);
     const totalPresupuestoAnual = opexAnnualBudget + capexBudget;
     const totalProyeccionAnual = opexAnnualProjected + capexEjecutado + capexPendiente;
@@ -3284,19 +3291,24 @@ auth.onAuthStateChanged(async function(user){
         <h3>Presupuesto vs. ejercido — OPEX mensual (Ene–Jun congelado)</h3>
         <div class="foot" style="margin-bottom:10px;">Enero–Junio son meses cerrados, de solo lectura. Julio en adelante es editable para amartinez, mgiron y admin. Las celdas en cursiva son una proyección (promedio de los últimos meses reales) mientras no se captura el dato real.</div>
         <div style="overflow-x:auto;"><table id="tbl-budget-it">
-          <thead><tr><th style="text-align:left;">Proveedor</th><th style="text-align:left;">Categoría</th><th>Presup./mes</th>${MESES_CORTOS_BI.map(m=>`<th>${m}</th>`).join('')}<th>Anual</th></tr></thead>
+          <colgroup>
+            <col style="width:200px;"><col style="width:130px;"><col style="width:92px;">
+            ${MESES_CORTOS_BI.map(()=>'<col style="width:88px;">').join('')}
+            <col style="width:100px;">
+          </colgroup>
+          <thead><tr><th class="bi-prov" style="text-align:left;">Proveedor</th><th class="bi-cat" style="text-align:left;">Categoría</th><th class="bi-presup">Presup./mes</th>${MESES_CORTOS_BI.map(m=>`<th>${m}</th>`).join('')}<th>Anual</th></tr></thead>
           <tbody>
             ${data.opex.map((v,vi)=>{
               const valores = d.valoresPorVendor[vi];
               const anual = valores.reduce((s,o)=>s+o.valor,0);
-              let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td>${moneyIT(v.presupuesto_mes)}</td>`;
+              let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td class="bi-presup">${moneyIT(v.presupuesto_mes)}</td>`;
               valores.forEach((o,i)=>{
                 if(i<6){
                   cells += `<td class="bi-locked">${moneyIT(o.valor)}</td>`;
                 } else if(editing && puedeEditar){
                   cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${v.meses[i]!==null && v.meses[i]!==undefined ? v.meses[i] : ''}" placeholder="${Math.round(o.valor)}" style="width:72px;"></td>`;
                 } else {
-                  cells += `<td style="${o.esReal?'':'color:var(--sub);font-style:italic;'}">${moneyIT(o.valor)}</td>`;
+                  cells += `<td>${o.esReal ? moneyIT(o.valor) : '<span style="color:var(--sub);">—</span>'}</td>`;
                 }
               });
               cells += `<td><b>${moneyIT(anual)}</b></td>`;
@@ -3305,17 +3317,17 @@ auth.onAuthStateChanged(async function(user){
           </tbody>
           <tfoot>
             <tr class="bi-totales">
-              <td>Total OPEX</td><td></td><td>${moneyIT(d.monthlyBudget)}</td>
+              <td class="bi-prov">Total OPEX</td><td class="bi-cat"></td><td class="bi-presup">${moneyIT(d.monthlyBudget)}</td>
               ${d.monthlyActual.map(v=>`<td>${moneyIT(v)}</td>`).join('')}
               <td>${moneyIT(d.opexAnnualProjected)}</td>
             </tr>
             <tr class="bi-presupuesto">
-              <td>Presupuesto/mes</td><td></td><td></td>
+              <td class="bi-prov">Presupuesto/mes</td><td class="bi-cat"></td><td class="bi-presup"></td>
               ${d.budgetSeries.map(v=>`<td>${moneyIT(v)}</td>`).join('')}
               <td>${moneyIT(d.opexAnnualBudget)}</td>
             </tr>
             <tr class="bi-ahorro">
-              <td>Ahorro del mes</td><td></td><td></td>
+              <td class="bi-prov">Ahorro del mes</td><td class="bi-cat"></td><td class="bi-presup"></td>
               ${d.monthlyActual.map((v,i)=>{ const s=d.budgetSeries[i]-v; return `<td class="${s>=0?'pos':'neg'}">${moneyIT(s)}</td>`; }).join('')}
               <td class="${d.ahorroProyectado>=0?'pos':'neg'}">${moneyIT(d.ahorroProyectado)}</td>
             </tr>
@@ -3324,23 +3336,28 @@ auth.onAuthStateChanged(async function(user){
         <div class="bi-legend">
           <span><span class="bi-swatch locked"></span> Cerrado (Ene–Jun, no editable)</span>
           <span><span class="bi-swatch real"></span> Editable — dato real capturado</span>
-          <span><span class="bi-swatch proy"></span> Editable — en cursiva mientras no se captura el dato real</span>
+          <span>— Sin captura todavía (Jul–Dic editable, aún sin dato real)</span>
         </div>
       </div>
 
       <div class="panel">
         <h3>CAPEX 2026 — ejecución de proyectos</h3>
-        <div class="foot" style="margin-bottom:10px;">Presupuesto anual (no mensual). Para los pendientes, elige el mes estimado de ejecución para incluirlos en la proyección anual.</div>
+        <div class="foot" style="margin-bottom:10px;">Presupuesto anual (no mensual). Desmarca la casilla para excluir un proyecto del cálculo de CAPEX (montos y gráficas) — por ejemplo si se cancela o se mueve a otro año. Para los pendientes incluidos, elige el mes estimado de ejecución para incluirlos en la proyección anual.</div>
         <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:16px;">
           <div style="overflow-x:auto;"><table>
-            <thead><tr><th style="text-align:left;">Proyecto</th><th>Presupuesto</th><th>Ejecutado</th><th>Pendiente</th><th>Mes estimado</th></tr></thead>
+            <thead><tr><th></th><th style="text-align:left;">Proyecto</th><th>Presupuesto</th><th>Ejecutado</th><th>Pendiente</th><th>Mes estimado</th></tr></thead>
             <tbody>${data.capex.map((cx,ci)=>{
+              const incluido = cx.incluir!==false;
               const pendiente = Math.max(cx.presupuesto-cx.ejecutado,0);
-              const status = pendiente<=0 ? `<span class="status-badge estable">Ejecutado</span>` : `<span class="status-badge alerta">Pendiente</span>`;
-              const sel = (pendiente>0 && editing && puedeEditar)
+              let status;
+              if(!incluido) status = `<span class="status-badge" style="background:#F1F1F3; color:var(--sub);">No incluido</span>`;
+              else if(pendiente<=0) status = `<span class="status-badge estable">Pagado</span>`;
+              else status = `<span class="status-badge alerta">Pendiente</span>`;
+              const checkbox = `<input type="checkbox" data-bi-capex-incluir="${ci}" ${incluido?'checked':''} ${(editing && puedeEditar)?'':'disabled'}>`;
+              const sel = (incluido && pendiente>0 && editing && puedeEditar)
                 ? `<select data-bi-capex="${ci}">${CAPEX_MESES_BI.map(m=>`<option value="${m}" ${m===cx.mes_plan?'selected':''}>${m}</option>`).join('')}</select>`
-                : (pendiente>0 ? (cx.mes_plan||'—') : (cx.mes_ejecucion||'—'));
-              return `<tr><td style="text-align:left;">${cx.proveedor} ${status}</td><td>${moneyIT(cx.presupuesto)}</td><td>${moneyIT(cx.ejecutado)}</td><td>${moneyIT(pendiente)}</td><td style="text-align:left;">${sel}</td></tr>`;
+                : (incluido && pendiente>0 ? (cx.mes_plan||'—') : (cx.mes_ejecucion||'—'));
+              return `<tr style="${incluido?'':'opacity:.5;'}"><td>${checkbox}</td><td style="text-align:left;">${cx.proveedor} ${status}</td><td>${moneyIT(cx.presupuesto)}</td><td>${moneyIT(cx.ejecutado)}</td><td>${moneyIT(pendiente)}</td><td style="text-align:left;">${sel}</td></tr>`;
             }).join('')}</tbody>
           </table></div>
           <div><canvas id="chartBudgetItCapex"></canvas></div>
@@ -3392,6 +3409,10 @@ auth.onAuthStateChanged(async function(user){
             </div>
           </div>
         </div>
+        <div style="margin-top:16px;">
+          <div class="foot" style="margin-bottom:6px;">Gasto Ene–Jun por proveedor (de mayor a menor)</div>
+          <canvas id="chartBudgetItProv"></canvas>
+        </div>
       </div>
 
       ${canEdit ? renderHistorialBudgetIT() : ''}
@@ -3404,6 +3425,9 @@ auth.onAuthStateChanged(async function(user){
           const vi = Number(inp.dataset.biV), mi = Number(inp.dataset.biM);
           const raw = inp.value.trim();
           data.opex[vi].meses[mi] = raw==='' ? null : Number(raw);
+        });
+        document.querySelectorAll('[data-bi-capex-incluir]').forEach(chk=>{
+          data.capex[Number(chk.dataset.biCapexIncluir)].incluir = chk.checked;
         });
         document.querySelectorAll('[data-bi-capex]').forEach(sel=>{
           data.capex[Number(sel.dataset.biCapex)].mes_plan = sel.value;
@@ -3431,6 +3455,7 @@ auth.onAuthStateChanged(async function(user){
     });
 
     const catEntries = Object.entries(d.catTotals).sort((a,b)=>b[1]-a[1]);
+    const provEntries = data.opex.map((v,vi)=>[v.proveedor, d.valoresPorVendor[vi].slice(0,6).reduce((s,o)=>s+o.valor,0)]).sort((a,b)=>b[1]-a[1]);
     if(charts.budgetItTrend) charts.budgetItTrend.destroy();
     charts.budgetItTrend = new Chart(document.getElementById('chartBudgetItTrend'), {
       data:{ labels: MESES_CORTOS_BI,
@@ -3445,6 +3470,12 @@ auth.onAuthStateChanged(async function(user){
       type:'bar',
       data:{labels:catEntries.map(e=>e[0]), datasets:[{data:catEntries.map(e=>e[1]), backgroundColor:'#0C8599', borderRadius:4, maxBarThickness:16}]},
       options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:(v)=>'$'+(v/1e6).toFixed(1)+'M'}}}}
+    });
+    if(charts.budgetItProv) charts.budgetItProv.destroy();
+    charts.budgetItProv = new Chart(document.getElementById('chartBudgetItProv'), {
+      type:'bar',
+      data:{labels:provEntries.map(e=>e[0]), datasets:[{data:provEntries.map(e=>e[1]), backgroundColor:'#0C8599', borderRadius:4, maxBarThickness:16}]},
+      options:{indexAxis:'y', plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>moneyIT(ctx.parsed.x)}}}, scales:{x:{ticks:{callback:(v)=>'$'+(v/1e6).toFixed(1)+'M'}}}}
     });
     if(charts.budgetItCapex) charts.budgetItCapex.destroy();
     charts.budgetItCapex = new Chart(document.getElementById('chartBudgetItCapex'), {
