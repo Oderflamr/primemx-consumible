@@ -1099,11 +1099,11 @@ auth.onAuthStateChanged(async function(user){
     {id:'migracion_carrier', label:'Migración de carrier'},
     {id:'atencion', label:'ETR'}
   ];
-  const TABS = [
+  // Dropdown "Soporte IT" (agosto 2026, mismo patrón que el dropdown "Internet"): agrupa Tickets Soporte,
+  // Equipos PDV Región y los 7 apartados nuevos del PowerPoint, en ese orden — a petición del cliente,
+  // para no tener 9 pestañas sueltas ocupando toda la barra y sin espacio para darles clic.
+  const SOPORTE_IT_TABS = [
     {id:'ingenieros', label:'Tickets Soporte'},
-    {id:'ticketsmc', label:'Tickets Mesa de control'},
-    {id:'inventario', label:'Adquisición de Equipo'},
-    {id:'migracion_win11', label:'Migración Win11'},
     {id:'pdv_region', label:'Equipos PDV Región'},
     {id:'envios_recolecciones', label:'Envíos y Recolecciones'},
     {id:'resumen_reemplazos', label:'Resumen de Reemplazos'},
@@ -1111,7 +1111,12 @@ auth.onAuthStateChanged(async function(user){
     {id:'reemplazo_cpu', label:'Reemplazo de CPU'},
     {id:'reemplazo_disco', label:'Reemplazo Disco Duro'},
     {id:'biometricos', label:'Biométricos'},
-    {id:'pin_pad', label:'PIN PAD'},
+    {id:'pin_pad', label:'PIN PAD'}
+  ];
+  const TABS = [
+    {id:'ticketsmc', label:'Tickets Mesa de control'},
+    {id:'inventario', label:'Adquisición de Equipo'},
+    {id:'migracion_win11', label:'Migración Win11'},
     {id:'expansion', label:'Plan de expansión'},
     {id:'budget_it', label:'Budget IT 2026'}
   ];
@@ -1161,8 +1166,9 @@ auth.onAuthStateChanged(async function(user){
   let tab = 'resumen';
   let editing = false;
   let internetMenuAbierto = false;
+  let soporteMenuAbierto = false;
   document.addEventListener('click', ()=>{
-    if(internetMenuAbierto){ internetMenuAbierto = false; render(); }
+    if(internetMenuAbierto || soporteMenuAbierto){ internetMenuAbierto = false; soporteMenuAbierto = false; render(); }
   });
   let charts = {};
   let canEdit = false;
@@ -1307,10 +1313,16 @@ auth.onAuthStateChanged(async function(user){
   // segundo intento quitando/agregando "TDA" (el catálogo no siempre lo incluye).
   function buscarCatalogo(nombreCanonico){
     const up = String(nombreCanonico).toUpperCase();
-    let info = CATALOGO_TIENDAS[up];
+    const alt = up.includes('PRM TDA ') ? up.replace('PRM TDA ', 'PRM ') : up.replace('PRM ', 'PRM TDA ');
+    let info = CATALOGO_TIENDAS[up] || CATALOGO_TIENDAS[alt];
     if(!info){
-      const alt = up.includes('PRM TDA ') ? up.replace('PRM TDA ', 'PRM ') : up.replace('PRM ', 'PRM TDA ');
-      info = CATALOGO_TIENDAS[alt];
+      // Regla de identidad (agosto 2026): el nombre que trae el ticket puede venir TRUNCADO (el sistema de
+      // origen recorta "Cliente" a cierta longitud), ej. "...PLAZA PUERTO PA" en vez de "...PUERTO PARAISO".
+      // Si ese nombre truncado es el INICIO de una sola tienda del catálogo (ya la tenemos completa ahí),
+      // se usa esa tienda completa. Si el prefijo calza con más de una tienda (ambiguo), se deja sin
+      // resolver ("—"/"—") en vez de adivinar mal — mejor que quede pendiente de revisión manual.
+      const candidatos = Object.keys(CATALOGO_TIENDAS).filter(k => k.startsWith(up) || k.startsWith(alt));
+      if(candidatos.length === 1) info = CATALOGO_TIENDAS[candidatos[0]];
     }
     return info ? { carrier: info.carrier, tecnologia: info.tecnologia } : { carrier: '—', tecnologia: '—' };
   }
@@ -1873,6 +1885,10 @@ auth.onAuthStateChanged(async function(user){
         ${internetMenuAbierto ? `<div id="menuInternet" style="position:absolute; top:100%; left:0; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:200px; z-index:50;">
           ${INTERNET_TABS.map(t=>`<div class="tab-sub" data-tab="${t.id}" style="padding:8px 12px; font-size:13px; font-weight:${t.id===tab?'700':'500'}; color:${t.id===tab?'var(--tp)':'var(--ink)'}; cursor:pointer; border-radius:6px; white-space:nowrap;">${t.label}</div>`).join('')}
         </div>` : ''}
+        <div class="tab ${SOPORTE_IT_TABS.some(t=>t.id===tab)?'active':''}" id="tabSoporteBtn" style="display:inline-flex; align-items:center; gap:4px;">Soporte IT <span style="font-size:10px;">▾</span></div>
+        ${soporteMenuAbierto ? `<div id="menuSoporte" style="position:absolute; top:100%; left:110px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:220px; z-index:50;">
+          ${SOPORTE_IT_TABS.map(t=>`<div class="tab-sub" data-tab="${t.id}" style="padding:8px 12px; font-size:13px; font-weight:${t.id===tab?'700':'500'}; color:${t.id===tab?'var(--tp)':'var(--ink)'}; cursor:pointer; border-radius:6px; white-space:nowrap;">${t.label}</div>`).join('')}
+        </div>` : ''}
         ${TABS.map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}
       </div>
       <div id="tabContent"></div>
@@ -1881,6 +1897,13 @@ auth.onAuthStateChanged(async function(user){
     document.getElementById('tabInternetBtn').onclick = (e) => {
       e.stopPropagation();
       internetMenuAbierto = !internetMenuAbierto;
+      soporteMenuAbierto = false;
+      render();
+    };
+    document.getElementById('tabSoporteBtn').onclick = (e) => {
+      e.stopPropagation();
+      soporteMenuAbierto = !soporteMenuAbierto;
+      internetMenuAbierto = false;
       render();
     };
     document.querySelectorAll('.tab-sub').forEach(el=>{
@@ -1889,11 +1912,12 @@ auth.onAuthStateChanged(async function(user){
         tab = el.dataset.tab;
         editing = false;
         internetMenuAbierto = false;
+        soporteMenuAbierto = false;
         render();
       };
     });
     document.querySelectorAll('.tab[data-tab]').forEach(el=>{
-      el.onclick = () => { tab = el.dataset.tab; editing = false; internetMenuAbierto = false; render(); };
+      el.onclick = () => { tab = el.dataset.tab; editing = false; internetMenuAbierto = false; soporteMenuAbierto = false; render(); };
     });
     renderTab();
   }
@@ -2618,9 +2642,12 @@ auth.onAuthStateChanged(async function(user){
       return { nombre, carrier, tecnologia, meses, total };
     });
   }
+  // Columna "Motivo" (agosto 2026): a petición del cliente, después de la columna de migración
+  // (Cambio a Megacable / Migración) — por ahora el motivo es fijo para todas las filas de ambas tablas.
+  const MOTIVO_MIGRACION = 'Problemas de DNS con MO';
   function tablaMigracion(filas, mesesCortos, tituloMigracion, textoMigracion){
     return `<div class="panel"><div style="overflow-x:auto;"><table>
-        <thead><tr><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th><th>${tituloMigracion}</th></tr></thead>
+        <thead><tr><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th><th>${tituloMigracion}</th><th>Motivo</th></tr></thead>
         <tbody>${filas.map(r=>{
           const st = estatusTienda(r.total);
           return `<tr>
@@ -2631,6 +2658,7 @@ auth.onAuthStateChanged(async function(user){
             <td><b>${r.total}</b></td>
             <td><span class="status-badge ${st.cls}">${st.label}</span></td>
             <td><span class="status-badge alerta">${textoMigracion}</span></td>
+            <td style="text-align:left; white-space:nowrap;">${MOTIVO_MIGRACION}</td>
           </tr>`;
         }).join('')}</tbody>
       </table></div></div>`;
