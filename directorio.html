@@ -469,9 +469,12 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
         <button class="btn btn-ghost" id="fallas-report-btn">Reportes de fallas</button>
         <button class="btn btn-ghost" id="export-btn">Exportar CSV</button>
         <button class="btn btn-ghost" id="reload-catalog-btn" style="display:none;">Actualizar catálogo</button>
+        <button class="btn btn-ghost" id="update-estructura-btn" style="display:none;">Actualizar estructura regional</button>
         <button class="btn btn-primary" id="new-store-btn" style="display:none;">+ Nueva tienda</button>
       </div>
     </div>
+    <input type="file" id="input-estructura-regional" accept=".xlsx,.xls" style="display:none;">
+    <p class="result-count" id="estructura-info" style="display:none;"></p>
 
     <p class="result-count" id="result-count"></p>
     <div class="store-grid" id="store-grid"></div>
@@ -490,6 +493,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
 /* ══════════════════ CONFIGURACIÓN FIREBASE ══════════════════
@@ -509,6 +513,7 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const COLLECTION = "tiendas";
 const ROLES_COLLECTION = "usuarios";
+const ESTRUCTURA_HIST_COLLECTION = "estructura_regional_historial";
 
 /* ══════════════════ USUARIOS Y ROLES ══════════════════
    Las contraseñas YA NO viven en este archivo: se dan de alta en
@@ -645,6 +650,8 @@ async function initApp(){
   roleTag.className = 'role-tag' + (currentUser.role === 'admin' ? ' admin' : '');
   document.getElementById('new-store-btn').style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
   document.getElementById('reload-catalog-btn').style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
+  document.getElementById('update-estructura-btn').style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
+  if(currentUser.role === 'admin') loadEstructuraInfo();
   document.getElementById('filter-activo').style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
 
   await ensureSeed();
@@ -1156,10 +1163,14 @@ function openDetail(id){
       <button class="btn btn-ghost" id="close-modal-btn">Cerrar</button>
     </div>`;
 
+  const notaEstructura = s.estructura_regional_archivo ? `
+    <p class="modal-sub" style="margin-top:-6px;">Región / Gerente Regional / Director actualizados desde <strong>${esc(s.estructura_regional_archivo)}</strong> · ${fmtFechaHist(s.estructura_regional_fecha)}</p>` : '';
+
   document.getElementById('modal-content').innerHTML = `
     <h2>${esc(s.plaza||'Detalle de tienda')}</h2>
     <p class="modal-sub">Centro de Costo ${esc(s.cc||'—')}</p>
     <div>${rowsHtml}</div>
+    ${notaEstructura}
     <div class="fallas-section">
       <div class="fallas-title-row">
         <h3>Fallas de servicio</h3>
@@ -1187,6 +1198,10 @@ document.getElementById('modal-overlay').addEventListener('click', function(e){
 
 /* ══════════════════ MODAL: ALTA / EDICIÓN (solo admin) ══════════════════ */
 document.getElementById('new-store-btn').addEventListener('click', ()=> openForm(null));
+document.getElementById('update-estructura-btn').addEventListener('click', ()=>{
+  document.getElementById('input-estructura-regional').click();
+});
+document.getElementById('input-estructura-regional').addEventListener('change', handleEstructuraFile);
 document.getElementById('fallas-report-btn').addEventListener('click', openFallasReport);
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -1594,6 +1609,195 @@ function confirmReloadCatalog(){
       toast('Error al actualizar el catálogo', 'error');
     }
   });
+}
+
+/* ══════════════════ ACTUALIZACIÓN MASIVA: ESTRUCTURA REGIONAL ══════════════════
+   Carga mensual de Excel (Clave PDV, Nombre PDV, Regional Manager, Director
+   Regional, Región) para actualizar SOLO esos 3 campos por tienda -- nunca toca
+   el resto del catálogo. Cada carga se guarda en Firestore
+   (ESTRUCTURA_HIST_COLLECTION) con el nombre real del archivo (incluye el mes,
+   ej. "NACIONAL_ESTRUCTURA_REGIONAL_AGOSTO_2026.xlsx") para poder rastrear de
+   qué archivo/mes vino cada actualización si algo sale mal.                */
+
+function buscarCampoEstructura(row, posibles){
+  const keys = Object.keys(row);
+  for(const p of posibles){
+    const k = keys.find(k2=>k2.toLowerCase().trim()===p.toLowerCase());
+    if(k) return row[k];
+  }
+  return '';
+}
+
+function handleEstructuraFile(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const wb = XLSX.read(ev.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      procesarEstructuraRegional(rows, file.name);
+    }catch(err){
+      console.error(err);
+      toast('No se pudo leer el archivo (revisa la consola si el error persiste).', 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = '';
+}
+
+function procesarEstructuraRegional(rows, nombreArchivo){
+  const matched = [];
+  const noCoincidieron = [];
+  const clavesEnArchivo = new Set();
+
+  rows.forEach(r=>{
+    const clave = String(buscarCampoEstructura(r, ['CLAVE PDV','CVE PDV','CLAVE_PDV']) || '').trim().toUpperCase();
+    if(!clave) return;
+    const nombrePdv = buscarCampoEstructura(r, ['NOMBRE PDV','NOMBRE','PLAZA']);
+    const regionalManager = String(buscarCampoEstructura(r, ['REGIONAL MANAGER','GERENTE REGIONAL']) || '').trim();
+    const directorRegional = String(buscarCampoEstructura(r, ['DIRECTOR REGIONAL','DIRECTOR']) || '').trim();
+    const region = String(buscarCampoEstructura(r, ['REGION','REGIÓN']) || '').trim();
+    clavesEnArchivo.add(clave);
+
+    const store = allStores.find(s => String(s.cve_pdv||'').trim().toUpperCase() === clave);
+    if(store){
+      matched.push({
+        id: store.id, clave_pdv: clave, plaza: store.plaza,
+        region_antes: store.region||'—', region_despues: region,
+        gerente_antes: store.gerente_regional||'—', gerente_despues: regionalManager,
+        director_antes: store.director||'—', director_despues: directorRegional
+      });
+    } else {
+      noCoincidieron.push({clave_pdv: clave, nombre_excel: nombrePdv||'—'});
+    }
+  });
+
+  // Tiendas activas del catálogo que no vinieron en este archivo (no se tocan)
+  const noIncluidas = allStores
+    .filter(s => String(s.activo) === '1' && !clavesEnArchivo.has(String(s.cve_pdv||'').trim().toUpperCase()))
+    .map(s => ({clave_pdv: s.cve_pdv||'—', plaza: s.plaza||'—'}));
+
+  mostrarModalEstructuraRegional(matched, noCoincidieron, noIncluidas, nombreArchivo, rows.length);
+}
+
+function fmtFechaHist(iso){
+  try{
+    return new Date(iso).toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'}) +
+           ' ' + new Date(iso).toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
+  }catch(e){ return iso || '—'; }
+}
+
+function mostrarModalEstructuraRegional(matched, noCoincidieron, noIncluidas, nombreArchivo, totalFilas){
+  const cambios = matched.filter(m => m.region_antes!==m.region_despues || m.gerente_antes!==m.gerente_despues || m.director_antes!==m.director_despues);
+
+  const listaNoCoincidieron = noCoincidieron.length ? `
+    <div style="max-height:140px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin-top:8px;padding:6px 10px;">
+      ${noCoincidieron.map(n=>`<div style="font-size:12.5px;padding:3px 0;"><span class="mono">${esc(n.clave_pdv)}</span> — ${esc(n.nombre_excel)}</div>`).join('')}
+    </div>` : '';
+
+  const listaNoIncluidas = noIncluidas.length ? `
+    <div style="max-height:140px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin-top:8px;padding:6px 10px;">
+      ${noIncluidas.map(n=>`<div style="font-size:12.5px;padding:3px 0;"><span class="mono">${esc(n.clave_pdv)}</span> — ${esc(n.plaza)}</div>`).join('')}
+    </div>` : '';
+
+  document.getElementById('modal-content').innerHTML = `
+    <h2>Actualizar estructura regional</h2>
+    <p class="modal-sub">${esc(nombreArchivo)} · ${totalFilas} filas leídas</p>
+    <div class="detail-row"><span class="k">Se actualizarán</span><span class="v">${matched.length} tiendas (${cambios.length} con cambios reales)</span></div>
+    <div class="detail-row"><span class="k">No coincidieron (Clave PDV no encontrada)</span><span class="v" style="color:var(--warn);">${noCoincidieron.length}</span></div>
+    <div class="detail-row"><span class="k">Tiendas activas sin incluir en este archivo</span><span class="v" style="color:var(--warn);">${noIncluidas.length}</span></div>
+    ${noCoincidieron.length ? `<p class="modal-sub" style="margin:12px 0 0;">Filas del archivo que no se pudieron aplicar (revisar Clave PDV):</p>${listaNoCoincidieron}` : ''}
+    ${noIncluidas.length ? `<p class="modal-sub" style="margin:12px 0 0;">Tiendas activas del catálogo que NO vienen en este archivo — no se tocan:</p>${listaNoIncluidas}` : ''}
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancel-estructura-btn">Cancelar</button>
+      <button class="btn btn-primary" id="confirm-estructura-btn" ${matched.length?'':'disabled'}>Actualizar ${matched.length} tiendas</button>
+    </div>
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+  document.getElementById('cancel-estructura-btn').addEventListener('click', closeModal);
+  document.getElementById('confirm-estructura-btn')?.addEventListener('click', ()=> aplicarEstructuraRegional(matched, noCoincidieron, noIncluidas, nombreArchivo, totalFilas));
+}
+
+async function aplicarEstructuraRegional(matched, noCoincidieron, noIncluidas, nombreArchivo, totalFilas){
+  closeModal();
+  toast('Actualizando estructura regional, un momento...');
+  try{
+    const fechaCarga = new Date().toISOString();
+    const batchSize = 400;
+    for(let i=0; i<matched.length; i+=batchSize){
+      const batch = db.batch();
+      matched.slice(i, i+batchSize).forEach(m=>{
+        batch.update(db.collection(COLLECTION).doc(m.id), {
+          region: m.region_despues,
+          gerente_regional: m.gerente_despues,
+          director: m.director_despues,
+          estructura_regional_archivo: nombreArchivo,
+          estructura_regional_fecha: fechaCarga
+        });
+      });
+      await batch.commit();
+    }
+
+    await db.collection(ESTRUCTURA_HIST_COLLECTION).add({
+      archivo: nombreArchivo,
+      fecha: fechaCarga,
+      usuario: currentUser.label || currentUser.username,
+      total_filas: totalFilas,
+      actualizadas: matched.length,
+      no_coincidieron: noCoincidieron,
+      no_incluidas: noIncluidas
+    });
+
+    toast('Estructura regional actualizada', 'ok');
+    await loadStores();
+    await loadEstructuraInfo();
+  }catch(err){
+    console.error(err);
+    toast('Error al actualizar la estructura regional', 'error');
+  }
+}
+
+async function loadEstructuraInfo(){
+  const info = document.getElementById('estructura-info');
+  try{
+    const snap = await db.collection(ESTRUCTURA_HIST_COLLECTION).orderBy('fecha','desc').limit(1).get();
+    if(snap.empty){ info.style.display = 'none'; return; }
+    const h = snap.docs[0].data();
+    info.innerHTML = `Última actualización de estructura regional: <strong>${esc(h.archivo)}</strong> · ${h.actualizadas} tiendas · por ${esc(h.usuario)} · ${fmtFechaHist(h.fecha)} · <a href="#" id="ver-hist-estructura-link">ver historial</a>`;
+    info.style.display = 'block';
+    document.getElementById('ver-hist-estructura-link').addEventListener('click', (e)=>{ e.preventDefault(); verHistorialEstructura(); });
+  }catch(err){
+    console.error(err);
+    info.style.display = 'none';
+  }
+}
+
+async function verHistorialEstructura(){
+  try{
+    const snap = await db.collection(ESTRUCTURA_HIST_COLLECTION).orderBy('fecha','desc').limit(12).get();
+    const docs = snap.docs.map(d=>d.data());
+    const rowsHtml = docs.length ? docs.map(h=>`
+      <div class="detail-row">
+        <span class="k">${fmtFechaHist(h.fecha)}</span>
+        <span class="v">${esc(h.archivo)} · ${h.actualizadas} tiendas · por ${esc(h.usuario)}${(h.no_coincidieron&&h.no_coincidieron.length)?` · ⚠️ ${h.no_coincidieron.length} sin coincidir`:''}</span>
+      </div>`).join('') : `<p class="modal-sub">Todavía no hay cargas registradas.</p>`;
+
+    document.getElementById('modal-content').innerHTML = `
+      <h2>Historial de estructura regional</h2>
+      <p class="modal-sub">Últimas ${docs.length} cargas (archivo, fecha y quién la subió)</p>
+      <div>${rowsHtml}</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="close-modal-btn">Cerrar</button>
+      </div>
+    `;
+    document.getElementById('modal-overlay').classList.add('show');
+    document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+  }catch(err){
+    console.error(err);
+    toast('Error al cargar el historial', 'error');
+  }
 }
 
 function openForm(id){
