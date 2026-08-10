@@ -1125,7 +1125,6 @@ auth.onAuthStateChanged(async function(user){
     {id:'inventario', label:'Adquisición de Equipo'},
     {id:'migracion_win11', label:'Migración Win11'},
     {id:'expansion', label:'Plan de expansión'},
-    {id:'cierre_tiendas', label:'Cierre de tiendas'},
     {id:'budget_it', label:'Budget IT 2026'}
   ];
   // Apartados nuevos de agosto 2026 (envios_recolecciones...pin_pad): recreados como indicadores reales
@@ -1173,6 +1172,7 @@ auth.onAuthStateChanged(async function(user){
   let state = null;
   let tab = 'resumen';
   let editing = false;
+  let editingCierre = false; // edición independiente de la sub-sección "Cierre de tiendas" dentro de Plan de expansión
   let internetMenuAbierto = false;
   let soporteMenuAbierto = false;
   document.addEventListener('click', ()=>{
@@ -1922,13 +1922,14 @@ auth.onAuthStateChanged(async function(user){
         e.stopPropagation();
         tab = el.dataset.tab;
         editing = false;
+        editingCierre = false;
         internetMenuAbierto = false;
         soporteMenuAbierto = false;
         render();
       };
     });
     document.querySelectorAll('.tab[data-tab]').forEach(el=>{
-      el.onclick = () => { tab = el.dataset.tab; editing = false; internetMenuAbierto = false; soporteMenuAbierto = false; render(); };
+      el.onclick = () => { tab = el.dataset.tab; editing = false; editingCierre = false; internetMenuAbierto = false; soporteMenuAbierto = false; render(); };
     });
     renderTab();
   }
@@ -1957,7 +1958,6 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='biometricos') return renderBiometricos(c);
     if(tab==='pin_pad') return renderPinPad(c);
     if(tab==='expansion') return renderExpansion(c);
-    if(tab==='cierre_tiendas') return renderCierreTiendas(c);
     if(tab==='budget_it') return renderBudgetIT(c);
   }
 
@@ -3888,8 +3888,10 @@ auth.onAuthStateChanged(async function(user){
           <h3>Todavía no hay tiendas cargadas</h3>
           <p>Sube el Excel de expansión (el mismo formato de "NVO_EXPANSION") para llenar esta pestaña: acumulado de aperturas, tiendas en proceso, y la tabla completa con notas manuales por tienda.</p>
         </div>`}
+        ${seccionCierreTiendas()}
       `;
       wireExpansionUpload();
+      wireCierreTiendas();
       return;
     }
 
@@ -3978,6 +3980,7 @@ auth.onAuthStateChanged(async function(user){
         <div class="foot">Espacio libre para movimientos que no vienen en el archivo (cierres, cambios de plaza, pausas, etc.). No se sobreescribe al cargar un nuevo Excel.</div>
       </div>
       <div class="foot">En modo edición puedes cambiar cualquier campo de la tabla, agregar tiendas manualmente o quitarlas. Al cargar un archivo nuevo, esos cambios manuales se respetan salvo que ese mismo campo venga distinto en el Excel para esa Clave PDV.</div>
+      ${seccionCierreTiendas()}
     `;
     if(editing){
       document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
@@ -4004,6 +4007,7 @@ auth.onAuthStateChanged(async function(user){
       if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
     }
     wireExpansionUpload();
+    wireCierreTiendas();
   }
   function panelConfirmacionExpansion(){
     const d = cargaPendienteExpansion;
@@ -4037,10 +4041,12 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- Cierre de tiendas (agosto 2026) ----------
-  // Apartado separado de "Plan de expansión" (ese es para aperturas). Antes las tiendas cerradas
-  // vivían mezcladas ahí con estatus:'Cerrada' y todo el detalle (fechas de entrega/recolección/
+  // A propósito NO es una pestaña aparte: es una sección más, más abajo, dentro de la misma pestaña
+  // "Plan de expansión" (pedido explícito del cliente). Antes las tiendas cerradas vivían mezcladas
+  // en la tabla de arriba con estatus:'Cerrada' y todo el detalle (fechas de entrega/recolección/
   // vigencia) embarrado en el campo "nota". Aquí quedan en su propia tabla, con un campo nuevo
-  // "Observaciones" separado del detalle. Solo admin puede editar/mover (ver canEdit).
+  // "Observaciones" separado del detalle. Solo admin puede editar/mover (ver canEdit). Tiene su
+  // propio interruptor de edición (editingCierre) para no forzar a editar las dos tablas juntas.
   function estatusCierreClass(estatus){
     if(estatus==='Cerrada') return 'critica';
     return 'atencion'; // Tentativa
@@ -4084,23 +4090,27 @@ auth.onAuthStateChanged(async function(user){
       </div>
     </div>`;
   }
-  function renderCierreTiendas(c){
+  // Devuelve el HTML de la sub-sección "Cierre de tiendas" para insertarla DENTRO de la misma
+  // pantalla de "Plan de expansión" (más abajo de la tabla de aperturas) — a petición del cliente
+  // esto NO es una pestaña aparte, es una sección más dentro de la misma pestaña de Expansión.
+  function seccionCierreTiendas(){
     const cz = state.cierre_tiendas;
     const tiendas = cz.tiendas || [];
     const candidatas = candidatosMigracionCierre();
     const cerradas = tiendas.filter(t=>t.estatus==='Cerrada').length;
     const tentativas = tiendas.filter(t=>t.estatus!=='Cerrada').length;
 
-    c.innerHTML = `
-      <div class="title">Cierre de tiendas · PrimeMX ${state.anio}</div>
+    return `
+      <div class="foot" style="margin-top:26px; margin-bottom:4px; height:1px; border-top:1px solid var(--line);"></div>
+      <div class="title" style="font-size:18px; margin-top:18px;">Cierre de tiendas</div>
       <div class="subtitle">Tiendas en proceso de cierre o ya cerradas — fechas de entrega, recolección de equipo, cancelación de Internet y vigencia del servicio</div>
 
       ${canEdit && candidatas.length>0 ? `
       <div class="uploadbar">
         <div class="txt">
-          <b>${candidatas.length} tienda(s) marcada(s) "Cerrada" siguen en Plan de expansión.</b> Muévelas aquí para llevar el detalle en un solo lugar.
+          <b>${candidatas.length} tienda(s) marcada(s) "Cerrada" siguen arriba, en la tabla de Expansión.</b> Muévelas aquí abajo para llevar el detalle de cierre en un solo lugar.
         </div>
-        <button class="upload" id="btnAbrirMigrarCierre">Mover tiendas cerradas desde Expansión</button>
+        <button class="upload" id="btnAbrirMigrarCierre">Mover tiendas cerradas de arriba</button>
       </div>` : ''}
       ${modalMigrarCierre ? panelMigracionCierre() : ''}
 
@@ -4114,17 +4124,17 @@ auth.onAuthStateChanged(async function(user){
       </div>
 
       <div class="panel">
-        <div class="editbar">${editing
+        <div class="editbar">${editingCierre
           ? `<button id="btnCancelCierre">Cancelar</button><button id="btnAddCierre">Agregar tienda</button><button class="primary" id="btnSaveCierre">Guardar cambios</button>`
           : (canEdit ? `<button id="btnEditCierre">Editar todo</button>` : '')}</div>
         <h3>Tiendas — cierre tentativo / cerrado</h3>
-        ${tiendas.length===0 ? `<div class="placeholder"><h3>Todavía no hay tiendas aquí</h3><p>${canEdit ? 'Da clic en "Editar todo" para agregar una tienda manualmente, o usa "Mover tiendas cerradas desde Expansión" si ya hay alguna marcada como Cerrada allá.' : 'Todavía no hay tiendas capturadas en este apartado.'}</p></div>` : `
+        ${tiendas.length===0 ? `<div class="placeholder"><h3>Todavía no hay tiendas aquí</h3><p>${canEdit ? 'Da clic en "Editar todo" para agregar una tienda manualmente, o usa "Mover tiendas cerradas de arriba" si ya hay alguna marcada como Cerrada en la tabla de Expansión.' : 'Todavía no hay tiendas capturadas en este apartado.'}</p></div>` : `
         <div style="overflow-x:auto;"><table>
           <thead><tr>
             <th>#</th><th>Clave PDV</th><th>Tienda</th><th>Periodo</th><th>Internet</th>
-            <th style="text-align:left;">Detalle de cierre</th><th>Estatus</th><th style="text-align:left;">Observaciones</th>${editing?'<th></th>':''}
+            <th style="text-align:left;">Detalle de cierre</th><th>Estatus</th><th style="text-align:left;">Observaciones</th>${editingCierre?'<th></th>':''}
           </tr></thead>
-          <tbody>${tiendas.map((t,i)=> editing ? `
+          <tbody>${tiendas.map((t,i)=> editingCierre ? `
             <tr data-cz-row="${i}">
               <td>${i+1}</td>
               <td><input type="text" style="width:80px;" data-cz-field="clave" data-cz-row="${i}" value="${t.clave||''}"></td>
@@ -4153,13 +4163,16 @@ auth.onAuthStateChanged(async function(user){
       </div>
       <div class="panel">
         <h3>Notas generales de cierre de tiendas</h3>
-        ${editing
+        ${editingCierre
           ? `<textarea id="notasGeneralesCierre" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: pendiente confirmar recolección de equipo en Obregón Sonora Puerta">${cz.notas_generales||''}</textarea>`
           : `<div style="font-size:13px; white-space:pre-wrap; color:${cz.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${cz.notas_generales || 'Sin notas capturadas todavía.'}</div>`}
       </div>
       <div class="foot">En modo edición puedes cambiar cualquier campo, agregar tiendas nuevas o quitarlas. "Observaciones" es un campo libre, separado del detalle de fechas.</div>
     `;
-
+  }
+  function wireCierreTiendas(){
+    const cz = state.cierre_tiendas;
+    const tiendas = cz.tiendas || [];
     if(canEdit){
       const btnMig = document.getElementById('btnAbrirMigrarCierre');
       if(btnMig) btnMig.onclick = ()=>{ modalMigrarCierre = true; render(); };
@@ -4169,8 +4182,8 @@ auth.onAuthStateChanged(async function(user){
       if(btnConfirmMig) btnConfirmMig.onclick = migrarCerradasDesdeExpansion;
     }
 
-    if(editing){
-      document.getElementById('btnCancelCierre').onclick=()=>{editing=false;render();};
+    if(editingCierre){
+      document.getElementById('btnCancelCierre').onclick=()=>{editingCierre=false;render();};
       document.getElementById('btnAddCierre').onclick=()=>{
         tiendas.push({clave:'', nombre:'Nueva tienda', periodo:'', internet:'-', detalle:'', estatus:'Tentativa', observaciones:''});
         render();
@@ -4184,12 +4197,14 @@ auth.onAuthStateChanged(async function(user){
         const ng = document.getElementById('notasGeneralesCierre');
         if(ng) cz.notas_generales = ng.value;
         save();
+        editingCierre = false;
       };
       document.querySelectorAll('[data-cz-remove]').forEach(btn=>{
         btn.onclick = ()=>{ tiendas.splice(Number(btn.dataset.czRemove),1); render(); };
       });
     } else {
-      if(canEdit) document.getElementById('btnEditCierre').onclick=()=>{editing=true;render();};
+      const btnEditCz = document.getElementById('btnEditCierre');
+      if(btnEditCz) btnEditCz.onclick=()=>{editingCierre=true;render();};
     }
   }
 
