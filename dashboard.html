@@ -565,6 +565,7 @@ auth.onAuthStateChanged(async function(user){
   const COLOR_PDV = '#4C1D95';           // Equipos PDV Región — púrpura profundo
   const COLOR_PDV_CERRADO = '#D97706';   // Equipos PDV Región — acento ámbar para "Laptop PDV cerrado"
   const COLOR_EXPANSION = '#1E3A8A';     // Plan de expansión — azul marino
+  const COLOR_CIERRE = '#7F1D1D';        // Cierre de tiendas — rojo vino (agosto 2026)
   const COLOR_WIN11 = '#0F6E56';         // Migración Win11 — verde esmeralda (avance)
   // Degradado sutil para encabezados de tarjeta/panel — misma tonalidad, más profundo al 72%, para un
   // acabado más "premium" en presentaciones a Dirección. Solo se usa en fondos, nunca en texto.
@@ -1049,12 +1050,18 @@ auth.onAuthStateChanged(async function(user){
       {numero:null, clave:'', nombre:'PRM TDA SORIANA SAN NICOLÁS NL', mes:'EN PROCESO', region:'NORTE 1', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'NADA', solicitud_arq:'-', entregado_arq:'Pendiente', entrega_impresora:'Pendiente', modelo_impresora:'Pendiente', estatus:'En proceso', nota:''},
       {numero:null, clave:'', nombre:'Pabellon Altamira', mes:'', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'-', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Prospecto', nota:''},
       {numero:null, clave:'', nombre:'UMMI', mes:'', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'-', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Prospecto', nota:''},
-      {numero:null, clave:'', nombre:'Chalco', mes:'', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'-', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Prospecto', nota:''},
-      {numero:null, clave:'', nombre:'PRM TDA CDMX CITY SHOPS VALLE DORADO', mes:'Cierre Agosto', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTALPLAY', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Cerrada', nota:'Entrega: 15 ago · Cierre operación: 01 ago · Recolección de equipo (cómputo, impresora, gabinete, switch, AP, módem) y cancelación Internet: 02 ago · Vigencia del servicio: 20/05/2027'},
-      {numero:null, clave:'', nombre:'PRM TDA REVOLUCION MTY', mes:'Cierre Agosto', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTALPLAY', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Cerrada', nota:'Entrega: 19 ago · Cierre operación: lunes 03 ago · Recolección de equipo (cómputo, impresora, gabinete, switch, AP, módem) y cancelación Internet: 01 ago · Vigencia del servicio: 15/02/2028'},
-      {numero:null, clave:'', nombre:'PRM TDA PLAZA RAZA AVENUE', mes:'Cierre Agosto', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTALPLAY', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Cerrada', nota:'Entrega: 31 ago · Cierre operación: lunes 17 ago · Recolección de equipo (cómputo, impresora, gabinete, switch, AP, módem) y cancelación Internet: 18 ago · Vigencia del servicio: 10/11/2026'},
-      {numero:null, clave:'', nombre:'PRM TDA OBREGON SONORA PUERTA', mes:'Cierre Agosto', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'TOTALPLAY', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Cerrada', nota:'Entrega: 23 ago · Cierre operación: 08 ago · Recolección de equipo (cómputo, impresora, gabinete, switch, AP, módem) y cancelación Internet: 09 ago · Vigencia del servicio: 14/11/2026'}
+      {numero:null, clave:'', nombre:'Chalco', mes:'', region:'-', pc:'-', lap:'-', hc:'-', pinpad:'-', dif_pinpad:'-', biometricos:'-', dif_biometricos:'-', prep_equipo:'-', envio_mac:'-', internet:'-', solicitud_arq:'-', entregado_arq:'-', entrega_impresora:'-', modelo_impresora:'-', estatus:'Prospecto', nota:''}
     ], notas_generales: '', carga: { archivo: 'NVO_EXPANSION_2025.xlsx', fecha: '2026-07-22T17:57:29.394Z' } },
+    // Cierre de tiendas (agosto 2026): antes vivían mezcladas dentro de "Plan de expansión" con
+    // estatus:'Cerrada' y todo el detalle embarrado en el campo "nota". Se movieron a su propio apartado
+    // con columnas dedicadas + el campo nuevo "observaciones" (separado del detalle de fechas).
+    // A propósito arranca VACÍO: las 4 tiendas que ya existían con estatus 'Cerrada' dentro de
+    // expansion.tiendas en Firestore se migran con el botón "Mover tiendas cerradas desde Expansión"
+    // del propio apartado (ver renderCierreTiendas/migrarCerradasDesdeExpansion), que lee el valor
+    // REAL vigente en Firestore (incluye ediciones manuales posteriores, ej. "YA SE RECOLECTO") y
+    // las quita de Expansion al mismo tiempo. Si esto se deja precargado aquí con datos fijos,
+    // en el primer load con Firestore ya existente aparecerían duplicadas (una copia en cada apartado).
+    cierre_tiendas: { tiendas: [], notas_generales: '' },
     // Budget IT 2026: recreado de Budget 2026_IT.xlsx (hoja "Presupuesto 2026"). Enero-Junio son los
     // valores reales ya conciliados (quedan congelados en la UI). Julio trae lo que ya estaba cargado
     // en el Excel (algunos proveedores aún sin dato); Agosto-Diciembre quedan en null y se editan mes
@@ -1118,6 +1125,7 @@ auth.onAuthStateChanged(async function(user){
     {id:'inventario', label:'Adquisición de Equipo'},
     {id:'migracion_win11', label:'Migración Win11'},
     {id:'expansion', label:'Plan de expansión'},
+    {id:'cierre_tiendas', label:'Cierre de tiendas'},
     {id:'budget_it', label:'Budget IT 2026'}
   ];
   // Apartados nuevos de agosto 2026 (envios_recolecciones...pin_pad): recreados como indicadores reales
@@ -1251,6 +1259,9 @@ auth.onAuthStateChanged(async function(user){
       if(state.ticketsmc.rechazado_cancelado === undefined) state.ticketsmc.rechazado_cancelado = DEFAULTS.ticketsmc.rechazado_cancelado;
       if(!state.yoy_notas) state.yoy_notas = clone(DEFAULTS.yoy_notas);
       if(state.expansion.notas_generales === undefined) state.expansion.notas_generales = '';
+      if(!state.cierre_tiendas) state.cierre_tiendas = clone(DEFAULTS.cierre_tiendas);
+      if(state.cierre_tiendas.notas_generales === undefined) state.cierre_tiendas.notas_generales = '';
+      state.cierre_tiendas.tiendas.forEach(t=>{ if(t.observaciones===undefined) t.observaciones=''; });
       if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
       if(!state.budget_it.historial) state.budget_it.historial = [];
       state.budget_it.capex.forEach(cx=>{ if(cx.incluir===undefined) cx.incluir = true; });
@@ -1946,6 +1957,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='biometricos') return renderBiometricos(c);
     if(tab==='pin_pad') return renderPinPad(c);
     if(tab==='expansion') return renderExpansion(c);
+    if(tab==='cierre_tiendas') return renderCierreTiendas(c);
     if(tab==='budget_it') return renderBudgetIT(c);
   }
 
@@ -4022,6 +4034,163 @@ auth.onAuthStateChanged(async function(user){
     if(btnCancel) btnCancel.onclick = ()=>{ cargaPendienteExpansion = null; render(); };
     const btnAplicar = document.getElementById('btnAplicarCargaExp');
     if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosExpansion(cargaPendienteExpansion); };
+  }
+
+  // ---------- Cierre de tiendas (agosto 2026) ----------
+  // Apartado separado de "Plan de expansión" (ese es para aperturas). Antes las tiendas cerradas
+  // vivían mezcladas ahí con estatus:'Cerrada' y todo el detalle (fechas de entrega/recolección/
+  // vigencia) embarrado en el campo "nota". Aquí quedan en su propia tabla, con un campo nuevo
+  // "Observaciones" separado del detalle. Solo admin puede editar/mover (ver canEdit).
+  function estatusCierreClass(estatus){
+    if(estatus==='Cerrada') return 'critica';
+    return 'atencion'; // Tentativa
+  }
+  // Candidatas a migrar: cualquier fila de Plan de expansión ya marcada 'Cerrada' que siga ahí.
+  function candidatosMigracionCierre(){
+    return (state.expansion.tiendas || []).filter(t=>t.estatus==='Cerrada');
+  }
+  let modalMigrarCierre = false;
+  function migrarCerradasDesdeExpansion(){
+    const candidatas = candidatosMigracionCierre();
+    if(candidatas.length===0) return;
+    candidatas.forEach(t=>{
+      state.cierre_tiendas.tiendas.push({
+        clave: t.clave || '',
+        nombre: t.nombre,
+        periodo: t.mes || '',
+        internet: t.internet || '-',
+        detalle: t.nota || '',
+        estatus: 'Cerrada',
+        observaciones: ''
+      });
+    });
+    state.expansion.tiendas = state.expansion.tiendas.filter(t=>t.estatus!=='Cerrada');
+    modalMigrarCierre = false;
+    save();
+  }
+  function panelMigracionCierre(){
+    const candidatas = candidatosMigracionCierre();
+    return `<div class="panel" style="border-color:var(--tm);">
+      <h3 style="color:var(--tm);">Mover tiendas cerradas desde Plan de expansión</h3>
+      <div style="font-size:13px; line-height:1.7;">
+        Se moverán <b>${candidatas.length}</b> tienda(s) marcada(s) como "Cerrada" en Plan de expansión a este apartado. Se quitan de Expansión y se agregan aquí con el mismo detalle que ya tenían (Observaciones queda vacío para captura nueva).
+        <ul style="margin:8px 0 0 18px; padding:0;">
+          ${candidatas.map(t=>`<li>${t.nombre}${t.clave?` (${t.clave})`:''}</li>`).join('')}
+        </ul>
+      </div>
+      <div class="editbar" style="margin-top:10px;">
+        <button id="btnCancelMigrarCierre">Cancelar</button>
+        <button class="primary" id="btnConfirmarMigrarCierre">Mover ${candidatas.length} tienda(s)</button>
+      </div>
+    </div>`;
+  }
+  function renderCierreTiendas(c){
+    const cz = state.cierre_tiendas;
+    const tiendas = cz.tiendas || [];
+    const candidatas = candidatosMigracionCierre();
+    const cerradas = tiendas.filter(t=>t.estatus==='Cerrada').length;
+    const tentativas = tiendas.filter(t=>t.estatus!=='Cerrada').length;
+
+    c.innerHTML = `
+      <div class="title">Cierre de tiendas · PrimeMX ${state.anio}</div>
+      <div class="subtitle">Tiendas en proceso de cierre o ya cerradas — fechas de entrega, recolección de equipo, cancelación de Internet y vigencia del servicio</div>
+
+      ${canEdit && candidatas.length>0 ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>${candidatas.length} tienda(s) marcada(s) "Cerrada" siguen en Plan de expansión.</b> Muévelas aquí para llevar el detalle en un solo lugar.
+        </div>
+        <button class="upload" id="btnAbrirMigrarCierre">Mover tiendas cerradas desde Expansión</button>
+      </div>` : ''}
+      ${modalMigrarCierre ? panelMigracionCierre() : ''}
+
+      <div class="cards">
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_CIERRE)}">Total en este apartado</div>
+          <div class="body"><div class="big">${tiendas.length}</div><div class="lbl">cierres bajo seguimiento</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad('#DC2626')}">Cerradas</div>
+          <div class="body"><div class="big">${cerradas}</div><div class="lbl">operación ya cerrada</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad('#D97706')}">Tentativas</div>
+          <div class="body"><div class="big">${tentativas}</div><div class="lbl">cierre programado, aún no confirmado</div></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="editbar">${editing
+          ? `<button id="btnCancelCierre">Cancelar</button><button id="btnAddCierre">Agregar tienda</button><button class="primary" id="btnSaveCierre">Guardar cambios</button>`
+          : (canEdit ? `<button id="btnEditCierre">Editar todo</button>` : '')}</div>
+        <h3>Tiendas — cierre tentativo / cerrado</h3>
+        ${tiendas.length===0 ? `<div class="placeholder"><h3>Todavía no hay tiendas aquí</h3><p>${canEdit ? 'Da clic en "Editar todo" para agregar una tienda manualmente, o usa "Mover tiendas cerradas desde Expansión" si ya hay alguna marcada como Cerrada allá.' : 'Todavía no hay tiendas capturadas en este apartado.'}</p></div>` : `
+        <div style="overflow-x:auto;"><table>
+          <thead><tr>
+            <th>#</th><th>Clave PDV</th><th>Tienda</th><th>Periodo</th><th>Internet</th>
+            <th style="text-align:left;">Detalle de cierre</th><th>Estatus</th><th style="text-align:left;">Observaciones</th>${editing?'<th></th>':''}
+          </tr></thead>
+          <tbody>${tiendas.map((t,i)=> editing ? `
+            <tr data-cz-row="${i}">
+              <td>${i+1}</td>
+              <td><input type="text" style="width:80px;" data-cz-field="clave" data-cz-row="${i}" value="${t.clave||''}"></td>
+              <td><input type="text" style="width:150px; text-align:left;" data-cz-field="nombre" data-cz-row="${i}" value="${(t.nombre||'').replace(/"/g,'&quot;')}"></td>
+              <td><input type="text" style="width:80px;" data-cz-field="periodo" data-cz-row="${i}" value="${(t.periodo||'').replace(/"/g,'&quot;')}"></td>
+              <td><input type="text" style="width:70px;" data-cz-field="internet" data-cz-row="${i}" value="${t.internet||''}"></td>
+              <td><textarea rows="3" style="width:230px; text-align:left; font-family:inherit; font-size:12.5px;" data-cz-field="detalle" data-cz-row="${i}">${(t.detalle||'')}</textarea></td>
+              <td><select data-cz-field="estatus" data-cz-row="${i}">
+                ${['Tentativa','Cerrada'].map(op=>`<option value="${op}" ${t.estatus===op?'selected':''}>${op}</option>`).join('')}
+              </select></td>
+              <td><textarea rows="3" style="width:170px; text-align:left; font-family:inherit; font-size:12.5px;" data-cz-field="observaciones" data-cz-row="${i}">${(t.observaciones||'')}</textarea></td>
+              <td><button data-cz-remove="${i}" style="padding:3px 8px;">✕</button></td>
+            </tr>` : `
+            <tr data-cz-row="${i}">
+              <td>${i+1}</td>
+              <td>${t.clave||'—'}</td>
+              <td style="text-align:left;">${t.nombre}</td>
+              <td>${t.periodo||'—'}</td>
+              <td>${t.internet||'—'}</td>
+              <td style="text-align:left; white-space:pre-wrap;">${t.detalle||'<span style="color:var(--sub)">—</span>'}</td>
+              <td><span class="status-badge ${estatusCierreClass(t.estatus)}">${t.estatus}</span></td>
+              <td style="text-align:left; white-space:pre-wrap;">${t.observaciones||'<span style="color:var(--sub)">—</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>`}
+      </div>
+      <div class="panel">
+        <h3>Notas generales de cierre de tiendas</h3>
+        ${editing
+          ? `<textarea id="notasGeneralesCierre" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: pendiente confirmar recolección de equipo en Obregón Sonora Puerta">${cz.notas_generales||''}</textarea>`
+          : `<div style="font-size:13px; white-space:pre-wrap; color:${cz.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${cz.notas_generales || 'Sin notas capturadas todavía.'}</div>`}
+      </div>
+      <div class="foot">En modo edición puedes cambiar cualquier campo, agregar tiendas nuevas o quitarlas. "Observaciones" es un campo libre, separado del detalle de fechas.</div>
+    `;
+
+    if(canEdit){
+      const btnMig = document.getElementById('btnAbrirMigrarCierre');
+      if(btnMig) btnMig.onclick = ()=>{ modalMigrarCierre = true; render(); };
+      const btnCancelMig = document.getElementById('btnCancelMigrarCierre');
+      if(btnCancelMig) btnCancelMig.onclick = ()=>{ modalMigrarCierre = false; render(); };
+      const btnConfirmMig = document.getElementById('btnConfirmarMigrarCierre');
+      if(btnConfirmMig) btnConfirmMig.onclick = migrarCerradasDesdeExpansion;
+    }
+
+    if(editing){
+      document.getElementById('btnCancelCierre').onclick=()=>{editing=false;render();};
+      document.getElementById('btnAddCierre').onclick=()=>{
+        tiendas.push({clave:'', nombre:'Nueva tienda', periodo:'', internet:'-', detalle:'', estatus:'Tentativa', observaciones:''});
+        render();
+      };
+      document.getElementById('btnSaveCierre').onclick=()=>{
+        document.querySelectorAll('[data-cz-field]').forEach(inp=>{
+          const i = Number(inp.dataset.czRow);
+          const field = inp.dataset.czField;
+          tiendas[i][field] = inp.value;
+        });
+        const ng = document.getElementById('notasGeneralesCierre');
+        if(ng) cz.notas_generales = ng.value;
+        save();
+      };
+      document.querySelectorAll('[data-cz-remove]').forEach(btn=>{
+        btn.onclick = ()=>{ tiendas.splice(Number(btn.dataset.czRemove),1); render(); };
+      });
+    } else {
+      if(canEdit) document.getElementById('btnEditCierre').onclick=()=>{editing=true;render();};
+    }
   }
 
   window.initCaidasApp = function(role){
