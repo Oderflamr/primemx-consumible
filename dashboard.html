@@ -3723,16 +3723,6 @@ auth.onAuthStateChanged(async function(user){
       </div>
 
       <div class="panel">
-        <h3>Qué se podría mejorar</h3>
-        <div class="foot" style="margin-bottom:10px;">Hallazgos al recrear el archivo original — ninguno afecta lo ya cerrado (Ene–Jun), pero conviene tenerlos presentes.</div>
-        <div class="bi-insight mejora"><div class="body"><b>🛠️ La columna "Anual" del archivo original no sumaba bien</b><span>La fórmula era <code>SUM(H:L)</code> en casi todas las filas — solo Enero a Mayo, sin Junio ni Julio. Aquí la columna Anual suma las 12 celdas reales/proyectadas.</span></div></div>
-        <div class="bi-insight mejora"><div class="body"><b>🛠️ El ahorro promedio del Excel dividía entre 5 en vez de 6</b><span>Eso inflaba el ahorro proyectado a ~10.5% cuando el real (con los 6 meses cerrados) es ${fmtPct(Math.abs(d.ahorroProyectado), d.opexAnnualBudget)}.</span></div></div>
-        <div class="bi-insight riesgo"><div class="body"><b>⚠️ MARAFIC concentra ~24% del gasto mensual de OPEX</b><span>Es el proveedor individual más grande. Cualquier renegociación o incidente impacta el presupuesto de forma desproporcionada.</span></div></div>
-        <div class="bi-insight riesgo"><div class="body"><b>⚠️ ${fmtPct(d.capexPendiente, d.capexBudget)} del presupuesto CAPEX sigue sin ejecutarse</b><span>Principalmente el proyecto de Antispam ($2,500,000). Si se ejecuta de golpe en Q4 puede haber presión de flujo de caja.</span></div></div>
-        <div class="bi-insight oportunidad"><div class="body"><b>💡 Total Play Office 365 y AWS corren consistentemente debajo de su presupuesto</b><span>Son candidatos claros para bajar el presupuesto 2026 y liberar esa diferencia hacia otra partida.</span></div></div>
-      </div>
-
-      <div class="panel">
         <h3>Gráficas</h3>
         <div style="display:grid; grid-template-columns:1fr; gap:16px; margin-bottom:16px;">
           <div><div class="foot" style="margin-bottom:6px;">Ejercido mensual vs. presupuesto</div><canvas id="chartBudgetItTrend"></canvas></div>
