@@ -606,17 +606,8 @@ document.getElementById('logout-btn').addEventListener('click', function(){
   auth.signOut();
 });
 
-// Cierre de sesión automático tras 5 minutos sin actividad.
-const LIMITE_INACTIVIDAD = 5 * 60 * 1000;
-let temporizadorInactividad = null;
-function reiniciarTemporizadorInactividad(){
-  if(!currentUser) return;
-  clearTimeout(temporizadorInactividad);
-  temporizadorInactividad = setTimeout(()=>{ auth.signOut(); }, LIMITE_INACTIVIDAD);
-}
-['mousedown','mousemove','keydown','scroll','touchstart','click'].forEach(evt=>{
-  document.addEventListener(evt, reiniciarTemporizadorInactividad, {passive:true});
-});
+// Nota: el cierre de sesión automático por inactividad se quitó a petición del cliente
+// (agosto 2026) — la sesión ahora se queda abierta hasta que el usuario le da a "Cerrar sesión".
 
 // Se dispara automáticamente al iniciar sesión, cerrar sesión, o al cargar
 // la página si Firebase recuerda una sesión activa.
@@ -636,7 +627,6 @@ auth.onAuthStateChanged(async function(user){
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').classList.add('show');
     initApp();
-    reiniciarTemporizadorInactividad();
     const enlaceDashboard = document.getElementById('link-a-dashboard');
     if(enlaceDashboard) enlaceDashboard.style.display = (currentUser.username === 'marafic') ? 'none' : '';
   } else {
