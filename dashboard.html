@@ -4047,10 +4047,6 @@ auth.onAuthStateChanged(async function(user){
   // vigencia) embarrado en el campo "nota". Aquí quedan en su propia tabla, con un campo nuevo
   // "Observaciones" separado del detalle. Solo admin puede editar/mover (ver canEdit). Tiene su
   // propio interruptor de edición (editingCierre) para no forzar a editar las dos tablas juntas.
-  function estatusCierreClass(estatus){
-    if(estatus==='Cerrada') return 'critica';
-    return 'atencion'; // Tentativa
-  }
   // Candidatas a migrar: cualquier fila de Plan de expansión ya marcada 'Cerrada' que siga ahí.
   function candidatosMigracionCierre(){
     return (state.expansion.tiendas || []).filter(t=>t.estatus==='Cerrada');
@@ -4059,16 +4055,12 @@ auth.onAuthStateChanged(async function(user){
   function migrarCerradasDesdeExpansion(){
     const candidatas = candidatosMigracionCierre();
     if(candidatas.length===0) return;
+    // Se clona la fila completa tal cual está en Expansión (mismos campos: numero, clave, nombre,
+    // región, mes, pc, lap, internet, entregado_arq, entrega_impresora, estatus, nota, etc.) y solo
+    // se le agrega "observaciones" nuevo — así no se pierde ni se reinterpreta nada de lo que ya
+    // tenían capturado, incluidas ediciones manuales posteriores (ej. "YA SE RECOLECTO" en la nota).
     candidatas.forEach(t=>{
-      state.cierre_tiendas.tiendas.push({
-        clave: t.clave || '',
-        nombre: t.nombre,
-        periodo: t.mes || '',
-        internet: t.internet || '-',
-        detalle: t.nota || '',
-        estatus: 'Cerrada',
-        observaciones: ''
-      });
+      state.cierre_tiendas.tiendas.push({ ...clone(t), observaciones: t.observaciones || '' });
     });
     state.expansion.tiendas = state.expansion.tiendas.filter(t=>t.estatus!=='Cerrada');
     modalMigrarCierre = false;
@@ -4079,7 +4071,7 @@ auth.onAuthStateChanged(async function(user){
     return `<div class="panel" style="border-color:var(--tm);">
       <h3 style="color:var(--tm);">Mover tiendas cerradas desde Plan de expansión</h3>
       <div style="font-size:13px; line-height:1.7;">
-        Se moverán <b>${candidatas.length}</b> tienda(s) marcada(s) como "Cerrada" en Plan de expansión a este apartado. Se quitan de Expansión y se agregan aquí con el mismo detalle que ya tenían (Observaciones queda vacío para captura nueva).
+        Se moverán <b>${candidatas.length}</b> tienda(s) marcada(s) como "Cerrada" en Plan de expansión a este apartado. Se quitan de Expansión y se agregan aquí con los mismos campos que ya tenían (Observaciones queda vacío para captura nueva).
         <ul style="margin:8px 0 0 18px; padding:0;">
           ${candidatas.map(t=>`<li>${t.nombre}${t.clave?` (${t.clave})`:''}</li>`).join('')}
         </ul>
@@ -4093,22 +4085,23 @@ auth.onAuthStateChanged(async function(user){
   // Devuelve el HTML de la sub-sección "Cierre de tiendas" para insertarla DENTRO de la misma
   // pantalla de "Plan de expansión" (más abajo de la tabla de aperturas) — a petición del cliente
   // esto NO es una pestaña aparte, es una sección más dentro de la misma pestaña de Expansión.
+  // Los campos editables son EXACTAMENTE los mismos que la tabla de arriba (#, Clave PDV, Tienda,
+  // Región, Mes, PC, Lap, Internet, ARQ, Impresora, Estatus, Nota) + una columna nueva: Observaciones.
   function seccionCierreTiendas(){
     const cz = state.cierre_tiendas;
     const tiendas = cz.tiendas || [];
     const candidatas = candidatosMigracionCierre();
     const cerradas = tiendas.filter(t=>t.estatus==='Cerrada').length;
-    const tentativas = tiendas.filter(t=>t.estatus!=='Cerrada').length;
 
     return `
       <div class="foot" style="margin-top:26px; margin-bottom:4px; height:1px; border-top:1px solid var(--line);"></div>
       <div class="title" style="font-size:18px; margin-top:18px;">Cierre de tiendas</div>
-      <div class="subtitle">Tiendas en proceso de cierre o ya cerradas — fechas de entrega, recolección de equipo, cancelación de Internet y vigencia del servicio</div>
+      <div class="subtitle">Mismos campos que la tabla de arriba, más la columna de Observaciones</div>
 
       ${canEdit && candidatas.length>0 ? `
       <div class="uploadbar">
         <div class="txt">
-          <b>${candidatas.length} tienda(s) marcada(s) "Cerrada" siguen arriba, en la tabla de Expansión.</b> Muévelas aquí abajo para llevar el detalle de cierre en un solo lugar.
+          <b>${candidatas.length} tienda(s) marcada(s) "Cerrada" siguen arriba, en la tabla de Expansión.</b> Muévelas aquí abajo para llevar el seguimiento de cierre en un solo lugar.
         </div>
         <button class="upload" id="btnAbrirMigrarCierre">Mover tiendas cerradas de arriba</button>
       </div>` : ''}
@@ -4116,47 +4109,55 @@ auth.onAuthStateChanged(async function(user){
 
       <div class="cards">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_CIERRE)}">Total en este apartado</div>
-          <div class="body"><div class="big">${tiendas.length}</div><div class="lbl">cierres bajo seguimiento</div></div></div>
+          <div class="body"><div class="big">${tiendas.length}</div><div class="lbl">tiendas bajo seguimiento</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad('#DC2626')}">Cerradas</div>
-          <div class="body"><div class="big">${cerradas}</div><div class="lbl">operación ya cerrada</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad('#D97706')}">Tentativas</div>
-          <div class="body"><div class="big">${tentativas}</div><div class="lbl">cierre programado, aún no confirmado</div></div></div>
+          <div class="body"><div class="big">${cerradas}</div><div class="lbl">marcadas manualmente</div></div></div>
       </div>
 
       <div class="panel">
         <div class="editbar">${editingCierre
           ? `<button id="btnCancelCierre">Cancelar</button><button id="btnAddCierre">Agregar tienda</button><button class="primary" id="btnSaveCierre">Guardar cambios</button>`
           : (canEdit ? `<button id="btnEditCierre">Editar todo</button>` : '')}</div>
-        <h3>Tiendas — cierre tentativo / cerrado</h3>
+        <h3>Tiendas — mes, hardware, internet, estatus y observaciones</h3>
         ${tiendas.length===0 ? `<div class="placeholder"><h3>Todavía no hay tiendas aquí</h3><p>${canEdit ? 'Da clic en "Editar todo" para agregar una tienda manualmente, o usa "Mover tiendas cerradas de arriba" si ya hay alguna marcada como Cerrada en la tabla de Expansión.' : 'Todavía no hay tiendas capturadas en este apartado.'}</p></div>` : `
         <div style="overflow-x:auto;"><table>
           <thead><tr>
-            <th>#</th><th>Clave PDV</th><th>Tienda</th><th>Periodo</th><th>Internet</th>
-            <th style="text-align:left;">Detalle de cierre</th><th>Estatus</th><th style="text-align:left;">Observaciones</th>${editingCierre?'<th></th>':''}
+            <th>#</th><th>Clave PDV</th><th>Tienda</th><th>Región</th><th>Mes</th>
+            <th>PC</th><th>Lap</th><th>Internet</th><th>ARQ</th><th>Impresora</th><th>Estatus</th><th style="text-align:left;">Nota</th><th style="text-align:left;">Observaciones</th>${editingCierre?'<th></th>':''}
           </tr></thead>
           <tbody>${tiendas.map((t,i)=> editingCierre ? `
             <tr data-cz-row="${i}">
-              <td>${i+1}</td>
-              <td><input type="text" style="width:80px;" data-cz-field="clave" data-cz-row="${i}" value="${t.clave||''}"></td>
-              <td><input type="text" style="width:150px; text-align:left;" data-cz-field="nombre" data-cz-row="${i}" value="${(t.nombre||'').replace(/"/g,'&quot;')}"></td>
-              <td><input type="text" style="width:80px;" data-cz-field="periodo" data-cz-row="${i}" value="${(t.periodo||'').replace(/"/g,'&quot;')}"></td>
+              <td><input type="text" style="width:44px;" data-cz-field="numero" data-cz-row="${i}" value="${t.numero!==null && t.numero!==undefined ? t.numero : ''}"></td>
+              <td><input type="text" style="width:110px;" data-cz-field="clave" data-cz-row="${i}" value="${t.clave||''}"></td>
+              <td><input type="text" style="width:220px; text-align:left;" data-cz-field="nombre" data-cz-row="${i}" value="${(t.nombre||'').replace(/"/g,'&quot;')}"></td>
+              <td><input type="text" style="width:90px;" data-cz-field="region" data-cz-row="${i}" value="${t.region||''}"></td>
+              <td><input type="text" style="width:80px;" data-cz-field="mes" data-cz-row="${i}" value="${t.mes||''}"></td>
+              <td><input type="text" style="width:36px;" data-cz-field="pc" data-cz-row="${i}" value="${t.pc||''}"></td>
+              <td><input type="text" style="width:36px;" data-cz-field="lap" data-cz-row="${i}" value="${t.lap||''}"></td>
               <td><input type="text" style="width:70px;" data-cz-field="internet" data-cz-row="${i}" value="${t.internet||''}"></td>
-              <td><textarea rows="3" style="width:230px; text-align:left; font-family:inherit; font-size:12.5px;" data-cz-field="detalle" data-cz-row="${i}">${(t.detalle||'')}</textarea></td>
+              <td><input type="text" style="width:80px;" data-cz-field="entregado_arq" data-cz-row="${i}" value="${t.entregado_arq||''}"></td>
+              <td><input type="text" style="width:80px;" data-cz-field="entrega_impresora" data-cz-row="${i}" value="${t.entrega_impresora||''}"></td>
               <td><select data-cz-field="estatus" data-cz-row="${i}">
-                ${['Tentativa','Cerrada'].map(op=>`<option value="${op}" ${t.estatus===op?'selected':''}>${op}</option>`).join('')}
+                ${['Abierta','En proceso','Prospecto','Cerrada'].map(op=>`<option value="${op}" ${t.estatus===op?'selected':''}>${op}</option>`).join('')}
               </select></td>
-              <td><textarea rows="3" style="width:170px; text-align:left; font-family:inherit; font-size:12.5px;" data-cz-field="observaciones" data-cz-row="${i}">${(t.observaciones||'')}</textarea></td>
+              <td><input type="text" style="width:220px; text-align:left;" data-cz-field="nota" data-cz-row="${i}" value="${(t.nota||'').replace(/"/g,'&quot;')}"></td>
+              <td><input type="text" style="width:220px; text-align:left;" data-cz-field="observaciones" data-cz-row="${i}" value="${(t.observaciones||'').replace(/"/g,'&quot;')}"></td>
               <td><button data-cz-remove="${i}" style="padding:3px 8px;">✕</button></td>
             </tr>` : `
             <tr data-cz-row="${i}">
-              <td>${i+1}</td>
+              <td>${t.numero!==null && t.numero!==undefined ? t.numero : '—'}</td>
               <td>${t.clave||'—'}</td>
               <td style="text-align:left;">${t.nombre}</td>
-              <td>${t.periodo||'—'}</td>
-              <td>${t.internet||'—'}</td>
-              <td style="text-align:left; white-space:pre-wrap;">${t.detalle||'<span style="color:var(--sub)">—</span>'}</td>
-              <td><span class="status-badge ${estatusCierreClass(t.estatus)}">${t.estatus}</span></td>
-              <td style="text-align:left; white-space:pre-wrap;">${t.observaciones||'<span style="color:var(--sub)">—</span>'}</td>
+              <td>${t.region}</td>
+              <td>${t.mes||'—'}</td>
+              <td>${t.pc}</td>
+              <td>${t.lap}</td>
+              <td>${t.internet}</td>
+              <td>${t.entregado_arq}</td>
+              <td>${t.entrega_impresora}</td>
+              <td><span class="status-badge ${estatusExpClass(t.estatus)}">${t.estatus}</span></td>
+              <td style="text-align:left;">${t.nota||'<span style="color:var(--sub)">—</span>'}</td>
+              <td style="text-align:left;">${t.observaciones||'<span style="color:var(--sub)">—</span>'}</td>
             </tr>`).join('')}
           </tbody>
         </table></div>`}
@@ -4167,7 +4168,7 @@ auth.onAuthStateChanged(async function(user){
           ? `<textarea id="notasGeneralesCierre" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: pendiente confirmar recolección de equipo en Obregón Sonora Puerta">${cz.notas_generales||''}</textarea>`
           : `<div style="font-size:13px; white-space:pre-wrap; color:${cz.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${cz.notas_generales || 'Sin notas capturadas todavía.'}</div>`}
       </div>
-      <div class="foot">En modo edición puedes cambiar cualquier campo, agregar tiendas nuevas o quitarlas. "Observaciones" es un campo libre, separado del detalle de fechas.</div>
+      <div class="foot">En modo edición puedes cambiar cualquier campo de la tabla, agregar tiendas manualmente o quitarlas. "Observaciones" es la única columna nueva respecto a la tabla de arriba.</div>
     `;
   }
   function wireCierreTiendas(){
@@ -4185,14 +4186,16 @@ auth.onAuthStateChanged(async function(user){
     if(editingCierre){
       document.getElementById('btnCancelCierre').onclick=()=>{editingCierre=false;render();};
       document.getElementById('btnAddCierre').onclick=()=>{
-        tiendas.push({clave:'', nombre:'Nueva tienda', periodo:'', internet:'-', detalle:'', estatus:'Tentativa', observaciones:''});
+        tiendas.push({numero:null, clave:'', nombre:'Nueva tienda', region:'-', mes:'', pc:'-', lap:'-', internet:'-', entregado_arq:'-', entrega_impresora:'-', estatus:'Prospecto', nota:'', observaciones:''});
         render();
       };
       document.getElementById('btnSaveCierre').onclick=()=>{
         document.querySelectorAll('[data-cz-field]').forEach(inp=>{
           const i = Number(inp.dataset.czRow);
           const field = inp.dataset.czField;
-          tiendas[i][field] = inp.value;
+          let val = inp.value;
+          if(field==='numero') val = val==='' ? null : Number(val);
+          tiendas[i][field] = val;
         });
         const ng = document.getElementById('notasGeneralesCierre');
         if(ng) cz.notas_generales = ng.value;
