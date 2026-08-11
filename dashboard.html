@@ -314,8 +314,8 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
 
   /* ===== Estatus de Servicio (Internet) — fondo blanco + rotativo, agosto 2026 =====
      A petición explícita del cliente: fondo BLANCO (no el tema oscuro que tenía antes), tiendas
-     caídas siempre fijas al inicio (nunca rotan), y el resto ("en línea") rotando cada minuto en
-     páginas de hasta 40 en pantalla, hasta cubrir las 622. Sin filtros ni botón de "Actualizar"
+     caídas siempre fijas al inicio (nunca rotan), y el resto ("en línea") rotando cada 15 segundos
+     en páginas de hasta 40 en pantalla, hasta cubrir las 622. Sin filtros ni botón de "Actualizar"
      (se quitaron antes a petición explícita) — todo el refresco es automático. */
   .noc-wrap{background:#fff; border-radius:14px; padding:22px 24px; margin:-4px 0 4px; color:var(--ink); border:1px solid var(--line);}
   .noc-head{display:flex; align-items:baseline; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:4px;}
@@ -1255,7 +1255,7 @@ auth.onAuthStateChanged(async function(user){
   let estatusServicio = { cargado:false, cargando:false, error:null, tiendas:[], fallasPorTienda:new Map(), actualizado:null };
   let esvModalTienda = null; // id de la tienda mostrada en el detalle al hacer clic en una tarjeta (o null)
   // Rotativo de "en línea": se muestran hasta 40 tiendas a la vez; las caídas siempre van TODAS y
-  // fijas al inicio (nunca rotan). esvPagina avanza cada minuto (ver iniciarAutoRefreshEstatusServicio)
+  // fijas al inicio (nunca rotan). esvPagina avanza cada 15 segundos (ver iniciarAutoRefreshEstatusServicio)
   // y persiste entre recargas de datos para que la rotación no se reinicie sola.
   const ESV_VISIBLE_TOTAL = 40;
   let esvPagina = 0;
@@ -1431,11 +1431,11 @@ auth.onAuthStateChanged(async function(user){
     render();
   }
 
-  // Refresco + rotación automática cada 1 minuto mientras la pestaña "Estatus de Servicio" esté
+  // Refresco + rotación automática cada 15 segundos mientras la pestaña "Estatus de Servicio" esté
   // abierta: así el tablero refleja solo, sin que alguien tenga que darle "Actualizar", cualquier
   // falla que se registre o se cierre desde el Directorio de Tiendas, y de paso avanza a la
   // siguiente página de tiendas "en línea" (las caídas nunca rotan, siempre van todas y primero).
-  // Un solo intervalo global (arrancado una vez desde initCaidasApp) revisa cada minuto si la
+  // Un solo intervalo global (arrancado una vez desde initCaidasApp) revisa cada 15s si la
   // pestaña activa es esta; si no lo es, no hace ninguna consulta a Firestore ni avanza la página.
   let esvAutoRefreshIniciado = false;
   function iniciarAutoRefreshEstatusServicio(){
@@ -1446,7 +1446,7 @@ auth.onAuthStateChanged(async function(user){
         esvPagina++;
         cargarEstatusServicio({ silencioso:true });
       }
-    }, 60 * 1000);
+    }, 15 * 1000);
   }
 
   // Detalle al hacer clic en una tarjeta — vive en su propio contenedor (#esvModalRoot) para
@@ -1511,7 +1511,7 @@ auth.onAuthStateChanged(async function(user){
     const proveedoresDistintos = new Set(todas.map(t=>esvCarrierLabel(t.carrier))).size;
 
     // Orden tipo NOC: primero las caídas (más reciente primero, TODAS, fijas — nunca rotan), luego
-    // una página de hasta (40 - núm. de caídas) tiendas "en línea" que va rotando cada minuto hasta
+    // una página de hasta (40 - núm. de caídas) tiendas "en línea" que va rotando cada 15 seg hasta
     // cubrir el total — sin ningún filtro, el tablero muestra siempre lo más relevante primero.
     const caidas = todas.filter(t=>caidasMap.has(t.id))
       .sort((a,b)=> new Date(caidasMap.get(b.id).fecha_captura||0) - new Date(caidasMap.get(a.id).fecha_captura||0));
@@ -1522,7 +1522,7 @@ auth.onAuthStateChanged(async function(user){
     const enLineaPagina = pageSize > 0 ? enLinea.slice(idxPagina * pageSize, idxPagina * pageSize + pageSize) : [];
     const ordenadas = [...caidas, ...enLineaPagina];
     const pageInfoTexto = (pageSize > 0 && enLinea.length > 0)
-      ? `Mostrando ${idxPagina*pageSize+1}–${idxPagina*pageSize+enLineaPagina.length} de ${enLinea.length} tiendas en línea (página ${idxPagina+1} de ${totalPaginas}) · esta parte del tablero rota cada minuto`
+      ? `Mostrando ${idxPagina*pageSize+1}–${idxPagina*pageSize+enLineaPagina.length} de ${enLinea.length} tiendas en línea (página ${idxPagina+1} de ${totalPaginas}) · esta parte del tablero rota cada 15 seg`
       : '';
 
     c.innerHTML = `
@@ -1530,7 +1530,7 @@ auth.onAuthStateChanged(async function(user){
         <div class="noc-head">
           <div class="noc-title"><span class="noc-live"></span> Estatus de Servicio — En vivo</div>
         </div>
-        <div class="noc-sub">Datos en vivo del Directorio de Tiendas · se actualiza sola cada 1 min · última consulta: ${estatusServicio.actualizado ? fmtFecha(estatusServicio.actualizado) : '-'}</div>
+        <div class="noc-sub">Datos en vivo del Directorio de Tiendas · se actualiza sola cada 15 seg · última consulta: ${estatusServicio.actualizado ? fmtFecha(estatusServicio.actualizado) : '-'}</div>
 
         <div class="noc-stats">
           <div class="noc-stat"><div class="num">${totalActivas}</div><div class="lbl">Tiendas activas</div></div>
