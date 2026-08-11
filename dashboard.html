@@ -1065,6 +1065,22 @@ auth.onAuthStateChanged(async function(user){
     // Arranca vacío a propósito: los números anteriores eran de una lámina de PowerPoint, no de un
     // archivo real. Se llena con el Excel que suba el admin (botón en la propia pestaña).
     envios_recolecciones: { registros: [], carga: { archivo: null, fecha: null } },
+    // Resumen de Reemplazos (agosto 2026): dejó de ser la constante fija DATA_RESUMEN_REEMPLAZOS —
+    // ahora vive en Firestore y es editable por amartinez/asanchez (ver canEditResumenReemplazos()).
+    // "Reemplazos semana" se dividió en Ant(erior) y Act(ual) para poder dar seguimiento semana a
+    // semana. Los valores de abajo son los mismos que traía la lámina del PowerPoint, capturados una
+    // sola vez como punto de partida — Ant arranca en 0 porque no hay dato histórico de la semana previa.
+    resumen_reemplazos: {
+      cpu: { inventario:3212, reemplazos2026:229, pctInventario:7, reemplazosSemanaAnt:0, reemplazosSemanaAct:3 },
+      laptop: { inventario:697, reemplazos2026:93, pctInventario:13, reemplazosSemanaAnt:0, reemplazosSemanaAct:1 },
+      disco: { reemplazos2026:187, pctTotal:37, promedioMensual:23, reemplazosSemanaAnt:0, reemplazosSemanaAct:7 },
+      historial: []
+    },
+    // Reemplazo Disco Duro (agosto 2026): igual que Envíos y Recolecciones, dejó de ser la constante
+    // fija DATA_REEMPLAZO_DISCO — arranca vacío a propósito y se llena con el Excel (columnas Mes,
+    // Total) que suba asanchez (único usuario con el botón de carga, ver canEditReemplazoDisco()).
+    // Total unidades, Promedio/mes, Máximo y Mínimo se calculan solos a partir de los registros.
+    reemplazo_disco: { registros: [], carga: { archivo: null, fecha: null } },
     // Budget IT 2026: recreado de Budget 2026_IT.xlsx (hoja "Presupuesto 2026"). Enero-Junio son los
     // valores reales ya conciliados (quedan congelados en la UI). Julio trae lo que ya estaba cargado
     // en el Excel (algunos proveedores aún sin dato); Agosto-Diciembre quedan en null y se editan mes
@@ -1143,11 +1159,6 @@ auth.onAuthStateChanged(async function(user){
   // (Total Envíos, Total Recolección, % Recuperación, Promedio Mensual) se calculan solos a partir
   // de los registros cargados. Ver DEFAULTS.envios_recolecciones, calcularDatosEnviosRecolecciones()
   // y renderEnviosRecolecciones().
-  const DATA_RESUMEN_REEMPLAZOS = {
-    cpu: {inventario:3212, reemplazos2026:229, pctInventario:7, reemplazosSemana:3},
-    laptop: {inventario:697, reemplazos2026:93, pctInventario:13, reemplazosSemana:1},
-    disco: {reemplazos2026:187, pctTotal:37, promedioMensual:23, reemplazosSemana:7}
-  };
   const DATA_REEMPLAZO_LAPTOP = {
     bars2025:[12,14,15,15,7,12,15,12,9,7,2,12],
     line2026:[11,19,10,11,19,12,10,1,0,0,0,0],
@@ -1157,10 +1168,6 @@ auth.onAuthStateChanged(async function(user){
     bars2025:[32,28,28,16,20,27,26,29,21,48,20,19],
     line2026:[31,33,37,30,35,29,31,3,0,0,0,0],
     promedioMes:29, total2026:229
-  };
-  const DATA_REEMPLAZO_DISCO = {
-    valores:[33,25,19,25,30,14,34,7],
-    total:187, promedioMes:23, picoMes:'Julio', picoValor:34, minMes:'Agosto (en curso)', minValor:7
   };
   const DATA_BIOMETRICOS = {
     danados:[47,40,45,29,41,34,38],
@@ -1219,9 +1226,23 @@ auth.onAuthStateChanged(async function(user){
   function canEditEnviosRec(){
     return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'asanchez');
   }
+  // Reemplazo Disco Duro: mismo patrón exclusivo que Envíos y Recolecciones — solo asanchez ve el
+  // botón de carga de Excel (columnas Mes, Total).
+  function canEditReemplazoDisco(){
+    return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'asanchez');
+  }
+  // Resumen de Reemplazos: igual que Envíos y Recolecciones, es exclusivo — solo amartinez y
+  // asanchez ven el botón de editar y el historial de cambios, sin importar si son admin o no.
+  const USUARIOS_RESUMEN_REEMPLAZOS = ['amartinez','asanchez'];
+  function canEditResumenReemplazos(){
+    return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_RESUMEN_REEMPLAZOS.includes(currentUser.username));
+  }
+  let editingResumenReemplazos = false;
+  let historialResumenReemplazosExpandido = null;
   let cargaPendiente = null;
   let cargaPendienteExpansion = null;
   let cargaPendienteEnviosRec = null;
+  let cargaPendienteReemplazoDisco = null;
   let historialExpandido = null;
   let historialPdvExpandido = null;
   let editandoLaptopCerrado = false; // control independiente del botón "Editar" general de la pestaña
@@ -1276,6 +1297,17 @@ auth.onAuthStateChanged(async function(user){
       if(!state.envios_recolecciones) state.envios_recolecciones = clone(DEFAULTS.envios_recolecciones);
       if(!Array.isArray(state.envios_recolecciones.registros)) state.envios_recolecciones.registros = [];
       if(!state.envios_recolecciones.carga) state.envios_recolecciones.carga = { archivo: null, fecha: null };
+      if(!state.resumen_reemplazos) state.resumen_reemplazos = clone(DEFAULTS.resumen_reemplazos);
+      if(!state.resumen_reemplazos.historial) state.resumen_reemplazos.historial = [];
+      ['cpu','laptop','disco'].forEach(cat=>{
+        const o = state.resumen_reemplazos[cat];
+        // Migración desde el campo viejo "reemplazosSemana" (un solo número) a Ant/Act.
+        if(o.reemplazosSemanaAct===undefined) o.reemplazosSemanaAct = o.reemplazosSemana || 0;
+        if(o.reemplazosSemanaAnt===undefined) o.reemplazosSemanaAnt = 0;
+      });
+      if(!state.reemplazo_disco) state.reemplazo_disco = clone(DEFAULTS.reemplazo_disco);
+      if(!Array.isArray(state.reemplazo_disco.registros)) state.reemplazo_disco.registros = [];
+      if(!state.reemplazo_disco.carga) state.reemplazo_disco.carga = { archivo: null, fecha: null };
       if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
       if(!state.budget_it.historial) state.budget_it.historial = [];
       state.budget_it.capex.forEach(cx=>{ if(cx.incluir===undefined) cx.incluir = true; });
@@ -1283,7 +1315,7 @@ auth.onAuthStateChanged(async function(user){
     render();
   }
   async function save(){
-    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT() && !canEditLaptopCerrado() && !canEditEnviosRec()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
+    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT() && !canEditLaptopCerrado() && !canEditEnviosRec() && !canEditResumenReemplazos() && !canEditReemplazoDisco()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
     state.updated_at = new Date().toISOString();
     try{
       await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).set({
@@ -1937,13 +1969,14 @@ auth.onAuthStateChanged(async function(user){
         tab = el.dataset.tab;
         editing = false;
         editingCierre = false;
+        editingResumenReemplazos = false;
         internetMenuAbierto = false;
         soporteMenuAbierto = false;
         render();
       };
     });
     document.querySelectorAll('.tab[data-tab]').forEach(el=>{
-      el.onclick = () => { tab = el.dataset.tab; editing = false; editingCierre = false; internetMenuAbierto = false; soporteMenuAbierto = false; render(); };
+      el.onclick = () => { tab = el.dataset.tab; editing = false; editingCierre = false; editingResumenReemplazos = false; internetMenuAbierto = false; soporteMenuAbierto = false; render(); };
     });
     renderTab();
   }
@@ -2164,39 +2197,124 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- 2. Resumen de Reemplazos ----------
+  // Editable exclusivamente por amartinez/asanchez (canEditResumenReemplazos) — el resto de usuarios
+  // (incluido el admin general) lo ve en modo solo lectura, sin botón de editar ni historial.
   function renderResumenReemplazos(c){
-    const d = DATA_RESUMEN_REEMPLAZOS;
+    const d = state.resumen_reemplazos;
+    const puedeEditar = canEditResumenReemplazos();
+    const enEdicion = editingResumenReemplazos && puedeEditar;
     const COL_CPU='#C62828', COL_LAP='#1A56DB', COL_DISCO='#5D4037';
+
+    function campo(cat, field, label, color, opts){
+      opts = opts || {};
+      const val = d[cat][field];
+      if(enEdicion){
+        return `<div class="rrow"><span>${label}</span><input type="number" step="1" data-rr-cat="${cat}" data-rr-field="${field}" value="${val}" style="width:70px; text-align:right;"></div>`;
+      }
+      return `<div class="rrow"><span>${label}</span><b style="color:${color}">${opts.money ? fmtMX(val) : val}${opts.suffix||''}</b></div>`;
+    }
+
     c.innerHTML = `
       <div class="title">Resumen de Reemplazos 2026</div>
       <div class="subtitle">CPU · Laptop · Disco Duro — estado actual Ene–Ago</div>
+      <div class="editbar">${enEdicion
+        ? `<button id="btnCancelRR">Cancelar</button><button class="primary" id="btnSaveRR">Guardar cambios</button>`
+        : (puedeEditar ? `<button id="btnEditRR">Editar</button>` : '')}</div>
       <div class="resumen3">
         <div class="rescard">
           <div class="rhead" style="background:${cardGrad(COL_CPU)}">🖥️ CPU</div>
-          <div class="rbig" style="color:${COL_CPU}">${fmtMX(d.cpu.inventario)}</div>
-          <div class="rsub">En inventario</div>
-          <div class="rrow"><span>Reemplazos 2026</span><b style="color:${COL_CPU}">${d.cpu.reemplazos2026}</b></div>
-          <div class="rrow"><span>% del inventario</span><b style="color:${COL_CPU}">${d.cpu.pctInventario}%</b></div>
-          <div class="rrow"><span>Reemplazos semana</span><b style="color:#D97706">${d.cpu.reemplazosSemana}</b></div>
+          ${enEdicion
+            ? `<div class="rrow" style="margin-top:8px;"><span>En inventario</span><input type="number" step="1" data-rr-cat="cpu" data-rr-field="inventario" value="${d.cpu.inventario}" style="width:90px; text-align:right;"></div>`
+            : `<div class="rbig" style="color:${COL_CPU}">${fmtMX(d.cpu.inventario)}</div><div class="rsub">En inventario</div>`}
+          ${campo('cpu','reemplazos2026','Reemplazos 2026',COL_CPU)}
+          ${campo('cpu','pctInventario','% del inventario',COL_CPU,{suffix:'%'})}
+          ${campo('cpu','reemplazosSemanaAnt','Reemplazos Semana Ant','#D97706')}
+          ${campo('cpu','reemplazosSemanaAct','Reemplazos Semana Act','#D97706')}
         </div>
         <div class="rescard">
           <div class="rhead" style="background:${cardGrad(COL_LAP)}">💻 Laptop</div>
-          <div class="rbig" style="color:${COL_LAP}">${fmtMX(d.laptop.inventario)}</div>
-          <div class="rsub">En inventario</div>
-          <div class="rrow"><span>Reemplazos 2026</span><b style="color:${COL_LAP}">${d.laptop.reemplazos2026}</b></div>
-          <div class="rrow"><span>% del inventario</span><b style="color:${COL_LAP}">${d.laptop.pctInventario}%</b></div>
-          <div class="rrow"><span>Reemplazos semana</span><b style="color:#D97706">${d.laptop.reemplazosSemana}</b></div>
+          ${enEdicion
+            ? `<div class="rrow" style="margin-top:8px;"><span>En inventario</span><input type="number" step="1" data-rr-cat="laptop" data-rr-field="inventario" value="${d.laptop.inventario}" style="width:90px; text-align:right;"></div>`
+            : `<div class="rbig" style="color:${COL_LAP}">${fmtMX(d.laptop.inventario)}</div><div class="rsub">En inventario</div>`}
+          ${campo('laptop','reemplazos2026','Reemplazos 2026',COL_LAP)}
+          ${campo('laptop','pctInventario','% del inventario',COL_LAP,{suffix:'%'})}
+          ${campo('laptop','reemplazosSemanaAnt','Reemplazos Semana Ant','#D97706')}
+          ${campo('laptop','reemplazosSemanaAct','Reemplazos Semana Act','#D97706')}
         </div>
         <div class="rescard">
           <div class="rhead" style="background:${cardGrad(COL_DISCO)}">💾 Disco Duro</div>
-          <div class="rbig" style="color:${COL_DISCO}">${fmtMX(d.disco.reemplazos2026)}</div>
-          <div class="rsub">Reemplazos 2026</div>
-          <div class="rrow"><span>% del total reemplazos</span><b style="color:${COL_DISCO}">${d.disco.pctTotal}%</b></div>
-          <div class="rrow"><span>Prom. mensual</span><b style="color:${COL_DISCO}">${d.disco.promedioMensual}</b></div>
-          <div class="rrow"><span>Reemplazos semana</span><b style="color:#D97706">${d.disco.reemplazosSemana}</b></div>
+          ${enEdicion
+            ? `<div class="rrow" style="margin-top:8px;"><span>Reemplazos 2026</span><input type="number" step="1" data-rr-cat="disco" data-rr-field="reemplazos2026" value="${d.disco.reemplazos2026}" style="width:90px; text-align:right;"></div>`
+            : `<div class="rbig" style="color:${COL_DISCO}">${fmtMX(d.disco.reemplazos2026)}</div><div class="rsub">Reemplazos 2026</div>`}
+          ${campo('disco','pctTotal','% del total reemplazos',COL_DISCO,{suffix:'%'})}
+          ${campo('disco','promedioMensual','Prom. mensual',COL_DISCO)}
+          ${campo('disco','reemplazosSemanaAnt','Reemplazos Semana Ant','#D97706')}
+          ${campo('disco','reemplazosSemanaAct','Reemplazos Semana Act','#D97706')}
         </div>
       </div>
-      <div class="foot" style="margin-top:14px;">Resumen ejecutivo de los 3 indicadores de detalle (Reemplazo de Laptop, Reemplazo de CPU, Reemplazo Disco Duro) — pendiente de definir archivo fuente para que se calcule solo en vez de venir fijo del PowerPoint.</div>
+      <div class="foot" style="margin-top:14px;">Resumen ejecutivo de los 3 indicadores de detalle (Reemplazo de Laptop, Reemplazo de CPU, Reemplazo Disco Duro). "Reemplazos Semana Ant/Act" permiten dar seguimiento semana a semana — se actualizan a mano con el botón "Editar".</div>
+      ${puedeEditar ? renderHistorialResumenReemplazos() : ''}
+    `;
+
+    if(enEdicion){
+      document.getElementById('btnCancelRR').onclick = ()=>{ editingResumenReemplazos = false; render(); };
+      document.getElementById('btnSaveRR').onclick = ()=>{
+        document.querySelectorAll('[data-rr-cat]').forEach(inp=>{
+          const cat = inp.dataset.rrCat, field = inp.dataset.rrField;
+          const raw = inp.value.trim();
+          state.resumen_reemplazos[cat][field] = raw==='' ? 0 : Number(raw);
+        });
+        if(!state.resumen_reemplazos.historial) state.resumen_reemplazos.historial = [];
+        state.resumen_reemplazos.historial.unshift({
+          fecha: new Date().toISOString(),
+          usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : 'desconocido',
+          snapshot: clone({ cpu: state.resumen_reemplazos.cpu, laptop: state.resumen_reemplazos.laptop, disco: state.resumen_reemplazos.disco })
+        });
+        if(state.resumen_reemplazos.historial.length > 30) state.resumen_reemplazos.historial.length = 30;
+        editingResumenReemplazos = false;
+        save();
+      };
+    } else if(puedeEditar){
+      document.getElementById('btnEditRR').onclick = ()=>{ editingResumenReemplazos = true; render(); };
+    }
+    document.querySelectorAll('[data-hist-rr-ver]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const idx = Number(btn.dataset.histRrVer);
+        historialResumenReemplazosExpandido = historialResumenReemplazosExpandido===idx ? null : idx;
+        render();
+      };
+    });
+  }
+
+  function renderHistorialResumenReemplazos(){
+    const hist = (state.resumen_reemplazos && state.resumen_reemplazos.historial) || [];
+    if(!hist.length){
+      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3><div class="foot">Todavía no hay cambios guardados en esta pestaña.</div></div>`;
+    }
+    return `
+      <div class="panel" style="margin-top:20px;">
+        <h3>Historial de cambios</h3>
+        <div class="foot" style="margin-bottom:10px;">Solo visible para amartinez y asanchez. Se guardan los últimos 30 cambios, más reciente arriba.</div>
+        <div style="overflow-x:auto;"><table>
+          <thead><tr><th style="text-align:left;">Fecha</th><th style="text-align:left;">Usuario</th><th></th></tr></thead>
+          <tbody>${hist.map((h,i)=>`
+            <tr>
+              <td style="text-align:left;">${fmtFecha(h.fecha)}</td>
+              <td style="text-align:left;">${h.usuario}</td>
+              <td><button data-hist-rr-ver="${i}" style="padding:3px 8px;">${historialResumenReemplazosExpandido===i ? 'Ocultar' : 'Ver'}</button></td>
+            </tr>
+            ${historialResumenReemplazosExpandido===i ? `
+            <tr><td colspan="3">
+              <div style="font-size:12.5px; padding:8px 0; text-align:left; line-height:1.7;">
+                <b>CPU</b> — Inventario: ${h.snapshot.cpu.inventario} · Reemplazos 2026: ${h.snapshot.cpu.reemplazos2026} · % inventario: ${h.snapshot.cpu.pctInventario}% · Semana Ant: ${h.snapshot.cpu.reemplazosSemanaAnt} · Semana Act: ${h.snapshot.cpu.reemplazosSemanaAct}<br>
+                <b>Laptop</b> — Inventario: ${h.snapshot.laptop.inventario} · Reemplazos 2026: ${h.snapshot.laptop.reemplazos2026} · % inventario: ${h.snapshot.laptop.pctInventario}% · Semana Ant: ${h.snapshot.laptop.reemplazosSemanaAnt} · Semana Act: ${h.snapshot.laptop.reemplazosSemanaAct}<br>
+                <b>Disco Duro</b> — Reemplazos 2026: ${h.snapshot.disco.reemplazos2026} · % del total: ${h.snapshot.disco.pctTotal}% · Prom. mensual: ${h.snapshot.disco.promedioMensual} · Semana Ant: ${h.snapshot.disco.reemplazosSemanaAnt} · Semana Act: ${h.snapshot.disco.reemplazosSemanaAct}
+              </div>
+            </td></tr>` : ''}
+          `).join('')}
+          </tbody>
+        </table></div>
+      </div>
     `;
   }
 
@@ -2261,31 +2379,164 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- 5. Reemplazo Disco Duro ----------
+  // Carga de Excel (Mes, Total), exclusiva de asanchez — mismo patrón que Envíos y Recolecciones:
+  // vista previa antes de aplicar, "actualiza por Mes si ya existe, agrega si es nuevo". Reutiliza
+  // los helpers genéricos normalizarTextoEnvios/buscarColumnaEnvios/normalizeMesEnvios (el nombre
+  // trae "Envios" por dónde se escribieron primero, pero no son específicos de esa pestaña).
+  function calcularDatosReemplazoDisco(rows2d, fileName){
+    let headerIdx = -1, colMes=-1, colTotal=-1;
+    for(let i=0;i<Math.min(10,rows2d.length);i++){
+      const row = rows2d[i] || [];
+      const m = buscarColumnaEnvios(row, ['MES']);
+      const t = buscarColumnaEnvios(row, ['TOTAL']);
+      if(m>=0 && t>=0){ headerIdx=i; colMes=m; colTotal=t; break; }
+    }
+    if(headerIdx<0) throw new Error('No se encontraron las columnas "Mes" y "Total" en la hoja. Verifica los encabezados del archivo.');
+
+    const registros = [];
+    for(let i=headerIdx+1; i<rows2d.length; i++){
+      const row = rows2d[i] || [];
+      const mesRaw = row[colMes];
+      if(mesRaw===undefined || mesRaw===null || String(mesRaw).trim()==='') continue;
+      const total = Number(row[colTotal]) || 0;
+      registros.push({ mes: normalizeMesEnvios(mesRaw), total });
+    }
+    if(registros.length===0) throw new Error('No se encontraron filas con datos después del encabezado.');
+
+    const totalUnidades = registros.reduce((s,r)=>s+r.total,0);
+    return { fileName, registros, resumen:{ totalFilas: registros.length, totalUnidades } };
+  }
+  function aplicarDatosReemplazoDisco(datos){
+    const existentes = state.reemplazo_disco.registros || [];
+    const indexPorMes = {};
+    existentes.forEach((r,i)=>{ indexPorMes[normalizarTextoEnvios(r.mes)] = i; });
+
+    let agregados = 0, actualizados = 0;
+    datos.registros.forEach(nuevo=>{
+      const key = normalizarTextoEnvios(nuevo.mes);
+      if(indexPorMes.hasOwnProperty(key)){
+        existentes[indexPorMes[key]] = { ...nuevo };
+        actualizados++;
+      } else {
+        existentes.push({ ...nuevo });
+        indexPorMes[key] = existentes.length - 1;
+        agregados++;
+      }
+    });
+    existentes.sort((a,b)=>{
+      const ia = MESES12.indexOf(a.mes), ib = MESES12.indexOf(b.mes);
+      if(ia<0 && ib<0) return 0;
+      if(ia<0) return 1;
+      if(ib<0) return -1;
+      return ia-ib;
+    });
+
+    state.reemplazo_disco.registros = existentes;
+    state.reemplazo_disco.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados };
+    cargaPendienteReemplazoDisco = null;
+    save();
+  }
+  function handleFileUploadReemplazoDisco(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadErrorReemplazoDisco');
+    if(errBox) errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows2d = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        cargaPendienteReemplazoDisco = calcularDatosReemplazoDisco(rows2d, file.name);
+        render();
+      }catch(err){
+        console.error(err);
+        if(errBox) errBox.innerHTML = `<div style="color:var(--crit); font-size:12.5px; margin-top:6px;">${err.message}</div>`;
+      }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  function panelConfirmacionReemplazoDisco(){
+    const d = cargaPendienteReemplazoDisco;
+    return `<div class="panel" style="border-color:var(--tm);">
+      <h3 style="color:var(--tm);">Confirmar carga · ${d.fileName}</h3>
+      <div style="font-size:13px; line-height:1.8;">
+        Filas leídas: <b>${d.resumen.totalFilas}</b> · Total de unidades en el archivo: <b>${fmtMX(d.resumen.totalUnidades)}</b>
+      </div>
+      <div class="foot">Si un mes del archivo ya existía, se actualiza con este valor; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual.</div>
+      <div class="editbar" style="margin-top:10px;">
+        <button id="btnCancelCargaReemplazoDisco">Cancelar</button>
+        <button class="primary" id="btnAplicarCargaReemplazoDisco">Aplicar datos</button>
+      </div>
+    </div>`;
+  }
+  function wireReemplazoDiscoUpload(){
+    const btn = document.getElementById('btnUploadReemplazoDisco');
+    if(btn) btn.onclick = () => document.getElementById('fileReemplazoDisco').click();
+    const inp = document.getElementById('fileReemplazoDisco');
+    if(inp) inp.onchange = handleFileUploadReemplazoDisco;
+    const btnCancel = document.getElementById('btnCancelCargaReemplazoDisco');
+    if(btnCancel) btnCancel.onclick = ()=>{ cargaPendienteReemplazoDisco = null; render(); };
+    const btnAplicar = document.getElementById('btnAplicarCargaReemplazoDisco');
+    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosReemplazoDisco(cargaPendienteReemplazoDisco); };
+  }
+
   function renderReemplazoDisco(c){
-    const d = DATA_REEMPLAZO_DISCO;
-    const COL_BASE='#0B5E86', COL_PICO='#F0722A', COL_MIN='#29ABE2';
-    const bg = d.valores.map((v,i)=> i===6 ? COL_PICO : (i===7 ? COL_MIN : COL_BASE));
+    const rd = state.reemplazo_disco;
+    const registros = rd.registros || [];
+    const COL_BASE='#0B5E86', COL_MAX='#F0722A', COL_MIN='#29ABE2';
+    const totalUnidades = registros.reduce((s,r)=>s+r.total,0);
+    const promedioMes = registros.length ? Math.round(totalUnidades/registros.length) : 0;
+    let maxReg = null, minReg = null;
+    registros.forEach(r=>{
+      if(!maxReg || r.total > maxReg.total) maxReg = r;
+      if(!minReg || r.total < minReg.total) minReg = r;
+    });
+    const bg = registros.map(r=> (maxReg && r===maxReg) ? COL_MAX : ((minReg && r===minReg) ? COL_MIN : COL_BASE));
+
     c.innerHTML = `
       <div class="title">Reemplazo Disco Duro</div>
-      <div class="subtitle">Unidades reemplazadas por mes — 2026</div>
+      <div class="subtitle">${rd.carga.archivo ? `Última carga: ${rd.carga.archivo} · ${fmtFecha(rd.carga.fecha)}` : 'Unidades reemplazadas por mes — 2026'}</div>
+
+      ${canEditReemplazoDisco() ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar archivo de Reemplazo Disco Duro (.xlsx)</b> — columnas Mes, Total. Si un mes ya existía se actualiza; si es nuevo se agrega.
+          <div id="uploadErrorReemplazoDisco"></div>
+        </div>
+        <input type="file" id="fileReemplazoDisco" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUploadReemplazoDisco">Cargar archivo</button>
+      </div>` : ''}
+      ${cargaPendienteReemplazoDisco ? panelConfirmacionReemplazoDisco() : ''}
+
       <div class="cards">
-        <div class="card"><div class="head" style="background:${cardGrad('#0B2545')}">Total unidades</div><div class="body"><div class="big">${d.total}</div><div class="lbl">Reemplazos 2026</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COL_BASE)}">Promedio / mes</div><div class="body"><div class="big">${d.promedioMes}</div><div class="lbl">unidades · 2026</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COL_PICO)}">Pico</div><div class="body"><div class="big">${d.picoValor}</div><div class="lbl">${d.picoMes}</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COL_MIN)}">Mínimo</div><div class="body"><div class="big">${d.minValor}</div><div class="lbl">${d.minMes}</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad('#0B2545')}">Total unidades</div><div class="body"><div class="big">${fmtMX(totalUnidades)}</div><div class="lbl">Reemplazos 2026</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COL_BASE)}">Promedio / mes</div><div class="body"><div class="big">${fmtMX(promedioMes)}</div><div class="lbl">unidades · 2026</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COL_MAX)}">Máximo</div><div class="body"><div class="big">${maxReg ? fmtMX(maxReg.total) : 0}</div><div class="lbl">${maxReg ? maxReg.mes : '—'}</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COL_MIN)}">Mínimo</div><div class="body"><div class="big">${minReg ? fmtMX(minReg.total) : 0}</div><div class="lbl">${minReg ? minReg.mes : '—'}</div></div></div>
       </div>
+
+      ${registros.length===0 ? `
+      <div class="placeholder">
+        <h3>Todavía no hay datos cargados</h3>
+        <p>Sube el Excel con las columnas Mes y Total para llenar esta pestaña.</p>
+      </div>` : `
       <div class="panel">
         <h3>Reemplazos de disco duro por mes</h3>
         <canvas id="chartDisco"></canvas>
-      </div>
-      <div class="foot">Datos tomados de la lámina "Reemplazo Disco Duro" del PowerPoint.</div>
+      </div>`}
+      <div class="foot">Los indicadores de arriba se calculan solos a partir del archivo cargado — no son editables a mano.</div>
     `;
-    if(charts.disco) charts.disco.destroy();
-    charts.disco = new Chart(document.getElementById('chartDisco'), {
-      type:'bar',
-      data:{ labels: MESES12.slice(0,8), datasets:[{label:'Unidades', data:d.valores, backgroundColor:bg, borderRadius:4}] },
-      options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
-    });
+    if(registros.length>0){
+      if(charts.disco) charts.disco.destroy();
+      charts.disco = new Chart(document.getElementById('chartDisco'), {
+        type:'bar',
+        data:{ labels: registros.map(r=>r.mes), datasets:[{label:'Unidades', data:registros.map(r=>r.total), backgroundColor:bg, borderRadius:4}] },
+        options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+      });
+    }
+    wireReemplazoDiscoUpload();
   }
 
   // ---------- 6. Biométricos ----------
