@@ -2148,6 +2148,14 @@ auth.onAuthStateChanged(async function(user){
     const totalRecoleccion = registros.reduce((s,r)=>s+r.recoleccion,0);
     const pctRecuperacion = fmtPct(totalRecoleccion, totalEnvios);
     const promedioMensual = registros.length ? Math.round(totalEnvios/registros.length) : 0;
+    // La gráfica solo muestra hasta el mes actual: si el Excel trae filas de meses futuros (por ejemplo
+    // una plantilla con los 12 meses ya listados aunque todavía no haya información real de ellos), no
+    // se dibujan barras "en cero" adelantadas. Si el mes no se reconoce en MESES12, se muestra por si acaso.
+    const idxMesActual = new Date().getMonth(); // 0=Enero ... 11=Diciembre
+    const registrosGrafica = registros.filter(r=>{
+      const idx = MESES12.indexOf(r.mes);
+      return idx < 0 || idx <= idxMesActual;
+    });
 
     c.innerHTML = `
       <div class="title">Envíos y Recolecciones</div>
@@ -2171,7 +2179,7 @@ auth.onAuthStateChanged(async function(user){
         <div class="card"><div class="head" style="background:${cardGrad(COL_PROM)}">Prom. Mensual Envíos</div><div class="body"><div class="big">${fmtMX(promedioMensual)}</div><div class="lbl">Total Envíos ÷ meses cargados</div></div></div>
       </div>
 
-      ${registros.length===0 ? `
+      ${registrosGrafica.length===0 ? `
       <div class="placeholder">
         <h3>Todavía no hay datos cargados</h3>
         <p>Sube el Excel con las columnas Mes, Envío y Recolección para llenar esta pestaña.</p>
@@ -2182,13 +2190,13 @@ auth.onAuthStateChanged(async function(user){
       </div>`}
       <div class="foot">Los 4 indicadores de arriba se calculan solos a partir del archivo cargado — no son editables a mano.</div>
     `;
-    if(registros.length>0){
+    if(registrosGrafica.length>0){
       if(charts.enviosRec) charts.enviosRec.destroy();
       charts.enviosRec = new Chart(document.getElementById('chartEnviosRec'), {
         type:'bar',
-        data:{ labels: registros.map(r=>r.mes), datasets:[
-          {label:'Envíos', data:registros.map(r=>r.envios), backgroundColor:COL_ENV, borderRadius:4},
-          {label:'Recolección', data:registros.map(r=>r.recoleccion), backgroundColor:COL_REC, borderRadius:4}
+        data:{ labels: registrosGrafica.map(r=>r.mes), datasets:[
+          {label:'Envíos', data:registrosGrafica.map(r=>r.envios), backgroundColor:COL_ENV, borderRadius:4},
+          {label:'Recolección', data:registrosGrafica.map(r=>r.recoleccion), backgroundColor:COL_REC, borderRadius:4}
         ]},
         options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
       });
