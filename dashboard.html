@@ -589,6 +589,10 @@ auth.onAuthStateChanged(async function(user){
   const DEFAULTS = {
     anio: 2026,
     periodo_actual: 'Agosto',
+    // Log global de actualizaciones (agosto 2026): usuario, archivo o tipo de actualización, fecha —
+    // se llena solo desde save() (ver descripcionActualizacion) y solo lo ve el rubro "Actualizaciones"
+    // (visible exclusivamente para amartinez, mgiron y lalzaga, igual que Budget IT).
+    actualizaciones: [],
     tendencia: {
       data: {
         TotalPlay:    [42,36,40,64,56,62,59,9,0,0,0,0],
@@ -1144,8 +1148,12 @@ auth.onAuthStateChanged(async function(user){
     {id:'inventario', label:'Adquisición de Equipo'},
     {id:'migracion_win11', label:'Migración Win11'},
     {id:'expansion', label:'Plan de expansión'},
-    {id:'budget_it', label:'Budget IT 2026'}
+    {id:'budget_it', label:'Budget IT 2026'},
+    {id:'actualizaciones', label:'Actualizaciones'}
   ];
+  // Estas dos pestañas están restringidas: no aparecen en la barra ni se pueden abrir si el usuario
+  // no está en USUARIOS_BUDGET_EDITAR/USUARIOS_BUDGET_LECTURA (ver puedeVerBudgetIT()).
+  const TABS_RESTRINGIDOS_BUDGET = ['budget_it','actualizaciones'];
   // Apartados nuevos de agosto 2026 (envios_recolecciones...pin_pad): recreados como indicadores reales
   // (tarjetas + gráfica Chart.js) a partir de las 7 láminas de un PowerPoint que envió el cliente — los
   // números en MESES12/DATA_* de abajo son los que traían esas láminas, capturados a mano una sola vez.
@@ -1213,12 +1221,22 @@ auth.onAuthStateChanged(async function(user){
     if(canEdit) return true;
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_WIN11.includes(currentUser.username));
   }
-  // Budget IT 2026: además de admin, amartinez y mgiron pueden capturar Julio en adelante
-  // (Enero-Junio queda congelado para todos, incluido admin).
-  const USUARIOS_BUDGET_IT = ['amartinez','mgiron'];
+  // Budget IT 2026 (y el rubro "Actualizaciones"): a partir de agosto 2026, EXCLUSIVO de 3 usuarios —
+  // a propósito ya NO sigue "admin puede todo": ni el administrador general ve esta pestaña si su
+  // usuario no es uno de estos tres. amartinez y mgiron editan; lalzaga solo puede ver (sin botón
+  // de editar). Las dos pestañas quedan ocultas del todo (ni aparecen en la barra) para cualquier
+  // otro usuario — ver el filtro en TABS dentro de render().
+  const USUARIOS_BUDGET_EDITAR = ['amartinez','mgiron'];
+  const USUARIOS_BUDGET_LECTURA = ['lalzaga'];
+  function puedeVerBudgetIT(){
+    return !!(typeof currentUser !== 'undefined' && currentUser && (USUARIOS_BUDGET_EDITAR.includes(currentUser.username) || USUARIOS_BUDGET_LECTURA.includes(currentUser.username)));
+  }
   function canEditBudgetIT(){
-    if(canEdit) return true;
-    return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_BUDGET_IT.includes(currentUser.username));
+    return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_BUDGET_EDITAR.includes(currentUser.username));
+  }
+  // Actualizaciones es un log de solo lectura — mismos 3 usuarios que Budget IT, nadie "edita" un log.
+  function puedeVerActualizaciones(){
+    return puedeVerBudgetIT();
   }
   // Envíos y Recolecciones: a diferencia de las demás pestañas, el botón de carga de Excel es
   // EXCLUSIVO de asanchez — a propósito NO aplica "admin puede todo" aquí, ni siquiera el
@@ -1249,6 +1267,10 @@ auth.onAuthStateChanged(async function(user){
   let historialWin11Expandido = null;
   let historialBudgetItExpandido = null;
   let win11RegionCardExpandida = null;
+  // Se llena justo antes de cada save() con una descripción de qué se está guardando (archivo o
+  // tipo de edición); save() la usa para agregar una fila al log global de "Actualizaciones" y
+  // luego la limpia. Si algún save() no la fija, el log usa un texto genérico de respaldo.
+  let descripcionActualizacion = null;
 
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
   function idxMes(n){ return MESES.indexOf(n); }
@@ -1259,6 +1281,15 @@ auth.onAuthStateChanged(async function(user){
   function fmtFechaCorta(iso){
     if(!iso) return '—';
     return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short'});
+  }
+  // Fecha y hora por separado (para la tabla de "Actualizaciones", que pide cada campo aparte).
+  function fmtFechaSolo(iso){
+    if(!iso) return '—';
+    return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
+  }
+  function fmtHora(iso){
+    if(!iso) return '—';
+    return new Date(iso).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   }
   // toast(msg, type) se reutiliza del portal (definida en el shell de login/Firebase)
   function fmtPct(n,total){ return total ? `${(n/total*100).toFixed(1)}%` : '0.0%'; }
@@ -1308,6 +1339,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.reemplazo_disco) state.reemplazo_disco = clone(DEFAULTS.reemplazo_disco);
       if(!Array.isArray(state.reemplazo_disco.registros)) state.reemplazo_disco.registros = [];
       if(!state.reemplazo_disco.carga) state.reemplazo_disco.carga = { archivo: null, fecha: null };
+      if(!Array.isArray(state.actualizaciones)) state.actualizaciones = [];
       if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
       if(!state.budget_it.historial) state.budget_it.historial = [];
       state.budget_it.capex.forEach(cx=>{ if(cx.incluir===undefined) cx.incluir = true; });
@@ -1316,6 +1348,16 @@ auth.onAuthStateChanged(async function(user){
   }
   async function save(){
     if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT() && !canEditLaptopCerrado() && !canEditEnviosRec() && !canEditResumenReemplazos() && !canEditReemplazoDisco()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
+    // Log global de "Actualizaciones" (usuario, archivo o tipo de actualización, fecha, hora) — cada
+    // punto del dashboard que llama a save() fija descripcionActualizacion justo antes de llamarlo.
+    if(!Array.isArray(state.actualizaciones)) state.actualizaciones = [];
+    state.actualizaciones.unshift({
+      usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : 'desconocido',
+      tipo: descripcionActualizacion || 'Actualización en el dashboard',
+      fecha: new Date().toISOString()
+    });
+    if(state.actualizaciones.length > 200) state.actualizaciones.length = 200;
+    descripcionActualizacion = null;
     state.updated_at = new Date().toISOString();
     try{
       await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).set({
@@ -1742,6 +1784,7 @@ auth.onAuthStateChanged(async function(user){
     state.ticketsmc.categoria_agente = datos.mc_categoria_agente;
     state.carga = { archivo: datos.fileName, tickets_caidas: datos.resumen.totalCaidas, fecha: new Date().toISOString() };
     cargaPendiente = null;
+    descripcionActualizacion = `Carga de Excel — Tickets y Caídas (${datos.fileName})`;
     save();
   }
 
@@ -1885,6 +1928,7 @@ auth.onAuthStateChanged(async function(user){
     state.expansion.tiendas = existentes;
     state.expansion.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregadas, actualizadas };
     cargaPendienteExpansion = null;
+    descripcionActualizacion = `Carga de Excel — Plan de Expansión (${datos.fileName})`;
     save();
   }
 
@@ -1946,7 +1990,7 @@ auth.onAuthStateChanged(async function(user){
         ${soporteMenuAbierto ? `<div id="menuSoporte" style="position:absolute; top:100%; left:110px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:220px; z-index:50;">
           ${SOPORTE_IT_TABS.map(t=>`<div class="tab-sub" data-tab="${t.id}" style="padding:8px 12px; font-size:13px; font-weight:${t.id===tab?'700':'500'}; color:${t.id===tab?'var(--tp)':'var(--ink)'}; cursor:pointer; border-radius:6px; white-space:nowrap;">${t.label}</div>`).join('')}
         </div>` : ''}
-        ${TABS.map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}
+        ${TABS.filter(t=> !TABS_RESTRINGIDOS_BUDGET.includes(t.id) || puedeVerBudgetIT()).map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}
       </div>
       <div id="tabContent"></div>
       <div class="foot">Los datos se comparten con todo tu equipo (Firebase). ${canEdit ? 'Los cambios de cada pestaña se guardan juntos.' : 'Tu usuario tiene acceso de solo consulta.'}</div>
@@ -1984,6 +2028,9 @@ auth.onAuthStateChanged(async function(user){
   function renderTab(){
     const c = document.getElementById('tabContent');
     charts = {};
+    // Salvaguarda: si por alguna razón `tab` queda apuntando a una pestaña restringida (ej. cambio de
+    // usuario sin recargar la página) y el usuario actual no tiene permiso, se regresa a "resumen".
+    if(TABS_RESTRINGIDOS_BUDGET.includes(tab) && !puedeVerBudgetIT()){ tab = 'resumen'; }
     if(tab==='tendencia') return renderTendencia(c);
     if(tab==='yoy_tp') return renderYoy(c,'TotalPlay');
     if(tab==='yoy_tm') return renderYoy(c,'Telmex');
@@ -2006,6 +2053,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='pin_pad') return renderPinPad(c);
     if(tab==='expansion') return renderExpansion(c);
     if(tab==='budget_it') return renderBudgetIT(c);
+    if(tab==='actualizaciones') return renderActualizaciones(c);
   }
 
   // ---------- Apartados nuevos (agosto 2026) — indicadores reales a partir del PowerPoint ----------
@@ -2092,6 +2140,7 @@ auth.onAuthStateChanged(async function(user){
     state.envios_recolecciones.registros = existentes;
     state.envios_recolecciones.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados };
     cargaPendienteEnviosRec = null;
+    descripcionActualizacion = `Carga de Excel — Envíos y Recolecciones (${datos.fileName})`;
     save();
   }
   function handleFileUploadEnviosRec(e){
@@ -2279,6 +2328,7 @@ auth.onAuthStateChanged(async function(user){
           snapshot: clone({ cpu: state.resumen_reemplazos.cpu, laptop: state.resumen_reemplazos.laptop, disco: state.resumen_reemplazos.disco })
         });
         if(state.resumen_reemplazos.historial.length > 30) state.resumen_reemplazos.historial.length = 30;
+        descripcionActualizacion = 'Edición manual — Resumen de Reemplazos';
         editingResumenReemplazos = false;
         save();
       };
@@ -2442,6 +2492,7 @@ auth.onAuthStateChanged(async function(user){
     state.reemplazo_disco.registros = existentes;
     state.reemplazo_disco.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados };
     cargaPendienteReemplazoDisco = null;
+    descripcionActualizacion = `Carga de Excel — Reemplazo Disco Duro (${datos.fileName})`;
     save();
   }
   function handleFileUploadReemplazoDisco(e){
@@ -2656,6 +2707,7 @@ auth.onAuthStateChanged(async function(user){
       document.querySelectorAll('input[data-svc]').forEach(i=>{ state.tendencia.servicios[i.dataset.svc] = Number(i.value||0); });
       state.tendencia.caidas_extra.Starlink = Number(document.getElementById('slExtra').value||0);
       const sel = document.getElementById('selPeriodo'); if(sel) state.periodo_actual = sel.value;
+      descripcionActualizacion = 'Edición manual — Tendencia mensual';
       save();
     };
   }
@@ -2711,6 +2763,7 @@ auth.onAuthStateChanged(async function(user){
       document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
       document.getElementById('btnSave').onclick=()=>{
         document.querySelectorAll('input[data-yoy-idx]').forEach(i=>{ state.yoy_2025[prov][Number(i.dataset.yoyIdx)] = Number(i.value||0); });
+        descripcionActualizacion = `Edición manual — YoY ${prov}`;
         save();
       };
       document.querySelectorAll('[data-yoy-nota-remove]').forEach(btn=>{
@@ -2902,6 +2955,7 @@ auth.onAuthStateChanged(async function(user){
           d.pct24=Number(document.getElementById(`p24_${p}`).value||0);
           d.pct48=Number(document.getElementById(`p48_${p}`).value||0);
         });
+        descripcionActualizacion = 'Edición manual — ETR / Atención';
         save();
       };
     } else {
@@ -3001,6 +3055,7 @@ auth.onAuthStateChanged(async function(user){
           if(tecInp) rows[i].tecnologia = tecInp.value;
           rows[i].meses = rows[i].meses.map((_,mi)=> Number(row.querySelector(`[data-mes="${mi}"]`).value||0));
         });
+        descripcionActualizacion = `Edición manual — Top 15 ${prov}`;
         save();
       };
       document.getElementById('btnAddRow')?.remove();
@@ -3337,6 +3392,7 @@ auth.onAuthStateChanged(async function(user){
           if(val) state.win11_observaciones[pdv] = val;
           else delete state.win11_observaciones[pdv];
         });
+        descripcionActualizacion = 'Edición manual — Observaciones Win11';
         save();
       };
     }
@@ -3420,6 +3476,7 @@ auth.onAuthStateChanged(async function(user){
           total: nuevos.length
         });
         if(state.win11_pendientes_historial.length > 30) state.win11_pendientes_historial.length = 30;
+        descripcionActualizacion = `Carga de Excel — Migración Win11 (${file.name})`;
         save();
       }catch(err){
         console.error(err);
@@ -3711,6 +3768,7 @@ auth.onAuthStateChanged(async function(user){
           snapshot: JSON.parse(JSON.stringify(inv))
         });
         if(state.inventario_historial.length > 30) state.inventario_historial.length = 30;
+        descripcionActualizacion = 'Edición manual — Adquisición de Equipo';
         editing = false;
         save();
       };
@@ -3928,6 +3986,7 @@ auth.onAuthStateChanged(async function(user){
           snapshot: JSON.parse(JSON.stringify(data))
         });
         if(state.equipos_pdv_region_historial.length > 30) state.equipos_pdv_region_historial.length = 30;
+        descripcionActualizacion = 'Edición manual — Equipos PDV Región';
         editing = false;
         save();
       };
@@ -3948,6 +4007,7 @@ auth.onAuthStateChanged(async function(user){
           snapshot: JSON.parse(JSON.stringify(data))
         });
         if(state.equipos_pdv_region_historial.length > 30) state.equipos_pdv_region_historial.length = 30;
+        descripcionActualizacion = 'Edición manual — Laptop PDV cerrado';
         editandoLaptopCerrado = false;
         save();
       };
@@ -4185,7 +4245,7 @@ auth.onAuthStateChanged(async function(user){
         </div>
       </div>
 
-      ${canEdit ? renderHistorialBudgetIT() : ''}
+      ${puedeVerBudgetIT() ? renderHistorialBudgetIT() : ''}
     `;
 
     if(editing && puedeEditar){
@@ -4210,6 +4270,7 @@ auth.onAuthStateChanged(async function(user){
           resumen: { ejercido_anual_proyectado: dSave.opexAnnualProjected, ahorro_proyectado: dSave.ahorroProyectado, capex_pendiente: dSave.capexPendiente }
         });
         if(state.budget_it.historial.length > 30) state.budget_it.historial.length = 30;
+        descripcionActualizacion = 'Edición manual — Budget IT 2026';
         editing = false;
         save();
       };
@@ -4266,7 +4327,7 @@ auth.onAuthStateChanged(async function(user){
     return `
       <div class="panel">
         <h3>Historial de cambios</h3>
-        <div class="foot" style="margin-bottom:10px;">Solo visible para admin. Se guardan los últimos 30 cambios, más reciente arriba.</div>
+        <div class="foot" style="margin-bottom:10px;">Solo visible para amartinez, mgiron y lalzaga. Se guardan los últimos 30 cambios, más reciente arriba.</div>
         <div style="overflow-x:auto;"><table>
           <thead><tr><th style="text-align:left;">Fecha</th><th style="text-align:left;">Usuario</th><th></th></tr></thead>
           <tbody>${hist.map((h,i)=>`
@@ -4285,6 +4346,37 @@ auth.onAuthStateChanged(async function(user){
           </tbody>
         </table></div>
       </div>
+    `;
+  }
+
+  // ---------- Actualizaciones (agosto 2026) ----------
+  // Log global de todo lo que se guarda en el dashboard, sin importar la pestaña — visible solo para
+  // amartinez, mgiron y lalzaga (mismo criterio que Budget IT). Es de solo lectura para los tres: nadie
+  // "edita" un registro de auditoría, se llena solo desde save() (ver descripcionActualizacion).
+  function renderActualizaciones(c){
+    const log = state.actualizaciones || [];
+    c.innerHTML = `
+      <div class="title">Actualizaciones</div>
+      <div class="subtitle">Registro de cambios guardados en todo el dashboard — quién, qué y cuándo</div>
+      <div class="foot" style="margin-bottom:14px;">Solo visible para amartinez, mgiron y lalzaga. Se guardan las últimas 200 actualizaciones, más reciente arriba. Es de solo lectura: se llena sola cada vez que alguien guarda un cambio en cualquier pestaña.</div>
+      ${log.length===0 ? `
+      <div class="placeholder">
+        <h3>Todavía no hay actualizaciones registradas</h3>
+        <p>Aquí va a aparecer cada cambio que se guarde en cualquier pestaña del dashboard — por ejemplo, si amartinez carga el Excel de Tickets, o si mgiron edita Budget IT — con usuario, archivo o tipo de actualización, fecha y hora.</p>
+      </div>` : `
+      <div class="panel">
+        <div style="overflow-x:auto;"><table>
+          <thead><tr><th style="text-align:left;">Usuario</th><th style="text-align:left;">Archivo o tipo de actualización</th><th>Fecha</th><th>Hora</th></tr></thead>
+          <tbody>${log.map(h=>`
+            <tr>
+              <td style="text-align:left;">${h.usuario}</td>
+              <td style="text-align:left;">${h.tipo}</td>
+              <td>${fmtFechaSolo(h.fecha)}</td>
+              <td>${fmtHora(h.fecha)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>`}
     `;
   }
 
@@ -4419,6 +4511,7 @@ auth.onAuthStateChanged(async function(user){
         });
         const ng = document.getElementById('notasGenerales');
         if(ng) exp.notas_generales = ng.value;
+        descripcionActualizacion = 'Edición manual — Plan de Expansión';
         save();
       };
       document.querySelectorAll('[data-exp-remove]').forEach(btn=>{
@@ -4485,6 +4578,7 @@ auth.onAuthStateChanged(async function(user){
     });
     state.expansion.tiendas = state.expansion.tiendas.filter(t=>t.estatus!=='Cerrada');
     modalMigrarCierre = false;
+    descripcionActualizacion = `Mover tiendas cerradas — Plan de Expansión → Cierre de tiendas (${candidatas.length} tienda${candidatas.length===1?'':'s'})`;
     save();
   }
   function panelMigracionCierre(){
@@ -4620,6 +4714,7 @@ auth.onAuthStateChanged(async function(user){
         });
         const ng = document.getElementById('notasGeneralesCierre');
         if(ng) cz.notas_generales = ng.value;
+        descripcionActualizacion = 'Edición manual — Cierre de tiendas';
         save();
         editingCierre = false;
       };
