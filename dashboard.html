@@ -1062,6 +1062,9 @@ auth.onAuthStateChanged(async function(user){
     // las quita de Expansion al mismo tiempo. Si esto se deja precargado aquí con datos fijos,
     // en el primer load con Firestore ya existente aparecerían duplicadas (una copia en cada apartado).
     cierre_tiendas: { tiendas: [], notas_generales: '' },
+    // Arranca vacío a propósito: los números anteriores eran de una lámina de PowerPoint, no de un
+    // archivo real. Se llena con el Excel que suba el admin (botón en la propia pestaña).
+    envios_recolecciones: { registros: [], carga: { archivo: null, fecha: null } },
     // Budget IT 2026: recreado de Budget 2026_IT.xlsx (hoja "Presupuesto 2026"). Enero-Junio son los
     // valores reales ya conciliados (quedan congelados en la UI). Julio trae lo que ya estaba cargado
     // en el Excel (algunos proveedores aún sin dato); Agosto-Diciembre quedan en null y se editan mes
@@ -1134,11 +1137,12 @@ auth.onAuthStateChanged(async function(user){
   // Cuando el cliente defina el archivo/regla de cada uno, agregar su carga de Excel igual que Win11/PDV
   // Región (botón + parseo + guardar en Firestore) en vez de las constantes DATA_* hardcodeadas.
   const MESES12 = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const DATA_ENVIOS_RECOLECCIONES = {
-    envios: [137,137,115,141,139,105,140,28],
-    recoleccion: [51,105,90,67,67,54,61,15],
-    totalEnvios: 942, totalRecoleccion: 510, pctRecuperacion: 54, promedioMensual: 118
-  };
+  // Envíos y Recolecciones (agosto 2026): dejó de ser la constante fija DATA_ENVIOS_RECOLECCIONES
+  // (números capturados a mano de una lámina de PowerPoint) — ahora se carga desde un Excel real
+  // (columnas Mes, Envío, Recolección) igual que Expansión/Win11/PDV Región, y los 4 indicadores
+  // (Total Envíos, Total Recolección, % Recuperación, Promedio Mensual) se calculan solos a partir
+  // de los registros cargados. Ver DEFAULTS.envios_recolecciones, calcularDatosEnviosRecolecciones()
+  // y renderEnviosRecolecciones().
   const DATA_RESUMEN_REEMPLAZOS = {
     cpu: {inventario:3212, reemplazos2026:229, pctInventario:7, reemplazosSemana:3},
     laptop: {inventario:697, reemplazos2026:93, pctInventario:13, reemplazosSemana:1},
@@ -1209,8 +1213,15 @@ auth.onAuthStateChanged(async function(user){
     if(canEdit) return true;
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_BUDGET_IT.includes(currentUser.username));
   }
+  // Envíos y Recolecciones: a diferencia de las demás pestañas, el botón de carga de Excel es
+  // EXCLUSIVO de asanchez — a propósito NO aplica "admin puede todo" aquí, ni siquiera el
+  // administrador general ve el botón si su usuario no es asanchez.
+  function canEditEnviosRec(){
+    return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'asanchez');
+  }
   let cargaPendiente = null;
   let cargaPendienteExpansion = null;
+  let cargaPendienteEnviosRec = null;
   let historialExpandido = null;
   let historialPdvExpandido = null;
   let editandoLaptopCerrado = false; // control independiente del botón "Editar" general de la pestaña
@@ -1262,6 +1273,9 @@ auth.onAuthStateChanged(async function(user){
       if(!state.cierre_tiendas) state.cierre_tiendas = clone(DEFAULTS.cierre_tiendas);
       if(state.cierre_tiendas.notas_generales === undefined) state.cierre_tiendas.notas_generales = '';
       state.cierre_tiendas.tiendas.forEach(t=>{ if(t.observaciones===undefined) t.observaciones=''; });
+      if(!state.envios_recolecciones) state.envios_recolecciones = clone(DEFAULTS.envios_recolecciones);
+      if(!Array.isArray(state.envios_recolecciones.registros)) state.envios_recolecciones.registros = [];
+      if(!state.envios_recolecciones.carga) state.envios_recolecciones.carga = { archivo: null, fecha: null };
       if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
       if(!state.budget_it.historial) state.budget_it.historial = [];
       state.budget_it.capex.forEach(cx=>{ if(cx.incluir===undefined) cx.incluir = true; });
@@ -1269,7 +1283,7 @@ auth.onAuthStateChanged(async function(user){
     render();
   }
   async function save(){
-    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT() && !canEditLaptopCerrado()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
+    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT() && !canEditLaptopCerrado() && !canEditEnviosRec()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
     state.updated_at = new Date().toISOString();
     try{
       await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).set({
@@ -1967,38 +1981,186 @@ auth.onAuthStateChanged(async function(user){
   // en CPU/Disco Duro, etc.), usando el mismo tratamiento cardGrad() que el resto del dashboard.
 
   // ---------- 1. Envíos y Recolecciones ----------
-  function renderEnviosRecolecciones(c){
-    const d = DATA_ENVIOS_RECOLECCIONES;
-    const COL_ENV='#15803D', COL_REC='#B91C1C', COL_PCT='#0F766E', COL_PROM='#334155';
-    c.innerHTML = `
-      <div class="title">Envíos y Recolecciones 2026</div>
-      <div class="subtitle">Equipo despachado vs. equipo recuperado — Ene–Ago</div>
-      <div class="cards">
-        <div class="card"><div class="head" style="background:${cardGrad(COL_ENV)}">Total Envíos</div><div class="body"><div class="big">${fmtMX(d.totalEnvios)}</div><div class="lbl">Ene–Ago 2026</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COL_REC)}">Total Recolección</div><div class="body"><div class="big">${fmtMX(d.totalRecoleccion)}</div><div class="lbl">Ene–Ago 2026</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COL_PCT)}">% Recuperación</div><div class="body"><div class="big">${d.pctRecuperacion}%</div><div class="lbl">Eficiencia logística</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COL_PROM)}">Prom. Mensual Env</div><div class="body"><div class="big">${d.promedioMensual}</div><div class="lbl">Por mes 2026</div></div></div>
+  // ---- Envíos y Recolecciones: carga de Excel (Mes, Envío, Recolección) ----
+  // Mismo patrón que Expansión/Estructura regional: lectura de encabezado tolerante a variantes de
+  // nombre/acentos, vista previa antes de aplicar, y "actualiza por Mes si ya existe, agrega si es
+  // nuevo" (no borra meses que no vengan en el archivo nuevo).
+  function normalizarTextoEnvios(s){
+    return String(s==null?'':s).trim().toUpperCase()
+      .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I').replace(/Ó/g,'O').replace(/Ú/g,'U');
+  }
+  function buscarColumnaEnvios(headerRow, variantes){
+    for(let i=0;i<headerRow.length;i++){
+      const h = normalizarTextoEnvios(headerRow[i]);
+      if(variantes.includes(h)) return i;
+    }
+    return -1;
+  }
+  function normalizeMesEnvios(v){
+    if(v instanceof Date) return MESES12[v.getMonth()];
+    const s = String(v==null?'':v).trim();
+    const norm = normalizarTextoEnvios(s);
+    const idx = MESES12.findIndex(m=>normalizarTextoEnvios(m)===norm);
+    return idx>=0 ? MESES12[idx] : s;
+  }
+  function calcularDatosEnviosRecolecciones(rows2d, fileName){
+    let headerIdx = -1, colMes=-1, colEnvio=-1, colRecoleccion=-1;
+    for(let i=0;i<Math.min(10,rows2d.length);i++){
+      const row = rows2d[i] || [];
+      const m = buscarColumnaEnvios(row, ['MES']);
+      const e = buscarColumnaEnvios(row, ['ENVIO','ENVIOS']);
+      const r = buscarColumnaEnvios(row, ['RECOLECCION','RECOLECCIONES']);
+      if(m>=0 && e>=0 && r>=0){ headerIdx=i; colMes=m; colEnvio=e; colRecoleccion=r; break; }
+    }
+    if(headerIdx<0) throw new Error('No se encontraron las columnas "Mes", "Envío" y "Recolección" en la hoja. Verifica los encabezados del archivo.');
+
+    const registros = [];
+    for(let i=headerIdx+1; i<rows2d.length; i++){
+      const row = rows2d[i] || [];
+      const mesRaw = row[colMes];
+      if(mesRaw===undefined || mesRaw===null || String(mesRaw).trim()==='') continue;
+      const envios = Number(row[colEnvio]) || 0;
+      const recoleccion = Number(row[colRecoleccion]) || 0;
+      registros.push({ mes: normalizeMesEnvios(mesRaw), envios, recoleccion });
+    }
+    if(registros.length===0) throw new Error('No se encontraron filas con datos después del encabezado.');
+
+    const totalEnvios = registros.reduce((s,r)=>s+r.envios,0);
+    const totalRecoleccion = registros.reduce((s,r)=>s+r.recoleccion,0);
+    return { fileName, registros, resumen:{ totalFilas: registros.length, totalEnvios, totalRecoleccion } };
+  }
+  // Acumula por Mes: si el mes ya existía se actualiza con los valores nuevos, si es nuevo se agrega.
+  // No borra meses que no vengan en el archivo que se está cargando.
+  function aplicarDatosEnviosRecolecciones(datos){
+    const existentes = state.envios_recolecciones.registros || [];
+    const indexPorMes = {};
+    existentes.forEach((r,i)=>{ indexPorMes[normalizarTextoEnvios(r.mes)] = i; });
+
+    let agregados = 0, actualizados = 0;
+    datos.registros.forEach(nuevo=>{
+      const key = normalizarTextoEnvios(nuevo.mes);
+      if(indexPorMes.hasOwnProperty(key)){
+        existentes[indexPorMes[key]] = { ...nuevo };
+        actualizados++;
+      } else {
+        existentes.push({ ...nuevo });
+        indexPorMes[key] = existentes.length - 1;
+        agregados++;
+      }
+    });
+    existentes.sort((a,b)=>{
+      const ia = MESES12.indexOf(a.mes), ib = MESES12.indexOf(b.mes);
+      if(ia<0 && ib<0) return 0;
+      if(ia<0) return 1;
+      if(ib<0) return -1;
+      return ia-ib;
+    });
+
+    state.envios_recolecciones.registros = existentes;
+    state.envios_recolecciones.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados };
+    cargaPendienteEnviosRec = null;
+    save();
+  }
+  function handleFileUploadEnviosRec(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadErrorEnviosRec');
+    if(errBox) errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows2d = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        cargaPendienteEnviosRec = calcularDatosEnviosRecolecciones(rows2d, file.name);
+        render();
+      }catch(err){
+        console.error(err);
+        if(errBox) errBox.innerHTML = `<div style="color:var(--crit); font-size:12.5px; margin-top:6px;">${err.message}</div>`;
+      }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  function panelConfirmacionEnviosRec(){
+    const d = cargaPendienteEnviosRec;
+    return `<div class="panel" style="border-color:var(--tm);">
+      <h3 style="color:var(--tm);">Confirmar carga · ${d.fileName}</h3>
+      <div style="font-size:13px; line-height:1.8;">
+        Filas leídas: <b>${d.resumen.totalFilas}</b> · Total Envíos en el archivo: <b>${fmtMX(d.resumen.totalEnvios)}</b> · Total Recolección en el archivo: <b>${fmtMX(d.resumen.totalRecoleccion)}</b>
       </div>
+      <div class="foot">Si un mes del archivo ya existía, se actualiza con estos valores; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual.</div>
+      <div class="editbar" style="margin-top:10px;">
+        <button id="btnCancelCargaEnviosRec">Cancelar</button>
+        <button class="primary" id="btnAplicarCargaEnviosRec">Aplicar datos</button>
+      </div>
+    </div>`;
+  }
+  function wireEnviosRecUpload(){
+    const btn = document.getElementById('btnUploadEnviosRec');
+    if(btn) btn.onclick = () => document.getElementById('fileEnviosRec').click();
+    const inp = document.getElementById('fileEnviosRec');
+    if(inp) inp.onchange = handleFileUploadEnviosRec;
+    const btnCancel = document.getElementById('btnCancelCargaEnviosRec');
+    if(btnCancel) btnCancel.onclick = ()=>{ cargaPendienteEnviosRec = null; render(); };
+    const btnAplicar = document.getElementById('btnAplicarCargaEnviosRec');
+    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosEnviosRecolecciones(cargaPendienteEnviosRec); };
+  }
+
+  function renderEnviosRecolecciones(c){
+    const er = state.envios_recolecciones;
+    const registros = er.registros || [];
+    const COL_ENV='#15803D', COL_REC='#B91C1C', COL_PCT='#0F766E', COL_PROM='#334155';
+    const totalEnvios = registros.reduce((s,r)=>s+r.envios,0);
+    const totalRecoleccion = registros.reduce((s,r)=>s+r.recoleccion,0);
+    const pctRecuperacion = fmtPct(totalRecoleccion, totalEnvios);
+    const promedioMensual = registros.length ? Math.round(totalEnvios/registros.length) : 0;
+
+    c.innerHTML = `
+      <div class="title">Envíos y Recolecciones</div>
+      <div class="subtitle">${er.carga.archivo ? `Última carga: ${er.carga.archivo} · ${fmtFecha(er.carga.fecha)}` : 'Equipo despachado vs. equipo recuperado, por mes'}</div>
+
+      ${canEditEnviosRec() ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar archivo de Envíos y Recolecciones (.xlsx)</b> — columnas Mes, Envío, Recolección. Si un mes ya existía se actualiza; si es nuevo se agrega.
+          <div id="uploadErrorEnviosRec"></div>
+        </div>
+        <input type="file" id="fileEnviosRec" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUploadEnviosRec">Cargar archivo</button>
+      </div>` : ''}
+      ${cargaPendienteEnviosRec ? panelConfirmacionEnviosRec() : ''}
+
+      <div class="cards">
+        <div class="card"><div class="head" style="background:${cardGrad(COL_ENV)}">Total Envíos</div><div class="body"><div class="big">${fmtMX(totalEnvios)}</div><div class="lbl">suma de la columna Envío</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COL_REC)}">Total Recolección</div><div class="body"><div class="big">${fmtMX(totalRecoleccion)}</div><div class="lbl">suma de la columna Recolección</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COL_PCT)}">% Recuperación</div><div class="body"><div class="big">${pctRecuperacion}</div><div class="lbl">Recolección ÷ Envíos</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COL_PROM)}">Prom. Mensual Envíos</div><div class="body"><div class="big">${fmtMX(promedioMensual)}</div><div class="lbl">Total Envíos ÷ meses cargados</div></div></div>
+      </div>
+
+      ${registros.length===0 ? `
+      <div class="placeholder">
+        <h3>Todavía no hay datos cargados</h3>
+        <p>Sube el Excel con las columnas Mes, Envío y Recolección para llenar esta pestaña.</p>
+      </div>` : `
       <div class="panel">
         <h3>Envíos vs. recolección por mes</h3>
         <canvas id="chartEnviosRec"></canvas>
-      </div>
-      <div class="note-row">
-        <div class="note green"><b>📦 Pico de Envíos</b>Abril lidera con 141 envíos. Promedio: 118 unidades/mes.</div>
-        <div class="note red"><b>🔁 Recolecciones</b>Febrero fue el mes con más recuperaciones (105). Tendencia a la baja desde marzo, con repunte en julio. Agosto en curso.</div>
-        <div class="note blue"><b>📊 Balance</b>Ratio envío/recolección: ${d.pctRecuperacion}%. Por cada 100 equipos enviados se recuperan ${d.pctRecuperacion}.</div>
-      </div>
-      <div class="foot">Datos tomados de la lámina "Envíos y Recolecciones 2026" del PowerPoint que compartió el cliente (agosto 2026) — pendiente de definir archivo fuente y regla de negocio para conectarlo en vivo.</div>
+      </div>`}
+      <div class="foot">Los 4 indicadores de arriba se calculan solos a partir del archivo cargado — no son editables a mano.</div>
     `;
-    if(charts.enviosRec) charts.enviosRec.destroy();
-    charts.enviosRec = new Chart(document.getElementById('chartEnviosRec'), {
-      type:'bar',
-      data:{ labels: MESES12.slice(0,8), datasets:[
-        {label:'Envíos', data:d.envios, backgroundColor:COL_ENV, borderRadius:4},
-        {label:'Recolección', data:d.recoleccion, backgroundColor:COL_REC, borderRadius:4}
-      ]},
-      options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
-    });
+    if(registros.length>0){
+      if(charts.enviosRec) charts.enviosRec.destroy();
+      charts.enviosRec = new Chart(document.getElementById('chartEnviosRec'), {
+        type:'bar',
+        data:{ labels: registros.map(r=>r.mes), datasets:[
+          {label:'Envíos', data:registros.map(r=>r.envios), backgroundColor:COL_ENV, borderRadius:4},
+          {label:'Recolección', data:registros.map(r=>r.recoleccion), backgroundColor:COL_REC, borderRadius:4}
+        ]},
+        options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
+      });
+    }
+    wireEnviosRecUpload();
   }
 
   // ---------- 2. Resumen de Reemplazos ----------
