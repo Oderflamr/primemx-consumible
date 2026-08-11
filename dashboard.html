@@ -312,60 +312,57 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .rescard .rrow{display:flex; justify-content:space-between; padding:9px 16px; font-size:12.5px; border-top:1px solid var(--line);}
   .rescard .rrow b{font-size:14px;}
 
-  /* ===== Estatus de Servicio (Internet) — estilo NOC, agosto 2026 =====
-     A propósito con su propia paleta oscura (no la del resto del dashboard): el cliente pidió que
-     se sienta como una pantalla de centro de monitoreo (NOC), con las tiendas caídas siempre
-     primero y cada tarjeta clickeable para ver el detalle. Sin ningún filtro (se quitaron a
-     petición explícita: "quita todo tipo de filtro no va") — el tablero siempre se ve completo. */
-  .noc-wrap{background:#0d0d0d; border-radius:14px; padding:22px 24px; margin:-4px 0 4px; color:#fff;}
+  /* ===== Estatus de Servicio (Internet) — fondo blanco + rotativo, agosto 2026 =====
+     A petición explícita del cliente: fondo BLANCO (no el tema oscuro que tenía antes), tiendas
+     caídas siempre fijas al inicio (nunca rotan), y el resto ("en línea") rotando cada minuto en
+     páginas de hasta 40 en pantalla, hasta cubrir las 622. Sin filtros ni botón de "Actualizar"
+     (se quitaron antes a petición explícita) — todo el refresco es automático. */
+  .noc-wrap{background:#fff; border-radius:14px; padding:22px 24px; margin:-4px 0 4px; color:var(--ink); border:1px solid var(--line);}
   .noc-head{display:flex; align-items:baseline; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:4px;}
-  .noc-title{display:flex; align-items:center; gap:10px; font-size:16px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#fff; font-family:'JetBrains Mono',ui-monospace,monospace;}
-  .noc-live{width:9px; height:9px; border-radius:50%; background:#0ca30c; box-shadow:0 0 8px #0ca30c; animation:nocPulse 1.6s infinite;}
-  @keyframes nocPulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
-  .noc-sub{font-size:11.5px; color:#898781; margin:2px 0 16px;}
+  .noc-title{display:flex; align-items:center; gap:10px; font-size:16px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink); font-family:'JetBrains Mono',ui-monospace,monospace;}
+  .noc-live{width:9px; height:9px; border-radius:50%; background:#1E8E5A; animation:nocPulse 1.6s infinite;}
+  @keyframes nocPulse{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
+  .noc-sub{font-size:11.5px; color:var(--sub); margin:2px 0 16px;}
   .noc-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px;}
   @media (max-width:900px){ .noc-stats{grid-template-columns:repeat(2,1fr);} }
-  .noc-stat{background:#1a1a19; border:1px solid #2c2c2a; border-radius:10px; padding:14px 16px; text-align:center;}
-  .noc-stat .num{font-size:26px; font-weight:700; font-family:'JetBrains Mono',ui-monospace,monospace; color:#fff;}
-  .noc-stat .lbl{font-size:10px; color:#898781; text-transform:uppercase; letter-spacing:.04em; margin-top:4px;}
-  .noc-alert{display:flex; align-items:center; gap:10px; background:rgba(208,59,59,.14); border:1px solid #d03b3b; color:#ff8f8f; border-radius:10px; padding:10px 16px; font-size:12.5px; font-weight:600; margin-bottom:16px;}
-  .noc-live-dot{width:8px; height:8px; border-radius:50%; background:#d03b3b; box-shadow:0 0 8px #d03b3b; animation:nocPulse 1s infinite; flex-shrink:0;}
-  .noc-ok{display:flex; align-items:center; gap:10px; background:rgba(12,163,12,.12); border:1px solid #0ca30c; color:#8fe28f; border-radius:10px; padding:10px 16px; font-size:12.5px; font-weight:600; margin-bottom:16px;}
+  .noc-stat{background:#FAFBFB; border:1px solid var(--line); border-radius:10px; padding:14px 16px; text-align:center;}
+  .noc-stat .num{font-size:26px; font-weight:700; font-family:'JetBrains Mono',ui-monospace,monospace; color:var(--ink);}
+  .noc-stat .lbl{font-size:10px; color:var(--sub); text-transform:uppercase; letter-spacing:.04em; margin-top:4px;}
+  .noc-alert{display:flex; align-items:center; gap:10px; background:#FBE9E4; border:1px solid #C6421B; color:#C6421B; border-radius:10px; padding:10px 16px; font-size:12.5px; font-weight:600; margin-bottom:16px;}
+  .noc-live-dot{width:8px; height:8px; border-radius:50%; background:#C6421B; animation:nocPulse 1s infinite; flex-shrink:0;}
+  .noc-ok{display:flex; align-items:center; gap:10px; background:#E6F5EC; border:1px solid #1E8E5A; color:#1E8E5A; border-radius:10px; padding:10px 16px; font-size:12.5px; font-weight:600; margin-bottom:16px;}
   .noc-toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;}
-  .noc-legend{display:flex; gap:16px; font-size:11.5px; color:#c3c2b7; align-items:center;}
+  .noc-legend{display:flex; gap:16px; font-size:11.5px; color:var(--sub); align-items:center;}
   .noc-legend span{display:flex; align-items:center; gap:6px;}
   .noc-dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
-  .noc-dot.on{background:#0ca30c;}
-  .noc-dot.off{background:#d03b3b; box-shadow:0 0 6px #d03b3b;}
-  /* Prefijo #caidas-root a propósito: la regla base "#caidas-root button" (blanca) usa un ID, que
-     por especificidad le gana a una clase sola — sin este prefijo el botón se vería blanco. */
-  #caidas-root .noc-refresh{background:#1a1a19; color:#fff; border:1px solid #2c2c2a; border-radius:8px; padding:7px 14px; font-size:12.5px; cursor:pointer;}
-  #caidas-root .noc-refresh:hover{background:#242422;}
+  .noc-dot.on{background:#1E8E5A;}
+  .noc-dot.off{background:#C6421B;}
   .noc-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:10px;}
-  .noc-card{background:#1a1a19; border:1px solid #2c2c2a; border-radius:10px; padding:12px 10px; text-align:center; position:relative; cursor:pointer; transition:transform .12s ease, border-color .12s ease;}
-  .noc-card:hover{transform:translateY(-2px); border-color:#52514e;}
-  .noc-card.caida{border-color:#d03b3b; background:linear-gradient(180deg, rgba(208,59,59,.18), #1a1a19 65%);}
-  .noc-card.caida:hover{border-color:#ff6b6b;}
+  .noc-card{background:#FAFBFB; border:1px solid var(--line); border-radius:10px; padding:12px 10px; text-align:center; position:relative; cursor:pointer; transition:transform .12s ease, border-color .12s ease;}
+  .noc-card:hover{transform:translateY(-2px); border-color:#9AA6A5;}
+  .noc-card.caida{border-color:#E2A594; background:#FBE9E4;}
+  .noc-card.caida:hover{border-color:#C6421B;}
   .noc-card .noc-dot{position:absolute; top:8px; right:8px; width:10px; height:10px; animation:nocPulse 1.6s infinite;}
   .noc-card.caida .noc-dot{animation:nocPulse 1s infinite;}
-  .noc-card .noc-plaza{font-size:10px; font-weight:700; line-height:1.25; margin:4px 0 6px; min-height:24px; color:#fff;}
+  .noc-card .noc-plaza{font-size:10px; font-weight:700; line-height:1.25; margin:4px 0 6px; min-height:24px; color:var(--ink);}
   .noc-carrier-badge{display:inline-block; font-size:9px; font-weight:700; letter-spacing:.02em; padding:2px 8px; border-radius:20px; color:#fff; text-transform:uppercase; white-space:nowrap;}
   .noc-estado{font-size:9.5px; font-weight:700; margin-top:6px; text-transform:uppercase; letter-spacing:.03em; font-family:'JetBrains Mono',ui-monospace,monospace;}
-  .noc-card.en-linea .noc-estado{color:#0ca30c;}
-  .noc-card.caida .noc-estado{color:#ff6b6b;}
-  .noc-foot{font-size:10.5px; color:#52514e; margin-top:16px;}
-  .noc-overlay{position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:200; padding:20px;}
-  .noc-modal{background:#1a1a19; border:1px solid #2c2c2a; border-radius:14px; padding:24px; width:100%; max-width:420px; color:#fff;}
+  .noc-card.en-linea .noc-estado{color:#1E8E5A;}
+  .noc-card.caida .noc-estado{color:#C6421B;}
+  .noc-foot{font-size:10.5px; color:var(--sub); margin-top:16px;}
+  .noc-overlay{position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:200; padding:20px;}
+  .noc-modal{background:#fff; border:1px solid var(--line); border-radius:14px; padding:24px; width:100%; max-width:420px; color:var(--ink); box-shadow:0 12px 40px rgba(18,32,49,0.14);}
   .noc-modal h3{margin:0 0 4px; font-size:17px; font-family:'JetBrains Mono',ui-monospace,monospace;}
-  .noc-modal-sub{font-size:11.5px; color:#898781; margin-bottom:16px;}
-  .noc-modal-row{display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid #2c2c2a; font-size:13px;}
-  .noc-modal-row span:first-child{color:#898781;}
-  .noc-modal-row b{color:#fff; font-weight:600; text-align:right;}
-  #caidas-root .noc-modal-close{margin-top:18px; width:100%; background:#2c2c2a; color:#fff; border:none; border-radius:8px; padding:10px; font-size:13px; cursor:pointer; font-family:inherit;}
-  #caidas-root .noc-modal-close:hover{background:#383835;}
+  .noc-modal-sub{font-size:11.5px; color:var(--sub); margin-bottom:16px;}
+  .noc-modal-row{display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px;}
+  .noc-modal-row span:first-child{color:var(--sub);}
+  .noc-modal-row b{color:var(--ink); font-weight:600; text-align:right;}
+  #caidas-root .noc-modal-close{margin-top:18px; width:100%; background:var(--ink); color:#fff; border:none; border-radius:8px; padding:10px; font-size:13px; cursor:pointer; font-family:inherit;}
+  #caidas-root .noc-modal-close:hover{background:#2c3a4a;}
   .noc-modal-status{display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:4px 10px; border-radius:20px; margin-bottom:14px;}
-  .noc-modal-status.caida{background:rgba(208,59,59,.16); color:#ff8f8f;}
-  .noc-modal-status.en-linea{background:rgba(12,163,12,.14); color:#8fe28f;}
+  .noc-modal-status.caida{background:#FBE9E4; color:#C6421B;}
+  .noc-modal-status.en-linea{background:#E6F5EC; color:#1E8E5A;}
+  .noc-pageinfo{font-size:11px; color:var(--sub); margin-bottom:10px;}
 
   /* ===== Budget IT 2026 ===== */
   #tbl-budget-it{min-width:1640px; table-layout:fixed;}
@@ -1257,6 +1254,11 @@ auth.onAuthStateChanged(async function(user){
   // capturado en el Directorio en ese momento, sin duplicar datos.
   let estatusServicio = { cargado:false, cargando:false, error:null, tiendas:[], fallasPorTienda:new Map(), actualizado:null };
   let esvModalTienda = null; // id de la tienda mostrada en el detalle al hacer clic en una tarjeta (o null)
+  // Rotativo de "en línea": se muestran hasta 40 tiendas a la vez; las caídas siempre van TODAS y
+  // fijas al inicio (nunca rotan). esvPagina avanza cada minuto (ver iniciarAutoRefreshEstatusServicio)
+  // y persiste entre recargas de datos para que la rotación no se reinicie sola.
+  const ESV_VISIBLE_TOTAL = 40;
+  let esvPagina = 0;
   document.addEventListener('click', ()=>{
     if(internetMenuAbierto || soporteMenuAbierto){ internetMenuAbierto = false; soporteMenuAbierto = false; render(); }
   });
@@ -1429,20 +1431,22 @@ auth.onAuthStateChanged(async function(user){
     render();
   }
 
-  // Refresco automático cada 3 minutos mientras la pestaña "Estatus de Servicio" esté abierta —
-  // así el tablero refleja solo, sin que alguien tenga que darle "Actualizar", cualquier falla que
-  // se registre o se cierre desde el Directorio de Tiendas. Un solo intervalo global (arrancado una
-  // vez desde initCaidasApp) revisa cada minuto si la pestaña activa es esta; si no lo es, no hace
-  // ninguna consulta a Firestore.
+  // Refresco + rotación automática cada 1 minuto mientras la pestaña "Estatus de Servicio" esté
+  // abierta: así el tablero refleja solo, sin que alguien tenga que darle "Actualizar", cualquier
+  // falla que se registre o se cierre desde el Directorio de Tiendas, y de paso avanza a la
+  // siguiente página de tiendas "en línea" (las caídas nunca rotan, siempre van todas y primero).
+  // Un solo intervalo global (arrancado una vez desde initCaidasApp) revisa cada minuto si la
+  // pestaña activa es esta; si no lo es, no hace ninguna consulta a Firestore ni avanza la página.
   let esvAutoRefreshIniciado = false;
   function iniciarAutoRefreshEstatusServicio(){
     if(esvAutoRefreshIniciado) return;
     esvAutoRefreshIniciado = true;
     setInterval(()=>{
       if(tab === 'estatus_servicio' && estatusServicio.cargado && !estatusServicio.cargando){
+        esvPagina++;
         cargarEstatusServicio({ silencioso:true });
       }
-    }, 3 * 60 * 1000);
+    }, 60 * 1000);
   }
 
   // Detalle al hacer clic en una tarjeta — vive en su propio contenedor (#esvModalRoot) para
@@ -1506,24 +1510,32 @@ auth.onAuthStateChanged(async function(user){
     const totalEnLinea = totalActivas - totalCaidas;
     const proveedoresDistintos = new Set(todas.map(t=>esvCarrierLabel(t.carrier))).size;
 
-    // Orden tipo NOC: primero las caídas (más reciente primero), luego el resto (ya vienen
-    // alfabéticas desde cargarEstatusServicio) — sin ningún filtro, el tablero se ve completo siempre.
+    // Orden tipo NOC: primero las caídas (más reciente primero, TODAS, fijas — nunca rotan), luego
+    // una página de hasta (40 - núm. de caídas) tiendas "en línea" que va rotando cada minuto hasta
+    // cubrir el total — sin ningún filtro, el tablero muestra siempre lo más relevante primero.
     const caidas = todas.filter(t=>caidasMap.has(t.id))
       .sort((a,b)=> new Date(caidasMap.get(b.id).fecha_captura||0) - new Date(caidasMap.get(a.id).fecha_captura||0));
     const enLinea = todas.filter(t=>!caidasMap.has(t.id));
-    const ordenadas = [...caidas, ...enLinea];
+    const pageSize = Math.max(0, ESV_VISIBLE_TOTAL - caidas.length);
+    const totalPaginas = pageSize > 0 ? Math.max(1, Math.ceil(enLinea.length / pageSize)) : 1;
+    const idxPagina = ((esvPagina % totalPaginas) + totalPaginas) % totalPaginas; // seguro aunque totalPaginas cambie entre recargas
+    const enLineaPagina = pageSize > 0 ? enLinea.slice(idxPagina * pageSize, idxPagina * pageSize + pageSize) : [];
+    const ordenadas = [...caidas, ...enLineaPagina];
+    const pageInfoTexto = (pageSize > 0 && enLinea.length > 0)
+      ? `Mostrando ${idxPagina*pageSize+1}–${idxPagina*pageSize+enLineaPagina.length} de ${enLinea.length} tiendas en línea (página ${idxPagina+1} de ${totalPaginas}) · esta parte del tablero rota cada minuto`
+      : '';
 
     c.innerHTML = `
       <div class="noc-wrap">
         <div class="noc-head">
           <div class="noc-title"><span class="noc-live"></span> Estatus de Servicio — En vivo</div>
         </div>
-        <div class="noc-sub">Datos en vivo del Directorio de Tiendas · se actualiza sola cada 3 min · última consulta: ${estatusServicio.actualizado ? fmtFecha(estatusServicio.actualizado) : '-'}</div>
+        <div class="noc-sub">Datos en vivo del Directorio de Tiendas · se actualiza sola cada 1 min · última consulta: ${estatusServicio.actualizado ? fmtFecha(estatusServicio.actualizado) : '-'}</div>
 
         <div class="noc-stats">
           <div class="noc-stat"><div class="num">${totalActivas}</div><div class="lbl">Tiendas activas</div></div>
-          <div class="noc-stat"><div class="num" style="color:#0ca30c">${totalEnLinea}</div><div class="lbl">En línea</div></div>
-          <div class="noc-stat"><div class="num" style="color:#d03b3b">${totalCaidas}</div><div class="lbl">Caídas ahora</div></div>
+          <div class="noc-stat"><div class="num" style="color:#1E8E5A">${totalEnLinea}</div><div class="lbl">En línea</div></div>
+          <div class="noc-stat"><div class="num" style="color:#C6421B">${totalCaidas}</div><div class="lbl">Caídas ahora</div></div>
           <div class="noc-stat"><div class="num">${proveedoresDistintos}</div><div class="lbl">Proveedores</div></div>
         </div>
 
@@ -1538,6 +1550,8 @@ auth.onAuthStateChanged(async function(user){
           </div>
           <div style="font-size:11px; color:#52514e;">Clic en una tienda para ver el detalle</div>
         </div>
+
+        ${pageInfoTexto ? `<div class="noc-pageinfo">${pageInfoTexto}</div>` : ''}
 
         <div class="noc-grid" id="esvGrid">
           ${ordenadas.map(t=>{
