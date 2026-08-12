@@ -311,6 +311,22 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .upload-summary{font-size:11.5px; color:var(--good); margin-top:2px;}
   .upload-error{font-size:11.5px; color:var(--crit); margin-top:2px;}
 
+  /* ===== Guardias (Soporte IT) — agosto 2026: rotación de sábado y domingo por ingeniero ===== */
+  .guardia-hero{border-radius:10px; padding:14px 16px; color:#fff; min-width:0;}
+  .guardia-hero .tag{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; opacity:.85;}
+  .guardia-hero .nombre{font-size:20px; font-weight:700; margin-top:4px;}
+  .guardia-hero .rango{font-size:12px; opacity:.9; margin-top:2px;}
+  .guardia-mes{margin-bottom:16px;}
+  .guardia-mes h4{font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--sub); margin:0 0 8px; font-weight:700;}
+  .guardia-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; font-size:13px; flex-wrap:wrap;}
+  .guardia-row.es-actual{border-color:#0D9488; background:#F0FDFA;}
+  .guardia-row.es-proxima{border-color:#94A3B8; background:#F8FAFC;}
+  .guardia-row .fecha{color:var(--ink); display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .guardia-row .fecha .tagmini{font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:20px; color:#fff;}
+  .guardia-row .fecha .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+  .guardia-toggle{display:block; width:100%; text-align:center; margin:6px 0 14px; padding:9px; border:1px dashed var(--line); border-radius:8px; background:#FAFAFB; color:var(--tm); font-size:12.5px; font-weight:700; cursor:pointer;}
+  .guardia-toggle:hover{background:#F0F7FB; border-color:var(--tm);}
+
   /* ===== Apartados nuevos (Envíos y Recolecciones / Resumen y detalle de Reemplazos) — agosto 2026 ===== */
   .note-row{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:8px;}
   @media (max-width:900px){ .note-row{grid-template-columns:1fr;} }
@@ -346,7 +362,6 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .noc-stat .lbl{font-size:10px; color:var(--sub); text-transform:uppercase; letter-spacing:.04em; margin-top:4px;}
   .noc-alert{display:flex; align-items:center; gap:10px; background:#FECACA; border:1px solid #DC2626; color:#DC2626; border-radius:10px; padding:10px 16px; font-size:12.5px; font-weight:600; margin-bottom:16px;}
   .noc-live-dot{width:8px; height:8px; border-radius:50%; background:#DC2626; animation:nocPulse 1s infinite; flex-shrink:0;}
-  .noc-ok{display:flex; align-items:center; gap:10px; background:#E6F5EC; border:1px solid #1E8E5A; color:#1E8E5A; border-radius:10px; padding:10px 16px; font-size:12.5px; font-weight:600; margin-bottom:16px;}
   .noc-toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;}
   .noc-legend{display:flex; gap:16px; font-size:11.5px; color:var(--sub); align-items:center;}
   .noc-legend span{display:flex; align-items:center; gap:6px;}
@@ -1227,7 +1242,8 @@ auth.onAuthStateChanged(async function(user){
     {id:'reemplazo_cpu', label:'Reemplazo de CPU'},
     {id:'reemplazo_disco', label:'Reemplazo Disco Duro'},
     {id:'biometricos', label:'Biométricos'},
-    {id:'pin_pad', label:'PIN PAD'}
+    {id:'pin_pad', label:'Pin Pad'},
+    {id:'guardias', label:'Guardias'}
   ];
   const TABS = [
     {id:'ticketsmc', label:'Tickets Mesa de control'},
@@ -1358,6 +1374,10 @@ auth.onAuthStateChanged(async function(user){
   let cargaPendienteReemplazoCpu = null;
   let cargaPendienteBiometricos = null;
   let cargaPendientePinPad = null;
+  // Guardias: solo el mes en curso se ve abierto de entrada; los demás meses se guardan comprimidos
+  // detrás de un botón "+" — a petición explícita del cliente, para no llenar la pantalla con 6 meses
+  // de golpe. Vive fuera de renderGuardias() para que no se resetee cada vez que la app repinta.
+  let guardiaOtrosMesesAbiertos = false;
   let historialExpandido = null;
   let historialPdvExpandido = null;
   let editandoLaptopCerrado = false; // control independiente del botón "Editar" general de la pestaña
@@ -1410,6 +1430,16 @@ auth.onAuthStateChanged(async function(user){
   }
   function esvCarrierColor(carrier){
     return ESV_CARRIER_COLOR[esvCarrierKey(carrier)] || '#9CA3AF';
+  }
+  // Días completos transcurridos desde `fecha_captura` hasta ahora — floor, no round, para que no
+  // se cuente un día que todavía no se completa (ej. 2 días 23h se muestra como "2 días", no "3").
+  // Devuelve null si no hay falla o la fecha no es válida (dato incompleto), para no arriesgar un
+  // número inventado. Se usa tanto en la tarjeta del tablero como en el detalle de la tienda.
+  function esvDiasCaida(falla){
+    if(!falla) return null;
+    const fc = falla.fecha_captura ? new Date(falla.fecha_captura) : null;
+    if(!fc || isNaN(fc.getTime())) return null;
+    return Math.max(0, Math.floor((Date.now() - fc.getTime()) / 86400000));
   }
   // Homologa el nombre para mostrar: el catálogo trae algunas tiendas como "PRM TDA X" y otras
   // como "PRM X" (sin TDA) — se quita cualquiera de los dos prefijos para que el tablero se vea
@@ -1492,18 +1522,9 @@ auth.onAuthStateChanged(async function(user){
     const falla = estatusServicio.fallasPorTienda.get(t.id);
     const color = esvCarrierColor(t.carrier);
     const label = esvCarrierLabel(t.carrier);
-    // Días sin servicio (agosto 2026): días completos transcurridos desde `fecha_captura` hasta
-    // ahora — floor, no round, para que no se cuente un día que todavía no se completa (ej. 2 días
-    // 23h se muestra como "2 días", no "3"). Si la fecha no es válida (dato incompleto), no se
-    // muestra el renglón en vez de arriesgar un número inventado.
-    let diasSinServicioTxt = null;
-    if(falla){
-      const fc = falla.fecha_captura ? new Date(falla.fecha_captura) : null;
-      if(fc && !isNaN(fc.getTime())){
-        const dias = Math.max(0, Math.floor((Date.now() - fc.getTime()) / 86400000));
-        diasSinServicioTxt = dias === 0 ? 'Menos de 1 día' : `${dias} día${dias===1?'':'s'}`;
-      }
-    }
+    const diasCaidaModal = esvDiasCaida(falla);
+    const diasSinServicioTxt = diasCaidaModal === null ? null
+      : (diasCaidaModal === 0 ? 'Menos de 1 día' : `${diasCaidaModal} día${diasCaidaModal===1?'':'s'}`);
     root.innerHTML = `
       <div class="noc-overlay" id="esvOverlay">
         <div class="noc-modal">
@@ -1581,10 +1602,6 @@ auth.onAuthStateChanged(async function(user){
           <div class="noc-stat"><div class="num">${proveedoresDistintos}</div><div class="lbl">Proveedores</div></div>
         </div>
 
-        ${totalCaidas > 0
-          ? `<div class="noc-alert"><span class="noc-live-dot"></span> ${totalCaidas} tienda${totalCaidas===1?'':'s'} sin servicio en este momento.</div>`
-          : `<div class="noc-ok">✓ Todas las tiendas activas tienen servicio en este momento.</div>`}
-
         <div class="noc-toolbar">
           <div class="noc-legend">
             <span><span class="noc-dot on"></span> En línea</span>
@@ -1598,11 +1615,15 @@ auth.onAuthStateChanged(async function(user){
             const falla = caidasMap.get(t.id);
             const color = esvCarrierColor(t.carrier);
             const label = esvCarrierLabel(t.carrier);
+            const diasCaida = esvDiasCaida(falla);
+            const estadoTxt = falla
+              ? (diasCaida ? `${diasCaida} día${diasCaida===1?'':'s'} caída` : 'Caída')
+              : 'En línea';
             return `<div class="noc-card ${falla?'caida':'en-linea'}" data-esv-id="${escEsv(t.id)}">
               <span class="noc-dot ${falla?'off':'on'}"></span>
               <div class="noc-plaza">${escEsv(esvNombreCorto(t.plaza))}</div>
               <span class="noc-carrier-badge" style="background:${color}">${escEsv(label)}</span>
-              <div class="noc-estado">${falla?'Caída':'En línea'}</div>
+              <div class="noc-estado">${estadoTxt}</div>
             </div>`;
           }).join('')}
         </div>
@@ -2404,6 +2425,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='reemplazo_disco') return renderReemplazoDisco(c);
     if(tab==='biometricos') return renderBiometricos(c);
     if(tab==='pin_pad') return renderPinPad(c);
+    if(tab==='guardias') return renderGuardias(c);
     if(tab==='expansion') return renderExpansion(c);
     if(tab==='budget_it') return renderBudgetIT(c);
     if(tab==='actualizaciones') return renderActualizaciones(c);
@@ -3235,7 +3257,7 @@ auth.onAuthStateChanged(async function(user){
     const btnCancel = document.getElementById('btnCancelCargaPinPad');
     if(btnCancel) btnCancel.onclick = ()=>{ cargaPendientePinPad = null; render(); };
     const btnAplicar = document.getElementById('btnAplicarCargaPinPad');
-    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosPorMes(state.pin_pad, cargaPendientePinPad, 'PIN PAD'); cargaPendientePinPad = null; };
+    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosPorMes(state.pin_pad, cargaPendientePinPad, 'Pin Pad'); cargaPendientePinPad = null; };
   }
 
   function renderReemplazoDisco(c){
@@ -3350,12 +3372,12 @@ auth.onAuthStateChanged(async function(user){
     const pendientes = Math.max(0, totalDanos - totalReemplazados);
     const COL_BAR='#0369A1', COL_LINE='#E4536B';
     renderBarLineApartado(c, {
-      titulo:'PIN PAD',
+      titulo:'Pin Pad',
       subtitulo: pp.carga.archivo ? `Última carga: ${pp.carga.archivo} · ${fmtFecha(pp.carga.fecha)}` : 'Equipos dañados vs. reemplazados',
       uploadBarHtml: canEditInventario() ? `
       <div class="uploadbar">
         <div class="txt">
-          <b>Cargar archivo de PIN PAD (.xlsx)</b> — columnas Mes, Daños y Reemplazos. Si un mes ya existía se actualiza; si es nuevo se agrega.
+          <b>Cargar archivo de Pin Pad (.xlsx)</b> — columnas Mes, Daños y Reemplazos. Si un mes ya existía se actualiza; si es nuevo se agrega.
           <div id="uploadErrorPinPad"></div>
         </div>
         <input type="file" id="filePinPad" accept=".xlsx,.xls" style="display:none">
@@ -3368,7 +3390,7 @@ auth.onAuthStateChanged(async function(user){
       ],
       sinDatos: registros.length===0,
       mensajeVacio: 'Sube el Excel con las columnas Mes, Daños y Reemplazos para llenar esta gráfica.',
-      chartTitle:'PIN PAD dañados/reemplazados por mes', canvasId:'chartPinPad',
+      chartTitle:'Pin Pad dañados/reemplazados por mes', canvasId:'chartPinPad',
       labels: registros.map(r=>r.mes),
       datasets:[
         {type:'bar', label:'Dañados', data:registros.map(r=>r.danos), backgroundColor:COL_BAR, borderRadius:4},
@@ -3377,6 +3399,118 @@ auth.onAuthStateChanged(async function(user){
       foot:'Los indicadores y la gráfica se calculan solos a partir del archivo cargado — no son editables a mano.'
     });
     wirePinPadUpload();
+  }
+
+  // ---------- 8. Guardias (Soporte IT) ----------
+  // Rotación de guardias de fin de semana, SOLO sábado y domingo (el cliente lo aclaró explícitamente:
+  // no aplica de lunes a viernes). A petición explícita del cliente esta pestaña NO tiene carga de Excel
+  // ni botón — el orden de la rotación se cargó una sola vez (guardias_SIT.xlsx, ago 2026) y de ahí en
+  // adelante la serie se genera sola: cada sábado le toca al siguiente ingeniero de GUARDIA_ORDEN, en
+  // ciclo de 5, para siempre — no hay que tocar nada mes a mes. GUARDIA_ANCLA_TS es el primer sábado del
+  // archivo (1 de agosto 2026 = Daniel Aguilar, índice 0); cualquier otro sábado se ubica contando cuántas
+  // semanas de 7 días lo separan de esa ancla.
+  const GUARDIA_ORDEN = ['Daniel Aguilar','Alfredo Martinez','Ariadna Sanchez','Eder Castillo','Javier Marafic'];
+  const GUARDIA_PALETA = ['#2563EB','#7C3AED','#0D9488','#D97706','#DB2777'];
+  const GUARDIA_ANCLA_TS = Date.UTC(2026,7,1); // sábado 1 de agosto de 2026
+  const GUARDIA_COLOR = {}; GUARDIA_ORDEN.forEach((nombre,i)=>{ GUARDIA_COLOR[nombre] = GUARDIA_PALETA[i % GUARDIA_PALETA.length]; });
+  function guardiaHoyUTC(){
+    const n = new Date();
+    return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate());
+  }
+  function fmtGuardiaFecha(ts){
+    const d = new Date(ts);
+    const DIAS_SEM = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+    return `${DIAS_SEM[d.getUTCDay()]} ${d.getUTCDate()} de ${MESES12[d.getUTCMonth()].toLowerCase()}`;
+  }
+  // Ingeniero que le toca en el sábado cuyo timestamp (UTC, medianoche) es sabTs.
+  function guardiaIngenieroEn(sabTs){
+    const semanas = Math.round((sabTs - GUARDIA_ANCLA_TS) / (7*86400000));
+    const idx = ((semanas % GUARDIA_ORDEN.length) + GUARDIA_ORDEN.length) % GUARDIA_ORDEN.length;
+    return GUARDIA_ORDEN[idx];
+  }
+  // Genera la ventana de sábados a mostrar: 2 fines de semana hacia atrás (contexto reciente) y 22 hacia
+  // adelante (~5 meses) contados desde el sábado de esta semana — así conforme avanzan los meses, la
+  // próxima vez que se abra esta pestaña la ventana ya se recorrió sola, sin tocar código ni datos.
+  function generarGuardias(){
+    const hoyTs = guardiaHoyUTC();
+    let sab = new Date(hoyTs);
+    while(sab.getUTCDay() !== 6) sab.setUTCDate(sab.getUTCDate()+1); // sábado de esta semana o el próximo
+    const sabEstaSemanaTs = sab.getTime();
+    const HACIA_ATRAS = 2, HACIA_ADELANTE = 22;
+    const registros = [];
+    for(let i=-HACIA_ATRAS; i<=HACIA_ADELANTE; i++){
+      const ts = sabEstaSemanaTs + i*7*86400000;
+      registros.push({ ts, ingeniero: guardiaIngenieroEn(ts) });
+    }
+    return registros;
+  }
+  function renderGuardias(c){
+    const registros = generarGuardias();
+    const hoyTs = guardiaHoyUTC();
+    let actual = null, siguiente = null, anterior = null;
+    registros.forEach(r=>{
+      const domTs = r.ts + 86400000;
+      if(hoyTs===r.ts || hoyTs===domTs) actual = r;
+      else if(r.ts > hoyTs && !siguiente) siguiente = r;
+      else if(r.ts < hoyTs) anterior = r;
+    });
+    function heroCard(tag, r){
+      if(!r) return `<div class="guardia-hero" style="background:#94A3B8"><div class="tag">${tag}</div><div class="nombre">Sin datos</div></div>`;
+      return `<div class="guardia-hero" style="background:${GUARDIA_COLOR[r.ingeniero]||'#94A3B8'}">
+        <div class="tag">${tag}</div>
+        <div class="nombre">${escEsv(r.ingeniero)}</div>
+        <div class="rango">${fmtGuardiaFecha(r.ts)} y ${fmtGuardiaFecha(r.ts+86400000)}</div>
+      </div>`;
+    }
+    // Agrupa por mes (clave "YYYY-MM") preservando el orden cronológico.
+    const meses = [];
+    const porMes = {};
+    registros.forEach(r=>{
+      const d = new Date(r.ts);
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth()).padStart(2,'0')}`;
+      if(!porMes[key]){ porMes[key] = { label: `${MESES12[d.getUTCMonth()]} ${d.getUTCFullYear()}`, rows: [] }; meses.push(key); }
+      porMes[key].rows.push(r);
+    });
+    function bloqueMes(key){
+      return `<div class="guardia-mes">
+        <h4>${porMes[key].label}</h4>
+        ${porMes[key].rows.map(r=>{
+          const esActual = actual && actual.ts===r.ts;
+          const esProxima = !actual && siguiente && siguiente.ts===r.ts;
+          return `<div class="guardia-row ${esActual?'es-actual':esProxima?'es-proxima':''}">
+            <div class="fecha">
+              <span class="dot" style="background:${GUARDIA_COLOR[r.ingeniero]||'#94A3B8'}"></span>
+              <b>${escEsv(r.ingeniero)}</b> — ${fmtGuardiaFecha(r.ts)} y ${fmtGuardiaFecha(r.ts+86400000)}
+              ${esActual ? '<span class="tagmini" style="background:#0D9488">En curso</span>' : ''}
+              ${esProxima ? '<span class="tagmini" style="background:#64748B">Próxima</span>' : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+    // Solo el mes que contiene "hoy" se ve abierto de entrada; el resto queda comprimido detrás de
+    // un botón "+" (a petición explícita del cliente) para no llenar la pantalla con ~6 meses de golpe.
+    const hoyD = new Date(hoyTs);
+    const mesActualKey = `${hoyD.getUTCFullYear()}-${String(hoyD.getUTCMonth()).padStart(2,'0')}`;
+    const mesesOtros = meses.filter(k=>k!==mesActualKey);
+    c.innerHTML = `
+      <div class="title">Guardias</div>
+      <div class="subtitle">Rotación fija de guardias de fin de semana (sábado y domingo) de Soporte IT: ${GUARDIA_ORDEN.join(' → ')}, y se repite — se genera sola, sin necesidad de cargar ningún archivo.</div>
+      <div class="cards">
+        ${heroCard(actual ? 'Guardia actual' : 'Próxima guardia', actual || siguiente)}
+        ${actual ? heroCard('Próxima guardia', siguiente) : heroCard('Guardia anterior', anterior)}
+      </div>
+      <div class="panel">
+        ${porMes[mesActualKey] ? bloqueMes(mesActualKey) : '<div class="foot">No hay guardias del mes en curso en la ventana mostrada.</div>'}
+        ${mesesOtros.length ? `
+          <button class="guardia-toggle" id="btnToggleGuardiaMeses">${guardiaOtrosMesesAbiertos ? '− Ocultar los demás meses' : `+ Ver los demás meses (${mesesOtros.length})`}</button>
+          ${guardiaOtrosMesesAbiertos ? mesesOtros.map(bloqueMes).join('') : ''}
+        ` : ''}
+      </div>
+      <div class="foot">Las guardias solo cubren sábado y domingo — no hay guardia asignada de lunes a viernes en este apartado. "Actual"/"Próxima" se recalculan solas contra la fecha de hoy.</div>
+    `;
+    const btnToggle = document.getElementById('btnToggleGuardiaMeses');
+    if(btnToggle) btnToggle.onclick = ()=>{ guardiaOtrosMesesAbiertos = !guardiaOtrosMesesAbiertos; render(); };
   }
 
   // ---------- Tendencia mensual ----------
