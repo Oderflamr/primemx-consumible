@@ -226,6 +226,20 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .cards{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:24px;}
   @media (max-width:1100px){ .cards{grid-template-columns:repeat(2,minmax(0,1fr));} }
   @media (max-width:560px){ .cards{grid-template-columns:1fr;} }
+  /* Variantes de número de columnas (agosto 2026) — antes cada pestaña fijaba su propio
+     grid-template-columns por estilo inline (repeat(2)/(3)/(5)...), lo que GANABA a las
+     media queries de arriba sin importar el tamaño de pantalla (un estilo inline siempre
+     le gana a una regla de clase) y dejaba tarjetas amontonadas/cortadas en teléfono. Con
+     estas clases (misma especificidad extra en cada media query) sí se ajustan solas. */
+  .cards.cards-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+  @media (max-width:380px){ .cards.cards-2{grid-template-columns:1fr;} }
+  .cards.cards-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+  @media (max-width:900px){ .cards.cards-3{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  @media (max-width:480px){ .cards.cards-3{grid-template-columns:1fr;} }
+  .cards.cards-5{grid-template-columns:repeat(5,minmax(0,1fr));}
+  @media (max-width:1100px){ .cards.cards-5{grid-template-columns:repeat(3,minmax(0,1fr));} }
+  @media (max-width:560px){ .cards.cards-5{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  @media (max-width:380px){ .cards.cards-5{grid-template-columns:1fr;} }
   .card{border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; min-width:0;}
   .card .head{padding:9px 14px; font-weight:700; color:#fff; font-size:14px;}
   .card .body{padding:14px;}
@@ -260,6 +274,8 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .status-badge.estable{background:#E7F7EC; color:var(--good);}
 
   .servicios-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:6px;}
+  @media (max-width:560px){ .servicios-grid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:340px){ .servicios-grid{grid-template-columns:1fr;} }
   .sv-field label{font-size:11px; color:var(--sub); display:block; margin-bottom:4px;}
   .sv-field input{width:100%;}
 
@@ -1137,6 +1153,24 @@ auth.onAuthStateChanged(async function(user){
     // Total) que suba asanchez (único usuario con el botón de carga, ver canEditReemplazoDisco()).
     // Total unidades, Promedio/mes, Máximo y Mínimo se calculan solos a partir de los registros.
     reemplazo_disco: { registros: [], carga: { archivo: null, fecha: null } },
+    // Reemplazo de Laptop / Reemplazo de CPU (agosto 2026, segunda vuelta): mismo patrón que Reemplazo
+    // Disco Duro — arrancan vacíos y se llenan con un Excel (botón exclusivo de ecastillo/daguilar/admin,
+    // ver canEditInventario()). A diferencia de Disco Duro, aquí las barras "2025" de DATA_REEMPLAZO_LAPTOP/
+    // DATA_REEMPLAZO_CPU (más abajo) se quedan FIJAS como referencia histórica — el archivo solo alimenta
+    // la línea 2026 y los indicadores de arriba, nunca las barras 2025 (así lo pidió el cliente: "esto es
+    // solo 2026"). Laptop trae 3 columnas (Reem., Total, Robo — el cliente aclaró que "Total" es un dato
+    // independiente, NO necesariamente Reem.+Robo, así que se suma aparte); CPU solo trae Total.
+    reemplazo_laptop: { registros: [], carga: { archivo: null, fecha: null } },
+    reemplazo_cpu: { registros: [], carga: { archivo: null, fecha: null } },
+    // Biométricos / PIN PAD (agosto 2026, segunda vuelta): a diferencia de Laptop/CPU, aquí NO hay barras
+    // fijas de referencia — el Excel (columnas Mes, Daños, Reemplazos) alimenta las DOS series de la
+    // gráfica (barra Dañados + línea Reemplazados) y los 2 indicadores, igual de vacío-hasta-cargar que
+    // Reemplazo Disco Duro. Cada pestaña tiene su propio botón/archivo (son equipos distintos). El cliente
+    // no tuvo preferencia sobre cómo calcular "Pendientes por reemplazo" — se dejó como Daños acumulados
+    // menos Reemplazados acumulados (backlog), mismo espíritu que los demás indicadores de esta sección
+    // (se calculan solos); avisar si se prefiere otra fórmula.
+    biometricos: { registros: [], carga: { archivo: null, fecha: null } },
+    pin_pad: { registros: [], carga: { archivo: null, fecha: null } },
     // Budget IT 2026: recreado de Budget 2026_IT.xlsx (hoja "Presupuesto 2026"). Enero-Junio son los
     // valores reales ya conciliados (quedan congelados en la UI). Julio trae lo que ya estaba cargado
     // en el Excel (algunos proveedores aún sin dato); Agosto-Diciembre quedan en null y se editan mes
@@ -1172,8 +1206,8 @@ auth.onAuthStateChanged(async function(user){
   };
 
   const INTERNET_TABS = [
-    {id:'resumen', label:'Resumen 2026'},
     {id:'estatus_servicio', label:'Estatus de Servicio'},
+    {id:'resumen', label:'Resumen 2026'},
     {id:'tendencia', label:'Tendencia mensual'},
     {id:'yoy_tp', label:'TotalPlay YoY'},
     {id:'top_tp', label:'Top 15 TotalPlay'},
@@ -1207,12 +1241,13 @@ auth.onAuthStateChanged(async function(user){
   // Estas dos pestañas están restringidas: no aparecen en la barra ni se pueden abrir si el usuario
   // no está en USUARIOS_BUDGET_EDITAR/USUARIOS_BUDGET_LECTURA (ver puedeVerBudgetIT()).
   const TABS_RESTRINGIDOS_BUDGET = ['budget_it','actualizaciones'];
-  // Apartados nuevos de agosto 2026 (envios_recolecciones...pin_pad): recreados como indicadores reales
-  // (tarjetas + gráfica Chart.js) a partir de las 7 láminas de un PowerPoint que envió el cliente — los
-  // números en MESES12/DATA_* de abajo son los que traían esas láminas, capturados a mano una sola vez.
-  // Todavía NO hay archivo fuente ni regla de negocio definida para recalcularlos solos: son datos fijos.
-  // Cuando el cliente defina el archivo/regla de cada uno, agregar su carga de Excel igual que Win11/PDV
-  // Región (botón + parseo + guardar en Firestore) en vez de las constantes DATA_* hardcodeadas.
+  // Apartados nuevos de agosto 2026 (envios_recolecciones...pin_pad): nacieron como indicadores
+  // recreados a mano (tarjetas + gráfica Chart.js) a partir de 7 láminas de un PowerPoint que envió el
+  // cliente. Desde entonces, uno por uno, se fueron convirtiendo a carga de Excel real conforme el
+  // cliente definía el formato de cada archivo — a la fecha, envios_recolecciones, resumen_reemplazos,
+  // reemplazo_disco, reemplazo_laptop, reemplazo_cpu, biometricos y pin_pad YA se cargan desde Excel
+  // (ver DEFAULTS de cada uno); solo quedan las constantes DATA_REEMPLAZO_LAPTOP/DATA_REEMPLAZO_CPU de
+  // abajo, y únicamente para sus barras "2025" (referencia histórica fija, no cambian con el Excel).
   const MESES12 = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   // Envíos y Recolecciones (agosto 2026): dejó de ser la constante fija DATA_ENVIOS_RECOLECCIONES
   // (números capturados a mano de una lámina de PowerPoint) — ahora se carga desde un Excel real
@@ -1220,29 +1255,23 @@ auth.onAuthStateChanged(async function(user){
   // (Total Envíos, Total Recolección, % Recuperación, Promedio Mensual) se calculan solos a partir
   // de los registros cargados. Ver DEFAULTS.envios_recolecciones, calcularDatosEnviosRecolecciones()
   // y renderEnviosRecolecciones().
-  const DATA_REEMPLAZO_LAPTOP = {
-    bars2025:[12,14,15,15,7,12,15,12,9,7,2,12],
-    line2026:[11,19,10,11,19,12,10,1,0,0,0,0],
-    promedioMes:14, robos2026:6, total2026:93
-  };
-  const DATA_REEMPLAZO_CPU = {
-    bars2025:[32,28,28,16,20,27,26,29,21,48,20,19],
-    line2026:[31,33,37,30,35,29,31,3,0,0,0,0],
-    promedioMes:29, total2026:229
-  };
-  const DATA_BIOMETRICOS = {
-    danados:[47,40,45,29,41,34,38],
-    reemplazados:[47,40,45,29,41,34,19],
-    promedioMes:40, pendientes:25
-  };
-  const DATA_PIN_PAD = {
-    danados:[4,5,4,8,2,1,4,1],
-    reemplazados:[4,4,4,8,2,1,3,0],
-    promedioMes:3, pendientes:6
-  };
+  // Reemplazo de Laptop/CPU (agosto 2026, segunda vuelta): ya NO tienen line2026/promedioMes/robos2026/
+  // total2026 fijos — esos ahora salen del Excel que carga cada pestaña (ver DEFAULTS.reemplazo_laptop/
+  // reemplazo_cpu, calcularDatosPorMes(), renderReemplazoLaptop()/renderReemplazoCpu()). Solo queda
+  // bars2025 aquí, porque esa barra se mantiene fija como referencia histórica (no viene del Excel).
+  const DATA_REEMPLAZO_LAPTOP = { bars2025:[12,14,15,15,7,12,15,12,9,7,2,12] };
+  const DATA_REEMPLAZO_CPU = { bars2025:[32,28,28,16,20,27,26,29,21,48,20,19] };
+  // Biométricos/PIN PAD (agosto 2026, segunda vuelta): dejaron de ser las constantes fijas
+  // DATA_BIOMETRICOS/DATA_PIN_PAD — a diferencia de Laptop/CPU, aquí NO queda ninguna barra fija de
+  // referencia: las dos series de la gráfica (Dañados/Reemplazados) y los 2 indicadores salen enteros
+  // del Excel de cada pestaña (ver DEFAULTS.biometricos/pin_pad, renderBiometricos()/renderPinPad()).
 
   let state = null;
-  let tab = 'resumen';
+  // Pantalla de entrada (agosto 2026, tercera vuelta): el cliente pidió que lo primero que se vea al
+  // entrar sea "Estatus de Servicio" (servicios activos), y luego "Resumen 2026" — antes era al revés
+  // (Resumen primero). Ver también el orden de INTERNET_TABS más abajo, que se reordenó igual para que
+  // el desplegable "Internet" liste Estatus de Servicio arriba de Resumen 2026.
+  let tab = 'estatus_servicio';
   let editing = false;
   let editingCierre = false; // edición independiente de la sub-sección "Cierre de tiendas" dentro de Plan de expansión
   let internetMenuAbierto = false;
@@ -1326,6 +1355,10 @@ auth.onAuthStateChanged(async function(user){
   let cargaPendienteExpansion = null;
   let cargaPendienteEnviosRec = null;
   let cargaPendienteReemplazoDisco = null;
+  let cargaPendienteReemplazoLaptop = null;
+  let cargaPendienteReemplazoCpu = null;
+  let cargaPendienteBiometricos = null;
+  let cargaPendientePinPad = null;
   let historialExpandido = null;
   let historialPdvExpandido = null;
   let editandoLaptopCerrado = false; // control independiente del botón "Editar" general de la pestaña
@@ -1628,6 +1661,13 @@ auth.onAuthStateChanged(async function(user){
       if(!state.reemplazo_disco) state.reemplazo_disco = clone(DEFAULTS.reemplazo_disco);
       if(!Array.isArray(state.reemplazo_disco.registros)) state.reemplazo_disco.registros = [];
       if(!state.reemplazo_disco.carga) state.reemplazo_disco.carga = { archivo: null, fecha: null };
+      // Reemplazo de Laptop/CPU y Biométricos/PIN PAD (agosto 2026, segunda vuelta) — mismo saneo que
+      // reemplazo_disco arriba, por si el documento en Firestore todavía no tiene estos campos.
+      ['reemplazo_laptop','reemplazo_cpu','biometricos','pin_pad'].forEach(campo=>{
+        if(!state[campo]) state[campo] = clone(DEFAULTS[campo]);
+        if(!Array.isArray(state[campo].registros)) state[campo].registros = [];
+        if(!state[campo].carga) state[campo].carga = { archivo: null, fecha: null };
+      });
       if(!Array.isArray(state.actualizaciones)) state.actualizaciones = [];
       if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
       if(!state.budget_it.historial) state.budget_it.historial = [];
@@ -2270,16 +2310,18 @@ auth.onAuthStateChanged(async function(user){
     app.className = canEdit ? 'is-admin' : '';
     app.innerHTML = `
       <div class="status-line" style="margin-bottom:14px;"><span class="dot"></span> Última actualización: ${fmtFecha(state.updated_at)}</div>
-      <div class="tabs" style="position:relative; overflow:visible;">
-        <div class="tab ${INTERNET_TABS.some(t=>t.id===tab)?'active':''}" id="tabInternetBtn" style="display:inline-flex; align-items:center; gap:4px;">Internet <span style="font-size:10px;">▾</span></div>
+      <div class="tabs-wrap" style="position:relative;">
+        <div class="tabs">
+          <div class="tab ${INTERNET_TABS.some(t=>t.id===tab)?'active':''}" id="tabInternetBtn" style="display:inline-flex; align-items:center; gap:4px;">Internet <span style="font-size:10px;">▾</span></div>
+          <div class="tab ${SOPORTE_IT_TABS.some(t=>t.id===tab)?'active':''}" id="tabSoporteBtn" style="display:inline-flex; align-items:center; gap:4px;">Soporte IT <span style="font-size:10px;">▾</span></div>
+          ${TABS.filter(t=> !TABS_RESTRINGIDOS_BUDGET.includes(t.id) || puedeVerBudgetIT()).map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}
+        </div>
         ${internetMenuAbierto ? `<div id="menuInternet" style="position:absolute; top:100%; left:0; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:200px; z-index:50;">
           ${INTERNET_TABS.map(t=>`<div class="tab-sub" data-tab="${t.id}" style="padding:8px 12px; font-size:13px; font-weight:${t.id===tab?'700':'500'}; color:${t.id===tab?'var(--tp)':'var(--ink)'}; cursor:pointer; border-radius:6px; white-space:nowrap;">${t.label}</div>`).join('')}
         </div>` : ''}
-        <div class="tab ${SOPORTE_IT_TABS.some(t=>t.id===tab)?'active':''}" id="tabSoporteBtn" style="display:inline-flex; align-items:center; gap:4px;">Soporte IT <span style="font-size:10px;">▾</span></div>
         ${soporteMenuAbierto ? `<div id="menuSoporte" style="position:absolute; top:100%; left:110px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:220px; z-index:50;">
           ${SOPORTE_IT_TABS.map(t=>`<div class="tab-sub" data-tab="${t.id}" style="padding:8px 12px; font-size:13px; font-weight:${t.id===tab?'700':'500'}; color:${t.id===tab?'var(--tp)':'var(--ink)'}; cursor:pointer; border-radius:6px; white-space:nowrap;">${t.label}</div>`).join('')}
         </div>` : ''}
-        ${TABS.filter(t=> !TABS_RESTRINGIDOS_BUDGET.includes(t.id) || puedeVerBudgetIT()).map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}
       </div>
       <div id="tabContent"></div>
       <div class="foot">Los datos se comparten con todo tu equipo (Firebase). ${canEdit ? 'Los cambios de cada pestaña se guardan juntos.' : 'Tu usuario tiene acceso de solo consulta.'}</div>
@@ -2667,63 +2709,133 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- Genérico: barra 2025 vs línea 2026 (o solo dañados/reemplazados) ----------
+  // opts.uploadBarHtml / opts.previewHtml (agosto 2026, segunda vuelta): opcionales, para las 4
+  // pestañas que ahora cargan su 2026 desde un Excel (Reemplazo de Laptop/CPU, Biométricos, PIN PAD) —
+  // se insertan entre el subtítulo y las tarjetas de KPI, igual que en Reemplazo Disco Duro. Si no se
+  // pasan, quedan vacíos y no cambia nada para quien ya usaba este helper.
+  // opts.sinDatos (opcional): si es true, muestra un placeholder en vez de la gráfica y NO llama a
+  // Chart.js — para cuando todavía no se ha cargado ningún archivo (Biométricos/PIN PAD arrancan así).
   function renderBarLineApartado(c, opts){
+    const sinDatos = !!opts.sinDatos;
     c.innerHTML = `
       <div class="title">${opts.titulo}</div>
       <div class="subtitle">${opts.subtitulo}</div>
+      ${opts.uploadBarHtml || ''}
+      ${opts.previewHtml || ''}
       <div class="cards">${opts.kpis.map(k=>`<div class="card"><div class="head" style="background:${cardGrad(k.color)}">${k.label}</div><div class="body"><div class="big">${k.valor}</div><div class="lbl">${k.lbl}</div></div></div>`).join('')}</div>
+      ${sinDatos ? `
+      <div class="placeholder">
+        <h3>Todavía no hay datos cargados</h3>
+        <p>${opts.mensajeVacio || 'Sube el archivo correspondiente para llenar esta gráfica.'}</p>
+      </div>` : `
       <div class="panel">
         <h3>${opts.chartTitle}</h3>
         <canvas id="${opts.canvasId}"></canvas>
-      </div>
+      </div>`}
       <div class="foot">${opts.foot}</div>
     `;
-    if(charts[opts.canvasId]) charts[opts.canvasId].destroy();
-    charts[opts.canvasId] = new Chart(document.getElementById(opts.canvasId), {
-      data:{ labels: opts.labels, datasets: opts.datasets },
-      options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
-    });
+    if(!sinDatos){
+      if(charts[opts.canvasId]) charts[opts.canvasId].destroy();
+      charts[opts.canvasId] = new Chart(document.getElementById(opts.canvasId), {
+        data:{ labels: opts.labels, datasets: opts.datasets },
+        options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
+      });
+    }
   }
 
   // ---------- 3. Reemplazo de Laptop ----------
+  // Reemplazo de Laptop (agosto 2026, segunda vuelta): las barras "2025" siguen fijas (referencia
+  // histórica de la lámina original) — solo la línea "2026" y los 3 indicadores de arriba vienen ahora
+  // del Excel (botón exclusivo de ecastillo/daguilar/admin, ver canEditInventario()). "Total 2026" usa
+  // la columna Total tal cual la trae el archivo (el cliente aclaró que NO es necesariamente Reem.+Robo).
   function renderReemplazoLaptop(c){
-    const d = DATA_REEMPLAZO_LAPTOP;
+    const rl = state.reemplazo_laptop;
+    const registros = rl.registros || [];
+    const totalReem = registros.reduce((s,r)=>s+r.reem,0);
+    const totalGeneral = registros.reduce((s,r)=>s+r.total,0);
+    const totalRobo = registros.reduce((s,r)=>s+r.robo,0);
+    const promedioMes = registros.length ? Math.round(totalReem/registros.length) : 0;
+    const porMes = {};
+    registros.forEach(r=>{ porMes[normalizarTextoEnvios(r.mes)] = r.reem; });
+    const line2026 = MESES12.map(m => {
+      const key = normalizarTextoEnvios(m);
+      return porMes.hasOwnProperty(key) ? porMes[key] : null;
+    });
     const COL_BAR='#1E88C7', COL_LINE='#EF4444';
     renderBarLineApartado(c, {
-      titulo:'Reemplazo de Laptop', subtitulo:'Unidades reemplazadas por mes — 2025 vs. 2026',
+      titulo:'Reemplazo de Laptop',
+      subtitulo: rl.carga.archivo ? `Última carga: ${rl.carga.archivo} · ${fmtFecha(rl.carga.fecha)}` : 'Unidades reemplazadas por mes — 2025 vs. 2026',
+      uploadBarHtml: canEditInventario() ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar archivo de Reemplazo de Laptop (.xlsx)</b> — columnas Mes, Reem., Total y Robo (solo 2026). Si un mes ya existía se actualiza; si es nuevo se agrega.
+          <div id="uploadErrorReemplazoLaptop"></div>
+        </div>
+        <input type="file" id="fileReemplazoLaptop" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUploadReemplazoLaptop">Cargar archivo</button>
+      </div>` : '',
+      previewHtml: cargaPendienteReemplazoLaptop ? panelConfirmacionReemplazoLaptop() : '',
       kpis:[
-        {label:'Promedio / mes', valor:d.promedioMes, lbl:'unidades · 2026', color:COL_BAR},
-        {label:'Total 2026 (Ene–Ago)', valor:d.total2026, lbl:'unidades reemplazadas', color:'#334155'},
-        {label:'Robos 2026', valor:d.robos2026, lbl:'en el año', color:'#B91C1C'}
+        {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades · 2026', color:COL_BAR},
+        {label:'Total 2026', valor:fmtMX(totalGeneral), lbl:'unidades reemplazadas', color:'#334155'},
+        {label:'Robos 2026', valor:fmtMX(totalRobo), lbl:'en el año', color:'#B91C1C'}
       ],
       chartTitle:'Laptop dañada/reemplazada por mes', canvasId:'chartLaptop',
       labels: MESES12,
       datasets:[
-        {type:'bar', label:'2025', data:d.bars2025, backgroundColor:COL_BAR, borderRadius:4},
-        {type:'line', label:'2026', data:d.line2026, borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5}
+        {type:'bar', label:'2025', data:DATA_REEMPLAZO_LAPTOP.bars2025, backgroundColor:COL_BAR, borderRadius:4},
+        {type:'line', label:'2026', data:line2026, borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5, spanGaps:true}
       ],
-      foot:'Datos tomados de la lámina "Reemplazo de Laptop" del PowerPoint. Nota: en la lámina original aparece además una etiqueta "Migración w11" sobre la gráfica — se omitió aquí porque no está clara su relación con este indicador; pendiente de confirmar con el cliente.'
+      foot: registros.length
+        ? 'Los indicadores de arriba y la línea 2026 se calculan solos a partir del archivo cargado — no son editables a mano. Las barras 2025 son de referencia (lámina original del PowerPoint).'
+        : 'Todavía no se ha cargado el archivo de 2026 — por ahora solo se ven las barras 2025 (referencia). Sube el Excel con las columnas Mes, Reem., Total y Robo para completar la línea 2026 y los indicadores.'
     });
+    wireReemplazoLaptopUpload();
   }
 
   // ---------- 4. Reemplazo de CPU ----------
+  // Mismo patrón que Reemplazo de Laptop, pero el Excel solo trae Mes y Total (igual que Reemplazo
+  // Disco Duro) — no hay columnas Reem./Robo por separado aquí.
   function renderReemplazoCpu(c){
-    const d = DATA_REEMPLAZO_CPU;
+    const rc = state.reemplazo_cpu;
+    const registros = rc.registros || [];
+    const totalGeneral = registros.reduce((s,r)=>s+r.total,0);
+    const promedioMes = registros.length ? Math.round(totalGeneral/registros.length) : 0;
+    const porMes = {};
+    registros.forEach(r=>{ porMes[normalizarTextoEnvios(r.mes)] = r.total; });
+    const line2026 = MESES12.map(m => {
+      const key = normalizarTextoEnvios(m);
+      return porMes.hasOwnProperty(key) ? porMes[key] : null;
+    });
     const COL_BAR='#0B3D5C', COL_LINE='#F08A24';
     renderBarLineApartado(c, {
-      titulo:'Reemplazo de CPU', subtitulo:'Unidades reemplazadas por mes — 2025 vs. 2026',
+      titulo:'Reemplazo de CPU',
+      subtitulo: rc.carga.archivo ? `Última carga: ${rc.carga.archivo} · ${fmtFecha(rc.carga.fecha)}` : 'Unidades reemplazadas por mes — 2025 vs. 2026',
+      uploadBarHtml: canEditInventario() ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar archivo de Reemplazo de CPU (.xlsx)</b> — columnas Mes y Total (solo 2026). Si un mes ya existía se actualiza; si es nuevo se agrega.
+          <div id="uploadErrorReemplazoCpu"></div>
+        </div>
+        <input type="file" id="fileReemplazoCpu" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUploadReemplazoCpu">Cargar archivo</button>
+      </div>` : '',
+      previewHtml: cargaPendienteReemplazoCpu ? panelConfirmacionReemplazoCpu() : '',
       kpis:[
-        {label:'Promedio / mes', valor:d.promedioMes, lbl:'unidades · 2026', color:COL_BAR},
-        {label:'Total 2026 (Ene–Ago)', valor:d.total2026, lbl:'unidades reemplazadas', color:'#334155'}
+        {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades · 2026', color:COL_BAR},
+        {label:'Total 2026', valor:fmtMX(totalGeneral), lbl:'unidades reemplazadas', color:'#334155'}
       ],
       chartTitle:'CPU dañada/reemplazada por mes', canvasId:'chartCpu',
       labels: MESES12,
       datasets:[
-        {type:'bar', label:'2025', data:d.bars2025, backgroundColor:COL_BAR, borderRadius:4},
-        {type:'line', label:'2026', data:d.line2026, borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5}
+        {type:'bar', label:'2025', data:DATA_REEMPLAZO_CPU.bars2025, backgroundColor:COL_BAR, borderRadius:4},
+        {type:'line', label:'2026', data:line2026, borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5, spanGaps:true}
       ],
-      foot:'Datos tomados de la lámina "Reemplazos de CPU" del PowerPoint.'
+      foot: registros.length
+        ? 'Los indicadores de arriba y la línea 2026 se calculan solos a partir del archivo cargado — no son editables a mano. Las barras 2025 son de referencia (lámina original del PowerPoint).'
+        : 'Todavía no se ha cargado el archivo de 2026 — por ahora solo se ven las barras 2025 (referencia). Sube el Excel con las columnas Mes y Total para completar la línea 2026 y los indicadores.'
     });
+    wireReemplazoCpuUpload();
   }
 
   // ---------- 5. Reemplazo Disco Duro ----------
@@ -2831,6 +2943,280 @@ auth.onAuthStateChanged(async function(user){
     if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosReemplazoDisco(cargaPendienteReemplazoDisco); };
   }
 
+  // ===== Carga de Excel por mes, genérica (agosto 2026) =====
+  // Reemplazo de Laptop, Reemplazo de CPU, Biométricos y PIN PAD siguen el mismo patrón que Reemplazo
+  // Disco Duro arriba (encabezado "Mes" + N columnas más, tolerante a variantes de nombre, vista previa
+  // antes de aplicar, "actualiza el mes si ya existía, agrega si es nuevo") — en vez de repetir la misma
+  // lógica 4 veces, estas 2 funciones son genéricas: cada pestaña solo declara sus columnas.
+  // `columnas`: [{key, label, variantes}, ...] — variantes ya en MAYÚSCULAS sin acentos (ver
+  // normalizarTextoEnvios), porque así compara buscarColumnaEnvios.
+  function calcularDatosPorMes(rows2d, fileName, columnas){
+    let headerIdx = -1;
+    const colIdx = {};
+    for(let i=0;i<Math.min(10,rows2d.length);i++){
+      const row = rows2d[i] || [];
+      const m = buscarColumnaEnvios(row, ['MES']);
+      if(m<0) continue;
+      const idxs = {};
+      let ok = true;
+      columnas.forEach(col=>{
+        const idx = buscarColumnaEnvios(row, col.variantes);
+        if(idx<0) ok = false;
+        idxs[col.key] = idx;
+      });
+      if(ok){ headerIdx=i; colIdx.mes=m; Object.assign(colIdx, idxs); break; }
+    }
+    if(headerIdx<0){
+      const nombres = ['Mes'].concat(columnas.map(c=>c.label)).join('", "');
+      throw new Error(`No se encontraron las columnas "${nombres}" en la hoja. Verifica los encabezados del archivo.`);
+    }
+    const registros = [];
+    for(let i=headerIdx+1; i<rows2d.length; i++){
+      const row = rows2d[i] || [];
+      const mesRaw = row[colIdx.mes];
+      if(mesRaw===undefined || mesRaw===null || String(mesRaw).trim()==='') continue;
+      const registro = { mes: normalizeMesEnvios(mesRaw) };
+      columnas.forEach(col=>{ registro[col.key] = Number(row[colIdx[col.key]]) || 0; });
+      registros.push(registro);
+    }
+    if(registros.length===0) throw new Error('No se encontraron filas con datos después del encabezado.');
+
+    const totales = {};
+    columnas.forEach(col=>{ totales[col.key] = registros.reduce((s,r)=>s+r[col.key],0); });
+    return { fileName, registros, resumen:{ totalFilas: registros.length, totales } };
+  }
+  // Aplica los registros nuevos/actualizados sobre `destino` (uno de state.reemplazo_laptop/
+  // reemplazo_cpu/biometricos/pin_pad) y guarda — mismo "actualiza por Mes si ya existe, agrega si es
+  // nuevo" que Reemplazo Disco Duro/Envíos y Recolecciones (nunca borra un mes que no venga en el
+  // archivo nuevo).
+  function aplicarDatosPorMes(destino, datos, descripcionCorta){
+    const existentes = destino.registros || [];
+    const indexPorMes = {};
+    existentes.forEach((r,i)=>{ indexPorMes[normalizarTextoEnvios(r.mes)] = i; });
+    let agregados = 0, actualizados = 0;
+    datos.registros.forEach(nuevo=>{
+      const key = normalizarTextoEnvios(nuevo.mes);
+      if(indexPorMes.hasOwnProperty(key)){
+        existentes[indexPorMes[key]] = { ...nuevo };
+        actualizados++;
+      } else {
+        existentes.push({ ...nuevo });
+        indexPorMes[key] = existentes.length - 1;
+        agregados++;
+      }
+    });
+    existentes.sort((a,b)=>{
+      const ia = MESES12.indexOf(a.mes), ib = MESES12.indexOf(b.mes);
+      if(ia<0 && ib<0) return 0;
+      if(ia<0) return 1;
+      if(ib<0) return -1;
+      return ia-ib;
+    });
+    destino.registros = existentes;
+    destino.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados };
+    descripcionActualizacion = `Carga de Excel — ${descripcionCorta} (${datos.fileName})`;
+    save();
+  }
+
+  // ---- Reemplazo de Laptop: Mes, Reem., Total, Robo (Total es independiente, NO se calcula como
+  // Reem.+Robo — el cliente aclaró que puede incluir otra cosa, así que se suma aparte tal cual). ----
+  const COLUMNAS_REEMPLAZO_LAPTOP = [
+    {key:'reem', label:'Reem.', variantes:['REEM','REEM.','REEMPLAZOS','REEMPLAZO']},
+    {key:'total', label:'Total', variantes:['TOTAL']},
+    {key:'robo', label:'Robo', variantes:['ROBO','ROBOS']}
+  ];
+  function handleFileUploadReemplazoLaptop(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadErrorReemplazoLaptop');
+    if(errBox) errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows2d = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        cargaPendienteReemplazoLaptop = calcularDatosPorMes(rows2d, file.name, COLUMNAS_REEMPLAZO_LAPTOP);
+        render();
+      }catch(err){
+        console.error(err);
+        if(errBox) errBox.innerHTML = `<div style="color:var(--crit); font-size:12.5px; margin-top:6px;">${err.message}</div>`;
+      }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  function panelConfirmacionReemplazoLaptop(){
+    const d = cargaPendienteReemplazoLaptop;
+    return `<div class="panel" style="border-color:var(--tm);">
+      <h3 style="color:var(--tm);">Confirmar carga · ${d.fileName}</h3>
+      <div style="font-size:13px; line-height:1.8;">
+        Filas leídas: <b>${d.resumen.totalFilas}</b> · Reem.: <b>${fmtMX(d.resumen.totales.reem)}</b> · Total: <b>${fmtMX(d.resumen.totales.total)}</b> · Robo: <b>${fmtMX(d.resumen.totales.robo)}</b>
+      </div>
+      <div class="foot">Si un mes del archivo ya existía, se actualiza con estos valores; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual. Las barras "2025" de la gráfica no cambian (son de referencia).</div>
+      <div class="editbar" style="margin-top:10px;">
+        <button id="btnCancelCargaReemplazoLaptop">Cancelar</button>
+        <button class="primary" id="btnAplicarCargaReemplazoLaptop">Aplicar datos</button>
+      </div>
+    </div>`;
+  }
+  function wireReemplazoLaptopUpload(){
+    const btn = document.getElementById('btnUploadReemplazoLaptop');
+    if(btn) btn.onclick = () => document.getElementById('fileReemplazoLaptop').click();
+    const inp = document.getElementById('fileReemplazoLaptop');
+    if(inp) inp.onchange = handleFileUploadReemplazoLaptop;
+    const btnCancel = document.getElementById('btnCancelCargaReemplazoLaptop');
+    if(btnCancel) btnCancel.onclick = ()=>{ cargaPendienteReemplazoLaptop = null; render(); };
+    const btnAplicar = document.getElementById('btnAplicarCargaReemplazoLaptop');
+    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosPorMes(state.reemplazo_laptop, cargaPendienteReemplazoLaptop, 'Reemplazo de Laptop'); cargaPendienteReemplazoLaptop = null; };
+  }
+
+  // ---- Reemplazo de CPU: Mes, Total (igual que Reemplazo Disco Duro). ----
+  const COLUMNAS_REEMPLAZO_CPU = [{key:'total', label:'Total', variantes:['TOTAL']}];
+  function handleFileUploadReemplazoCpu(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadErrorReemplazoCpu');
+    if(errBox) errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows2d = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        cargaPendienteReemplazoCpu = calcularDatosPorMes(rows2d, file.name, COLUMNAS_REEMPLAZO_CPU);
+        render();
+      }catch(err){
+        console.error(err);
+        if(errBox) errBox.innerHTML = `<div style="color:var(--crit); font-size:12.5px; margin-top:6px;">${err.message}</div>`;
+      }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  function panelConfirmacionReemplazoCpu(){
+    const d = cargaPendienteReemplazoCpu;
+    return `<div class="panel" style="border-color:var(--tm);">
+      <h3 style="color:var(--tm);">Confirmar carga · ${d.fileName}</h3>
+      <div style="font-size:13px; line-height:1.8;">
+        Filas leídas: <b>${d.resumen.totalFilas}</b> · Total: <b>${fmtMX(d.resumen.totales.total)}</b>
+      </div>
+      <div class="foot">Si un mes del archivo ya existía, se actualiza con este valor; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual. Las barras "2025" de la gráfica no cambian (son de referencia).</div>
+      <div class="editbar" style="margin-top:10px;">
+        <button id="btnCancelCargaReemplazoCpu">Cancelar</button>
+        <button class="primary" id="btnAplicarCargaReemplazoCpu">Aplicar datos</button>
+      </div>
+    </div>`;
+  }
+  function wireReemplazoCpuUpload(){
+    const btn = document.getElementById('btnUploadReemplazoCpu');
+    if(btn) btn.onclick = () => document.getElementById('fileReemplazoCpu').click();
+    const inp = document.getElementById('fileReemplazoCpu');
+    if(inp) inp.onchange = handleFileUploadReemplazoCpu;
+    const btnCancel = document.getElementById('btnCancelCargaReemplazoCpu');
+    if(btnCancel) btnCancel.onclick = ()=>{ cargaPendienteReemplazoCpu = null; render(); };
+    const btnAplicar = document.getElementById('btnAplicarCargaReemplazoCpu');
+    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosPorMes(state.reemplazo_cpu, cargaPendienteReemplazoCpu, 'Reemplazo de CPU'); cargaPendienteReemplazoCpu = null; };
+  }
+
+  // ---- Biométricos / PIN PAD: Mes, Daños, Reemplazos — mismas columnas, un botón/archivo por
+  // pestaña (son equipos distintos, el cliente confirmó que NO comparten un solo archivo). ----
+  const COLUMNAS_DANOS_REEMPLAZOS = [
+    {key:'danos', label:'Daños', variantes:['DAÑOS','DANOS','DAÑO','DANO']},
+    {key:'reemplazados', label:'Reemplazos', variantes:['REEMPLAZOS','REEMPLAZADOS','REEMPLAZO']}
+  ];
+  function handleFileUploadBiometricos(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadErrorBiometricos');
+    if(errBox) errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows2d = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        cargaPendienteBiometricos = calcularDatosPorMes(rows2d, file.name, COLUMNAS_DANOS_REEMPLAZOS);
+        render();
+      }catch(err){
+        console.error(err);
+        if(errBox) errBox.innerHTML = `<div style="color:var(--crit); font-size:12.5px; margin-top:6px;">${err.message}</div>`;
+      }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  function panelConfirmacionBiometricos(){
+    const d = cargaPendienteBiometricos;
+    return `<div class="panel" style="border-color:var(--tm);">
+      <h3 style="color:var(--tm);">Confirmar carga · ${d.fileName}</h3>
+      <div style="font-size:13px; line-height:1.8;">
+        Filas leídas: <b>${d.resumen.totalFilas}</b> · Daños: <b>${fmtMX(d.resumen.totales.danos)}</b> · Reemplazos: <b>${fmtMX(d.resumen.totales.reemplazados)}</b>
+      </div>
+      <div class="foot">Si un mes del archivo ya existía, se actualiza con estos valores; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual.</div>
+      <div class="editbar" style="margin-top:10px;">
+        <button id="btnCancelCargaBiometricos">Cancelar</button>
+        <button class="primary" id="btnAplicarCargaBiometricos">Aplicar datos</button>
+      </div>
+    </div>`;
+  }
+  function wireBiometricosUpload(){
+    const btn = document.getElementById('btnUploadBiometricos');
+    if(btn) btn.onclick = () => document.getElementById('fileBiometricos').click();
+    const inp = document.getElementById('fileBiometricos');
+    if(inp) inp.onchange = handleFileUploadBiometricos;
+    const btnCancel = document.getElementById('btnCancelCargaBiometricos');
+    if(btnCancel) btnCancel.onclick = ()=>{ cargaPendienteBiometricos = null; render(); };
+    const btnAplicar = document.getElementById('btnAplicarCargaBiometricos');
+    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosPorMes(state.biometricos, cargaPendienteBiometricos, 'Biométricos'); cargaPendienteBiometricos = null; };
+  }
+
+  function handleFileUploadPinPad(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadErrorPinPad');
+    if(errBox) errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows2d = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        cargaPendientePinPad = calcularDatosPorMes(rows2d, file.name, COLUMNAS_DANOS_REEMPLAZOS);
+        render();
+      }catch(err){
+        console.error(err);
+        if(errBox) errBox.innerHTML = `<div style="color:var(--crit); font-size:12.5px; margin-top:6px;">${err.message}</div>`;
+      }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  function panelConfirmacionPinPad(){
+    const d = cargaPendientePinPad;
+    return `<div class="panel" style="border-color:var(--tm);">
+      <h3 style="color:var(--tm);">Confirmar carga · ${d.fileName}</h3>
+      <div style="font-size:13px; line-height:1.8;">
+        Filas leídas: <b>${d.resumen.totalFilas}</b> · Daños: <b>${fmtMX(d.resumen.totales.danos)}</b> · Reemplazos: <b>${fmtMX(d.resumen.totales.reemplazados)}</b>
+      </div>
+      <div class="foot">Si un mes del archivo ya existía, se actualiza con estos valores; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual.</div>
+      <div class="editbar" style="margin-top:10px;">
+        <button id="btnCancelCargaPinPad">Cancelar</button>
+        <button class="primary" id="btnAplicarCargaPinPad">Aplicar datos</button>
+      </div>
+    </div>`;
+  }
+  function wirePinPadUpload(){
+    const btn = document.getElementById('btnUploadPinPad');
+    if(btn) btn.onclick = () => document.getElementById('filePinPad').click();
+    const inp = document.getElementById('filePinPad');
+    if(inp) inp.onchange = handleFileUploadPinPad;
+    const btnCancel = document.getElementById('btnCancelCargaPinPad');
+    if(btnCancel) btnCancel.onclick = ()=>{ cargaPendientePinPad = null; render(); };
+    const btnAplicar = document.getElementById('btnAplicarCargaPinPad');
+    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosPorMes(state.pin_pad, cargaPendientePinPad, 'PIN PAD'); cargaPendientePinPad = null; };
+  }
+
   function renderReemplazoDisco(c){
     const rd = state.reemplazo_disco;
     const registros = rd.registros || [];
@@ -2889,43 +3275,87 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- 6. Biométricos ----------
+  // Agosto 2026, segunda vuelta: a diferencia de Laptop/CPU, aquí NO hay barras fijas de referencia —
+  // el Excel (Mes, Daños, Reemplazos) alimenta las DOS series de la gráfica y los 2 indicadores;
+  // arranca vacío igual que Reemplazo Disco Duro. "Pendientes por reemplazo" = Daños acumulados menos
+  // Reemplazados acumulados (backlog) — el cliente no tuvo preferencia sobre la fórmula, se dejó así
+  // por ser consistente con que todo lo demás de esta pestaña se calcula solo; avisar si prefiere otra.
   function renderBiometricos(c){
-    const d = DATA_BIOMETRICOS;
+    const bio = state.biometricos;
+    const registros = bio.registros || [];
+    const totalDanos = registros.reduce((s,r)=>s+r.danos,0);
+    const totalReemplazados = registros.reduce((s,r)=>s+r.reemplazados,0);
+    const promedioMes = registros.length ? Math.round(totalReemplazados/registros.length) : 0;
+    const pendientes = Math.max(0, totalDanos - totalReemplazados);
     const COL_BAR='#0B2E4F', COL_LINE='#E4536B';
     renderBarLineApartado(c, {
-      titulo:'Biométricos', subtitulo:'Equipos dañados vs. reemplazados',
+      titulo:'Biométricos',
+      subtitulo: bio.carga.archivo ? `Última carga: ${bio.carga.archivo} · ${fmtFecha(bio.carga.fecha)}` : 'Equipos dañados vs. reemplazados',
+      uploadBarHtml: canEditInventario() ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar archivo de Biométricos (.xlsx)</b> — columnas Mes, Daños y Reemplazos. Si un mes ya existía se actualiza; si es nuevo se agrega.
+          <div id="uploadErrorBiometricos"></div>
+        </div>
+        <input type="file" id="fileBiometricos" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUploadBiometricos">Cargar archivo</button>
+      </div>` : '',
+      previewHtml: cargaPendienteBiometricos ? panelConfirmacionBiometricos() : '',
       kpis:[
-        {label:'Promedio / mes', valor:d.promedioMes, lbl:'unidades · 2026', color:COL_BAR},
-        {label:'Pendientes por remplazo', valor:d.pendientes, lbl:'en el año', color:'#B91C1C'}
+        {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades reemplazadas', color:COL_BAR},
+        {label:'Pendientes por reemplazo', valor:fmtMX(pendientes), lbl:'acumulado', color:'#B91C1C'}
       ],
+      sinDatos: registros.length===0,
+      mensajeVacio: 'Sube el Excel con las columnas Mes, Daños y Reemplazos para llenar esta gráfica.',
       chartTitle:'Biométricos dañados/reemplazados por mes', canvasId:'chartBiometricos',
-      labels: MESES12.slice(0,7),
+      labels: registros.map(r=>r.mes),
       datasets:[
-        {type:'bar', label:'Dañados', data:d.danados, backgroundColor:COL_BAR, borderRadius:4},
-        {type:'line', label:'Reemplazados', data:d.reemplazados, borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5}
+        {type:'bar', label:'Dañados', data:registros.map(r=>r.danos), backgroundColor:COL_BAR, borderRadius:4},
+        {type:'line', label:'Reemplazados', data:registros.map(r=>r.reemplazados), borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5}
       ],
-      foot:'Datos tomados de la lámina "Biométricos" del PowerPoint.'
+      foot:'Los indicadores y la gráfica se calculan solos a partir del archivo cargado — no son editables a mano.'
     });
+    wireBiometricosUpload();
   }
 
   // ---------- 7. PIN PAD ----------
+  // Mismo patrón que Biométricos (Excel propio, columnas Mes/Daños/Reemplazos).
   function renderPinPad(c){
-    const d = DATA_PIN_PAD;
+    const pp = state.pin_pad;
+    const registros = pp.registros || [];
+    const totalDanos = registros.reduce((s,r)=>s+r.danos,0);
+    const totalReemplazados = registros.reduce((s,r)=>s+r.reemplazados,0);
+    const promedioMes = registros.length ? Math.round(totalReemplazados/registros.length) : 0;
+    const pendientes = Math.max(0, totalDanos - totalReemplazados);
     const COL_BAR='#0369A1', COL_LINE='#E4536B';
     renderBarLineApartado(c, {
-      titulo:'PIN PAD', subtitulo:'Equipos dañados vs. reemplazados',
+      titulo:'PIN PAD',
+      subtitulo: pp.carga.archivo ? `Última carga: ${pp.carga.archivo} · ${fmtFecha(pp.carga.fecha)}` : 'Equipos dañados vs. reemplazados',
+      uploadBarHtml: canEditInventario() ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar archivo de PIN PAD (.xlsx)</b> — columnas Mes, Daños y Reemplazos. Si un mes ya existía se actualiza; si es nuevo se agrega.
+          <div id="uploadErrorPinPad"></div>
+        </div>
+        <input type="file" id="filePinPad" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUploadPinPad">Cargar archivo</button>
+      </div>` : '',
+      previewHtml: cargaPendientePinPad ? panelConfirmacionPinPad() : '',
       kpis:[
-        {label:'Promedio / mes', valor:d.promedioMes, lbl:'unidades · 2026', color:COL_BAR},
-        {label:'Pendientes por remplazo', valor:d.pendientes, lbl:'en el año', color:'#B91C1C'}
+        {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades reemplazadas', color:COL_BAR},
+        {label:'Pendientes por reemplazo', valor:fmtMX(pendientes), lbl:'acumulado', color:'#B91C1C'}
       ],
+      sinDatos: registros.length===0,
+      mensajeVacio: 'Sube el Excel con las columnas Mes, Daños y Reemplazos para llenar esta gráfica.',
       chartTitle:'PIN PAD dañados/reemplazados por mes', canvasId:'chartPinPad',
-      labels: MESES12.slice(0,8),
+      labels: registros.map(r=>r.mes),
       datasets:[
-        {type:'bar', label:'Dañados', data:d.danados, backgroundColor:COL_BAR, borderRadius:4},
-        {type:'line', label:'Reemplazados', data:d.reemplazados, borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5}
+        {type:'bar', label:'Dañados', data:registros.map(r=>r.danos), backgroundColor:COL_BAR, borderRadius:4},
+        {type:'line', label:'Reemplazados', data:registros.map(r=>r.reemplazados), borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5}
       ],
-      foot:'Datos tomados de la lámina "PIN PAD" del PowerPoint.'
+      foot:'Los indicadores y la gráfica se calculan solos a partir del archivo cargado — no son editables a mano.'
     });
+    wirePinPadUpload();
   }
 
   // ---------- Tendencia mensual ----------
@@ -3012,7 +3442,7 @@ auth.onAuthStateChanged(async function(user){
     c.innerHTML = `
       <div class="title">Caídas ${prov} — comparativo 2025 vs 2026</div>
       <div class="subtitle">Barras por mes, acumulado por año</div>
-      <div class="cards" style="grid-template-columns:repeat(2,1fr);">
+      <div class="cards cards-2">
         <div class="card"><div class="head" style="background:${CARD_COLOR[prov]}">Año ${state.anio}</div>
           <div class="body"><div class="big">${cum2026}</div><div class="lbl">Caídas acumuladas (a ${state.periodo_actual})</div></div></div>
         <div class="card"><div class="head" style="background:${COLOR_2025[prov]||'#B39DDB'}">Año ${state.anio-1}</div>
@@ -3291,7 +3721,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel">
         <h3 style="margin-bottom:2px;">Problemas con velocidad — ${prov} (no cuenta como caída)</h3>
         <div class="foot" style="margin-bottom:10px;">Tendencia informativa aparte: estos tickets ya no se suman a "caídas", pero se siguen monitoreando por si conviene actuar.</div>
-        <div class="cards" style="grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:16px;">
+        <div class="cards cards-2" style="margin-bottom:16px;">
           <div class="card"><div class="head" style="background:var(--sub)">Servicios afectados</div>
             <div class="body"><div class="big">${totalServicios}</div><div class="lbl">tiendas con al menos 1 ticket de velocidad</div></div></div>
           <div class="card"><div class="head" style="background:var(--sub)">Tickets de velocidad</div>
@@ -3567,7 +3997,7 @@ auth.onAuthStateChanged(async function(user){
         ${kpi('#0369A1','Equipos en Win 11', d.totalWin11.toLocaleString('es-MX'), pct(d.avanceGlobal)+'% del total')}
         ${kpi('#D97706','Pendientes por migrar', d.totalPendientes.toLocaleString('es-MX'), d.totalWin10+' Win10 + '+d.totalNocompat+' no compatibles')}
       </div>
-      <div class="cards" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+      <div class="cards cards-2">
         ${kpi('#1D4ED8','Desktops', pct(d.avanceDesktop)+'%', d.desktops.toLocaleString('es-MX')+' equipos')}
         ${kpi('#7C3AED','Laptops', pct(d.avanceLaptop)+'%', d.laptops.toLocaleString('es-MX')+' equipos')}
       </div>
@@ -3813,7 +4243,7 @@ auth.onAuthStateChanged(async function(user){
 
       <h3>Tickets de Soporte IT — ${state.anio-1} vs ${state.anio}</h3>
       <div class="foot" style="margin-bottom:10px;">Todos los tickets del archivo, sin importar categoría ni mesa de ayuda — excepto Reset Correo Zimbra, Reset de contraseña, Reactivación de aplicativos ATT y Reset de YUBIKEY (esas son de Mesa de Control, tienen su propia pestaña).</div>
-      <div class="cards" style="grid-template-columns:repeat(3,minmax(0,1fr)); margin-bottom:16px;">
+      <div class="cards cards-3" style="margin-bottom:16px;">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE_CLARO)}">Año ${state.anio-1} (Ene-${state.periodo_actual})</div>
           <div class="body"><div class="big">${cum2025.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Año ${state.anio} (Ene-${state.periodo_actual})</div>
@@ -3876,7 +4306,7 @@ auth.onAuthStateChanged(async function(user){
 
       <h3>Tickets de Mesa de Control por mes</h3>
       <div class="foot" style="margin-bottom:10px;">Incluye las colas "Mesa de Control" y "Mesa de Control Nivel 1".</div>
-      <div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:16px;">
+      <div class="cards" style="margin-bottom:16px;">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_MESA)}">Total Ene-${state.periodo_actual}</div>
           <div class="body"><div class="big">${totalMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets de Mesa de Control</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad('#DC2626')}">Rechazado / cancelado</div>
@@ -4207,7 +4637,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="editbar">${editing && puedeEditar
         ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
         : (puedeEditar ? `<button id="btnEdit">Editar</button>` : '')}</div>
-      <div class="cards" style="grid-template-columns:repeat(5,minmax(0,1fr)); margin-top:10px;">
+      <div class="cards cards-5" style="margin-top:10px;">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total general</div><div class="body"><div class="big">${totalGeneral.toLocaleString('es-MX')}</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Desktop</div><div class="body"><div class="big">${totalDesktop.toLocaleString('es-MX')}</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">PDV con laptop</div>
@@ -4404,7 +4834,7 @@ auth.onAuthStateChanged(async function(user){
         ? `<button id="btnCancelBI">Cancelar</button><button class="primary" id="btnSaveBI">Guardar cambios</button>`
         : (puedeEditar ? `<button id="btnEditBI">Editar Jul–Dic</button>` : '')}</div>
 
-      <div class="cards" style="grid-template-columns:repeat(5,minmax(0,1fr));">
+      <div class="cards cards-5">
         <div class="card"><div class="head" style="background:${cardGrad('#0C8599')}">Presupuesto anual OPEX</div>
           <div class="body"><div class="big" style="font-size:20px;">${moneyIT(d.opexAnnualBudget)}</div><div class="lbl">${moneyIT(d.monthlyBudget)}/mes</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad('#0C8599')}">Ejercido Ene–Jun</div>
@@ -4497,7 +4927,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel">
         <h3>Análisis de proyección anual</h3>
         <p style="font-size:13px; line-height:1.55; margin:0 0 14px;">Con el ritmo real de Enero–Junio (cerrado) y una proyección Julio–Diciembre basada en el promedio de los últimos meses reales por proveedor, el gasto OPEX 2026 terminaría en <b>${moneyIT(d.opexAnnualProjected)}</b> contra un presupuesto de <b>${moneyIT(d.opexAnnualBudget)}</b> — ${d.ahorroProyectado>=0?'un ahorro proyectado':'un sobre-ejercicio proyectado'} de <b>${moneyIT(Math.abs(d.ahorroProyectado))}</b> (${fmtPct(Math.abs(d.ahorroProyectado), d.opexAnnualBudget)}). Sumando los ${moneyIT(d.capexPendiente)} de CAPEX que aún no se ejecutan, el ${d.ahorroTotalProyectado>=0?'ahorro':'sobre-ejercicio'} total proyectado del presupuesto combinado de IT es de <b>${moneyIT(Math.abs(d.ahorroTotalProyectado))}</b> (${fmtPct(Math.abs(d.ahorroTotalProyectado), d.totalPresupuestoAnual)}). Se recalcula cada vez que se guarda un cambio en Julio–Diciembre.</p>
-        <div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:0;">
+        <div class="cards" style="margin-bottom:0;">
           <div class="card"><div class="head" style="background:#4B5A6B">Presupuesto total 2026</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.totalPresupuestoAnual)}</div><div class="lbl">OPEX + CAPEX</div></div></div>
           <div class="card"><div class="head" style="background:#4B5A6B">Proyección total 2026</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.totalProyeccionAnual)}</div></div></div>
           <div class="card"><div class="head" style="background:#4B5A6B">Ahorro / sobre-ejercicio</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.ahorroTotalProyectado)}</div></div></div>
