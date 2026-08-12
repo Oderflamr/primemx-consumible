@@ -344,27 +344,27 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .noc-stat{background:#FAFBFB; border:1px solid var(--line); border-radius:10px; padding:14px 16px; text-align:center;}
   .noc-stat .num{font-size:26px; font-weight:700; font-family:'JetBrains Mono',ui-monospace,monospace; color:var(--ink);}
   .noc-stat .lbl{font-size:10px; color:var(--sub); text-transform:uppercase; letter-spacing:.04em; margin-top:4px;}
-  .noc-alert{display:flex; align-items:center; gap:10px; background:#FBE9E4; border:1px solid #C6421B; color:#C6421B; border-radius:10px; padding:10px 16px; font-size:12.5px; font-weight:600; margin-bottom:16px;}
-  .noc-live-dot{width:8px; height:8px; border-radius:50%; background:#C6421B; animation:nocPulse 1s infinite; flex-shrink:0;}
+  .noc-alert{display:flex; align-items:center; gap:10px; background:#FECACA; border:1px solid #DC2626; color:#DC2626; border-radius:10px; padding:10px 16px; font-size:12.5px; font-weight:600; margin-bottom:16px;}
+  .noc-live-dot{width:8px; height:8px; border-radius:50%; background:#DC2626; animation:nocPulse 1s infinite; flex-shrink:0;}
   .noc-ok{display:flex; align-items:center; gap:10px; background:#E6F5EC; border:1px solid #1E8E5A; color:#1E8E5A; border-radius:10px; padding:10px 16px; font-size:12.5px; font-weight:600; margin-bottom:16px;}
   .noc-toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;}
   .noc-legend{display:flex; gap:16px; font-size:11.5px; color:var(--sub); align-items:center;}
   .noc-legend span{display:flex; align-items:center; gap:6px;}
   .noc-dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
   .noc-dot.on{background:#1E8E5A;}
-  .noc-dot.off{background:#C6421B;}
+  .noc-dot.off{background:#DC2626;}
   .noc-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:10px;}
   .noc-card{background:#FAFBFB; border:1px solid var(--line); border-radius:10px; padding:12px 10px; text-align:center; position:relative; cursor:pointer; transition:transform .12s ease, border-color .12s ease;}
   .noc-card:hover{transform:translateY(-2px); border-color:#9AA6A5;}
-  .noc-card.caida{border-color:#E2A594; background:#FBE9E4;}
-  .noc-card.caida:hover{border-color:#C6421B;}
+  .noc-card.caida{border-color:#F87171; background:#FECACA;}
+  .noc-card.caida:hover{border-color:#DC2626;}
   .noc-card .noc-dot{position:absolute; top:8px; right:8px; width:10px; height:10px; animation:nocPulse 1.6s infinite;}
   .noc-card.caida .noc-dot{animation:nocPulse 1s infinite;}
   .noc-card .noc-plaza{font-size:10px; font-weight:700; line-height:1.25; margin:4px 0 6px; min-height:24px; color:var(--ink);}
   .noc-carrier-badge{display:inline-block; font-size:9px; font-weight:700; letter-spacing:.02em; padding:2px 8px; border-radius:20px; color:#fff; text-transform:uppercase; white-space:nowrap;}
   .noc-estado{font-size:9.5px; font-weight:700; margin-top:6px; text-transform:uppercase; letter-spacing:.03em; font-family:'JetBrains Mono',ui-monospace,monospace;}
   .noc-card.en-linea .noc-estado{color:#1E8E5A;}
-  .noc-card.caida .noc-estado{color:#C6421B;}
+  .noc-card.caida .noc-estado{color:#DC2626;}
   .noc-foot{font-size:10.5px; color:var(--sub); margin-top:16px;}
   .noc-overlay{position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:200; padding:20px;}
   .noc-modal{background:#fff; border:1px solid var(--line); border-radius:14px; padding:24px; width:100%; max-width:420px; color:var(--ink); box-shadow:0 12px 40px rgba(18,32,49,0.14);}
@@ -376,7 +376,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   #caidas-root .noc-modal-close{margin-top:18px; width:100%; background:var(--ink); color:#fff; border:none; border-radius:8px; padding:10px; font-size:13px; cursor:pointer; font-family:inherit;}
   #caidas-root .noc-modal-close:hover{background:#2c3a4a;}
   .noc-modal-status{display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:4px 10px; border-radius:20px; margin-bottom:14px;}
-  .noc-modal-status.caida{background:#FBE9E4; color:#C6421B;}
+  .noc-modal-status.caida{background:#FECACA; color:#DC2626;}
   .noc-modal-status.en-linea{background:#E6F5EC; color:#1E8E5A;}
 
   /* ===== Budget IT 2026 ===== */
@@ -1492,6 +1492,18 @@ auth.onAuthStateChanged(async function(user){
     const falla = estatusServicio.fallasPorTienda.get(t.id);
     const color = esvCarrierColor(t.carrier);
     const label = esvCarrierLabel(t.carrier);
+    // Días sin servicio (agosto 2026): días completos transcurridos desde `fecha_captura` hasta
+    // ahora — floor, no round, para que no se cuente un día que todavía no se completa (ej. 2 días
+    // 23h se muestra como "2 días", no "3"). Si la fecha no es válida (dato incompleto), no se
+    // muestra el renglón en vez de arriesgar un número inventado.
+    let diasSinServicioTxt = null;
+    if(falla){
+      const fc = falla.fecha_captura ? new Date(falla.fecha_captura) : null;
+      if(fc && !isNaN(fc.getTime())){
+        const dias = Math.max(0, Math.floor((Date.now() - fc.getTime()) / 86400000));
+        diasSinServicioTxt = dias === 0 ? 'Menos de 1 día' : `${dias} día${dias===1?'':'s'}`;
+      }
+    }
     root.innerHTML = `
       <div class="noc-overlay" id="esvOverlay">
         <div class="noc-modal">
@@ -1506,9 +1518,10 @@ auth.onAuthStateChanged(async function(user){
             <div class="noc-modal-row"><span>Ticket</span><b>${escEsv(falla.ticket||'-')}</b></div>
             <div class="noc-modal-row"><span>Folio proveedor</span><b>${escEsv(falla.folio_proveedor||'-')}</b></div>
             <div class="noc-modal-row"><span>Fecha reportada</span><b>${fmtFecha(falla.fecha_captura)}</b></div>
+            ${diasSinServicioTxt ? `<div class="noc-modal-row"><span>Días sin servicio</span><b style="color:#DC2626">${diasSinServicioTxt}</b></div>` : ''}
           ` : `
             <div class="noc-modal-row"><span>Estatus</span><b>Sin incidentes abiertos</b></div>
-            <div class="noc-modal-row"><span>Hostname</span><b>${escEsv(t.hostname||'—')}</b></div>
+            <div class="noc-modal-row"><span>Clave PDV</span><b>${escEsv(t.cve_pdv||'—')}</b></div>
           `}
           <button class="noc-modal-close" id="esvModalCloseBtn">Cerrar</button>
         </div>
@@ -1564,7 +1577,7 @@ auth.onAuthStateChanged(async function(user){
         <div class="noc-stats">
           <div class="noc-stat"><div class="num">${totalActivas}</div><div class="lbl">Tiendas activas</div></div>
           <div class="noc-stat"><div class="num" style="color:#1E8E5A">${totalEnLinea}</div><div class="lbl">En línea</div></div>
-          <div class="noc-stat"><div class="num" style="color:#C6421B">${totalCaidas}</div><div class="lbl">Caídas ahora</div></div>
+          <div class="noc-stat"><div class="num" style="color:#DC2626">${totalCaidas}</div><div class="lbl">Caídas ahora</div></div>
           <div class="noc-stat"><div class="num">${proveedoresDistintos}</div><div class="lbl">Proveedores</div></div>
         </div>
 
