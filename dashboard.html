@@ -3495,7 +3495,6 @@ auth.onAuthStateChanged(async function(user){
     const mesesOtros = meses.filter(k=>k!==mesActualKey);
     c.innerHTML = `
       <div class="title">Guardias</div>
-      <div class="subtitle">Rotación fija de guardias de fin de semana (sábado y domingo) de Soporte IT: ${GUARDIA_ORDEN.join(' → ')}, y se repite — se genera sola, sin necesidad de cargar ningún archivo.</div>
       <div class="cards">
         ${heroCard(actual ? 'Guardia actual' : 'Próxima guardia', actual || siguiente)}
         ${actual ? heroCard('Próxima guardia', siguiente) : heroCard('Guardia anterior', anterior)}
