@@ -1034,7 +1034,7 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'PRM TDA TEHUACAN', carrier:'TELMEX', tecnologia:'MICROONDA', meses:[0,0,0,0,0,0,1,0]},
       {nombre:'PRM TDA MONUMENTO REVOLUCION CDMX', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1,0]}
     ],
-    ingenieros: { mesa_soporte_it: [5389,4374,5590,4083,4136,3924,3733,550,0,0,0,0], agentes: [
+    ingenieros: { mesa_soporte_it: [5389,4374,5590,4083,4136,3924,3733,550,0,0,0,0], por_dia_semana: [0,0,0,0,0,0,0], agentes: [
       {nombre:'Angel Antonio Pérez González', meses:[657,457,614,361,430,300,261,69], promedio:1.3},
       {nombre:'Soporte Prime', meses:[465,423,451,346,429,365,347,50], promedio:406.9},
       {nombre:'Luis Fernando Herrera Leyva', meses:[694,685,767,484,496,450,587,80], promedio:1.8},
@@ -1627,6 +1627,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.top_velocidad_telmex) state.top_velocidad_telmex = clone(DEFAULTS.top_velocidad_telmex);
       if(!state.ingenieros) state.ingenieros = clone(DEFAULTS.ingenieros);
       if(!state.ingenieros.yoy_2025) state.ingenieros.yoy_2025 = clone(DEFAULTS.ingenieros.yoy_2025);
+      if(!Array.isArray(state.ingenieros.por_dia_semana)) state.ingenieros.por_dia_semana = clone(DEFAULTS.ingenieros.por_dia_semana);
       if(!state.ticketsmc) state.ticketsmc = clone(DEFAULTS.ticketsmc);
       if(!state.inventario) state.inventario = clone(DEFAULTS.inventario);
       if(!state.inventario_historial) state.inventario_historial = clone(DEFAULTS.inventario_historial);
@@ -1837,11 +1838,12 @@ auth.onAuthStateChanged(async function(user){
     const storeMonthVelocidad = { TotalPlay:{}, Telmex:{} };
     const mesaSoporteIT = new Array(12).fill(0);
     const mesaControl = new Array(12).fill(0);
-    // Tickets de Mesa de Control por día de la semana de creación (agosto 2026) — 0=Lunes...6=Domingo,
-    // mismo mapeo que ya usa "caídas de la semana en curso" más abajo ((getDay()+6)%7). Cuenta TODOS
-    // los tickets de Mesa de Control (mismo universo que `mesaControl`, incluye Rechazado/Cancelado)
-    // para que el total de esta gráfica siempre cuadre con "Total Ene-{mes}" de la pestaña.
+    // Tickets por día de la semana de creación (agosto 2026) — 0=Lunes...6=Domingo, mismo mapeo que
+    // ya usa "caídas de la semana en curso" más abajo ((getDay()+6)%7). Cada uno cuenta EL MISMO
+    // universo que su gráfica mensual hermana (mesaControl / mesaSoporteIT), para que los totales
+    // siempre cuadren entre la gráfica por mes y la gráfica por día de la semana de cada pestaña.
     const mesaControlDia = new Array(7).fill(0);
+    const mesaSoporteDia = new Array(7).fill(0);
     const agenteMonth = {};
     const agenteDuraciones = {};
     const agenteMonthMC = {};
@@ -1910,6 +1912,7 @@ auth.onAuthStateChanged(async function(user){
       const categoriaTicket = String(row['Categoría']||'').trim();
       if(!CATEGORIAS_EXCLUIR_SOPORTE.includes(categoriaTicket)){
         mesaSoporteIT[mIdx]++;
+        mesaSoporteDia[(fc.getDay()+6)%7]++;
         const agenteSoporte = (!agente || AGENTES_EXCLUIDOS.includes(agente)) ? 'Soporte Prime' : agente;
         if(!agenteMonth[agenteSoporte]) agenteMonth[agenteSoporte] = new Array(12).fill(0);
         agenteMonth[agenteSoporte][mIdx]++;
@@ -2069,6 +2072,7 @@ auth.onAuthStateChanged(async function(user){
       top_velocidad_totalplay: topsVelocidad.TotalPlay,
       top_velocidad_telmex: topsVelocidad.Telmex,
       mesa_soporte_it: mesaSoporteIT,
+      mesa_soporte_por_dia_semana: mesaSoporteDia,
       mesa_control: mesaControl,
       mesa_control_por_dia_semana: mesaControlDia,
       mesa_control_rechazado_cancelado: rechazoCancelMC,
@@ -2112,6 +2116,7 @@ auth.onAuthStateChanged(async function(user){
     state.top_velocidad_telmex = datos.top_velocidad_telmex;
     if(!state.ingenieros) state.ingenieros = {};
     state.ingenieros.mesa_soporte_it = datos.mesa_soporte_it;
+    state.ingenieros.por_dia_semana = datos.mesa_soporte_por_dia_semana;
     state.ingenieros.agentes = datos.ingenieros;
     if(!state.ticketsmc) state.ticketsmc = {};
     state.ticketsmc.mesa_control = datos.mesa_control;
@@ -4246,6 +4251,15 @@ auth.onAuthStateChanged(async function(user){
     const yoy2025 = (ing.yoy_2025 || new Array(12).fill(0)).slice(0,hasta+1);
     const cum2025 = yoy2025.reduce((a,b)=>a+Number(b||0),0);
 
+    // Tickets Soporte por día de la semana (agosto 2026) — mismo universo que `mesaSoporteIT` de
+    // arriba (todo el archivo, excepto las 4 categorías de Mesa de Control), agrupados por el día
+    // de la semana de su fecha de creación. Se calcula solo al cargar el archivo de tickets, igual
+    // que el resto de esta pestaña.
+    const DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+    const soportePorDiaSemana = ing.por_dia_semana || new Array(7).fill(0);
+    const totalSoportePorDia = soportePorDiaSemana.reduce((a,b)=>a+Number(b||0),0);
+    const idxDiaPicoSoporte = soportePorDiaSemana.reduce((iMax,v,i,arr)=> v>arr[iMax] ? i : iMax, 0);
+
     c.innerHTML = `
       <div class="title">Tickets Soporte</div>
       <div class="subtitle">Carga de trabajo y tiempos de atención · Ene-${state.periodo_actual} ${state.anio}</div>
@@ -4277,6 +4291,22 @@ auth.onAuthStateChanged(async function(user){
       </table></div>
       <div class="foot">"Prom. atención" es el promedio de horas entre creación y cierre de los tickets cerrados de cada ingeniero.</div>
       </div>
+
+      <h3 style="margin-top:24px;">Tickets Soporte por día de la semana</h3>
+      <div class="foot" style="margin-bottom:10px;">Mismo criterio que "Tickets de Soporte IT" arriba (todo el archivo, excepto las 4 categorías de Mesa de Control) agrupado por el día de la semana en que se crearon.</div>
+      ${totalSoportePorDia===0 ? `
+      <div class="placeholder">
+        <h3>Todavía no hay datos</h3>
+        <p>Se calcula solo al cargar un archivo de tickets desde "Resumen 2026".</p>
+      </div>` : `
+      <div class="cards cards-2" style="margin-bottom:16px;">
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Día con más tickets</div>
+          <div class="body"><div class="big">${DIAS_SEMANA[idxDiaPicoSoporte]}</div><div class="lbl">${soportePorDiaSemana[idxDiaPicoSoporte].toLocaleString('es-MX')} tickets creados</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Promedio por día</div>
+          <div class="body"><div class="big">${Math.round(totalSoportePorDia/7).toLocaleString('es-MX')}</div><div class="lbl">tickets · los 7 días</div></div></div>
+      </div>
+      <div class="panel"><canvas id="chartIngenierosDia"></canvas></div>
+      `}
     `;
 
     if(charts.ingenierosYoy) charts.ingenierosYoy.destroy();
@@ -4288,6 +4318,17 @@ auth.onAuthStateChanged(async function(user){
       ]},
       options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
     });
+
+    if(charts.ingenierosDia) charts.ingenierosDia.destroy();
+    if(totalSoportePorDia>0){
+      charts.ingenierosDia = new Chart(document.getElementById('chartIngenierosDia'), {
+        type:'bar',
+        data:{ labels: DIAS_SEMANA, datasets:[
+          { label:'Tickets Soporte', data: soportePorDiaSemana, backgroundColor: COLOR_SOPORTE, borderRadius:4 }
+        ]},
+        options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+      });
+    }
   }
 
   // ---------- Tickets Mesa de control ----------
