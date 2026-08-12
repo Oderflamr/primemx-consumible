@@ -1185,6 +1185,12 @@ auth.onAuthStateChanged(async function(user){
     // (se calculan solos); avisar si se prefiere otra fórmula.
     biometricos: { registros: [], carga: { archivo: null, fecha: null } },
     pin_pad: { registros: [], carga: { archivo: null, fecha: null } },
+    // HUB (agosto 2026): a diferencia de los demás apartados de arriba, el Excel no trae datos
+    // mensuales — trae una fila por CADA TICKET (columnas TICKET, PROCESO, PDV, DISPOSITIVO, STATUS,
+    // REGION). El cliente confirmó explícitamente que cada carga es un REEMPLAZO TOTAL del listado
+    // (igual que "Actualizar catálogo" en Directorio), no una acumulación por mes — el Excel que sube
+    // asanchez ya es el reporte completo y vigente de todos los tickets de HUB a la fecha.
+    hub: { registros: [], carga: { archivo: null, fecha: null } },
     // Budget IT 2026: recreado de Budget 2026_IT.xlsx (hoja "Presupuesto 2026"). Enero-Junio son los
     // valores reales ya conciliados (quedan congelados en la UI). Julio trae lo que ya estaba cargado
     // en el Excel (algunos proveedores aún sin dato); Agosto-Diciembre quedan en null y se editan mes
@@ -1243,6 +1249,7 @@ auth.onAuthStateChanged(async function(user){
     {id:'reemplazo_disco', label:'Reemplazo Disco Duro'},
     {id:'biometricos', label:'Biométricos'},
     {id:'pin_pad', label:'Pin Pad'},
+    {id:'hub', label:'HUB'},
     {id:'guardias', label:'Guardias'}
   ];
   const TABS = [
@@ -1358,6 +1365,11 @@ auth.onAuthStateChanged(async function(user){
   function canEditReemplazoDisco(){
     return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'asanchez');
   }
+  // HUB: mismo patrón exclusivo que Envíos y Recolecciones / Reemplazo Disco Duro — solo asanchez ve
+  // el botón de carga (columnas TICKET, PROCESO, PDV, DISPOSITIVO, STATUS, REGION), ni el admin general.
+  function canEditHub(){
+    return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'asanchez');
+  }
   // Resumen de Reemplazos: igual que Envíos y Recolecciones, es exclusivo — solo amartinez y
   // asanchez ven el botón de editar y el historial de cambios, sin importar si son admin o no.
   const USUARIOS_RESUMEN_REEMPLAZOS = ['amartinez','asanchez'];
@@ -1374,6 +1386,7 @@ auth.onAuthStateChanged(async function(user){
   let cargaPendienteReemplazoCpu = null;
   let cargaPendienteBiometricos = null;
   let cargaPendientePinPad = null;
+  let cargaPendienteHub = null;
   // Guardias: solo el mes en curso se ve abierto de entrada; los demás meses se guardan comprimidos
   // detrás de un botón "+" — a petición explícita del cliente, para no llenar la pantalla con 6 meses
   // de golpe. Vive fuera de renderGuardias() para que no se resetee cada vez que la app repinta.
@@ -1693,7 +1706,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.reemplazo_disco.carga) state.reemplazo_disco.carga = { archivo: null, fecha: null };
       // Reemplazo de Laptop/CPU y Biométricos/PIN PAD (agosto 2026, segunda vuelta) — mismo saneo que
       // reemplazo_disco arriba, por si el documento en Firestore todavía no tiene estos campos.
-      ['reemplazo_laptop','reemplazo_cpu','biometricos','pin_pad'].forEach(campo=>{
+      ['reemplazo_laptop','reemplazo_cpu','biometricos','pin_pad','hub'].forEach(campo=>{
         if(!state[campo]) state[campo] = clone(DEFAULTS[campo]);
         if(!Array.isArray(state[campo].registros)) state[campo].registros = [];
         if(!state[campo].carga) state[campo].carga = { archivo: null, fecha: null };
@@ -1706,7 +1719,7 @@ auth.onAuthStateChanged(async function(user){
     render();
   }
   async function save(){
-    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT() && !canEditLaptopCerrado() && !canEditEnviosRec() && !canEditResumenReemplazos() && !canEditReemplazoDisco()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
+    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT() && !canEditLaptopCerrado() && !canEditEnviosRec() && !canEditResumenReemplazos() && !canEditReemplazoDisco() && !canEditHub()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
     // Log global de "Actualizaciones" (usuario, archivo o tipo de actualización, fecha, hora) — cada
     // punto del dashboard que llama a save() fija descripcionActualizacion justo antes de llamarlo.
     if(!Array.isArray(state.actualizaciones)) state.actualizaciones = [];
@@ -2425,6 +2438,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='reemplazo_disco') return renderReemplazoDisco(c);
     if(tab==='biometricos') return renderBiometricos(c);
     if(tab==='pin_pad') return renderPinPad(c);
+    if(tab==='hub') return renderHub(c);
     if(tab==='guardias') return renderGuardias(c);
     if(tab==='expansion') return renderExpansion(c);
     if(tab==='budget_it') return renderBudgetIT(c);
@@ -3258,6 +3272,200 @@ auth.onAuthStateChanged(async function(user){
     if(btnCancel) btnCancel.onclick = ()=>{ cargaPendientePinPad = null; render(); };
     const btnAplicar = document.getElementById('btnAplicarCargaPinPad');
     if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosPorMes(state.pin_pad, cargaPendientePinPad, 'Pin Pad'); cargaPendientePinPad = null; };
+  }
+
+  // ---------- 7.1 HUB (Soporte IT) — agosto 2026 ----------
+  // A diferencia del resto de "Apartados nuevos" (ver 3.8 en el doc de referencia), el Excel de HUB no
+  // trae datos ya resumidos por mes: trae una fila por CADA TICKET, con columnas TICKET, PROCESO, PDV,
+  // DISPOSITIVO, STATUS, REGION. Solo se cuentan las filas cuyo PROCESO sea "HUB" (sin importar
+  // mayúsculas/minúsculas — el archivo real trae ambas variantes mezcladas). El cliente confirmó
+  // explícitamente que cada carga es un REEMPLAZO TOTAL del listado completo (igual que "Actualizar
+  // catálogo" en Directorio) — NO se acumula por ticket entre cargas, así que no hace falta ninguna
+  // lógica de "actualiza si ya existía / agrega si es nuevo" aquí.
+  function normalizarTextoHub(s){
+    return String(s==null?'':s).trim().toUpperCase()
+      .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I').replace(/Ó/g,'O').replace(/Ú/g,'U');
+  }
+  function buscarColumnaHub(headerRow, variantes){
+    for(let i=0;i<headerRow.length;i++){
+      const h = normalizarTextoHub(headerRow[i]);
+      if(variantes.includes(h)) return i;
+    }
+    return -1;
+  }
+  function calcularDatosHub(rows2d, fileName){
+    let headerIdx=-1, colTicket=-1, colProceso=-1, colPdv=-1, colDispositivo=-1, colStatus=-1, colRegion=-1;
+    for(let i=0;i<Math.min(10,rows2d.length);i++){
+      const row = rows2d[i] || [];
+      const t = buscarColumnaHub(row, ['TICKET']);
+      const p = buscarColumnaHub(row, ['PROCESO']);
+      const pdv = buscarColumnaHub(row, ['PDV']);
+      const d = buscarColumnaHub(row, ['DISPOSITIVO']);
+      const s = buscarColumnaHub(row, ['STATUS','ESTATUS']);
+      const r = buscarColumnaHub(row, ['REGION','REGIÓN']);
+      if(t>=0 && p>=0 && pdv>=0 && d>=0 && s>=0 && r>=0){ headerIdx=i; colTicket=t; colProceso=p; colPdv=pdv; colDispositivo=d; colStatus=s; colRegion=r; break; }
+    }
+    if(headerIdx<0) throw new Error('No se encontraron las columnas TICKET, PROCESO, PDV, DISPOSITIVO, STATUS y REGION en la hoja. Verifica los encabezados del archivo.');
+
+    const registros = [];
+    let ignoradasProceso = 0;
+    for(let i=headerIdx+1; i<rows2d.length; i++){
+      const row = rows2d[i] || [];
+      const ticketRaw = row[colTicket];
+      if(ticketRaw===undefined || ticketRaw===null || String(ticketRaw).trim()==='') continue;
+      const proceso = normalizarTextoHub(row[colProceso]);
+      if(proceso !== 'HUB'){ ignoradasProceso++; continue; }
+      registros.push({
+        ticket: String(ticketRaw).trim(),
+        pdv: String(row[colPdv]==null?'':row[colPdv]).trim(),
+        dispositivo: normalizarTextoHub(row[colDispositivo]),
+        status: normalizarTextoHub(row[colStatus]),
+        region: normalizarTextoHub(row[colRegion])
+      });
+    }
+    if(registros.length===0) throw new Error('No se encontraron filas con PROCESO = "HUB" después del encabezado.');
+
+    return { fileName, registros, resumen:{ totalFilas: registros.length, ignoradasProceso } };
+  }
+  // Reemplazo total del listado — a petición explícita del cliente (ver comentario arriba). El
+  // historial de "Actualizaciones" y el resumen de carga sí quedan, para saber de qué archivo y cuándo
+  // vino el listado vigente.
+  function aplicarDatosHub(datos){
+    state.hub.registros = datos.registros;
+    state.hub.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), total: datos.registros.length };
+    cargaPendienteHub = null;
+    descripcionActualizacion = `Carga de Excel — HUB (${datos.fileName})`;
+    save();
+  }
+  function handleFileUploadHub(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadErrorHub');
+    if(errBox) errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows2d = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        cargaPendienteHub = calcularDatosHub(rows2d, file.name);
+        render();
+      }catch(err){
+        console.error(err);
+        if(errBox) errBox.innerHTML = `<div style="color:var(--crit); font-size:12.5px; margin-top:6px;">${err.message}</div>`;
+      }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  function panelConfirmacionHub(){
+    const d = cargaPendienteHub;
+    return `<div class="panel" style="border-color:var(--tm);">
+      <h3 style="color:var(--tm);">Confirmar carga · ${d.fileName}</h3>
+      <div style="font-size:13px; line-height:1.8;">
+        Tickets de HUB encontrados: <b>${d.resumen.totalFilas}</b>${d.resumen.ignoradasProceso ? ` · Filas ignoradas por no ser PROCESO = "HUB": <b>${d.resumen.ignoradasProceso}</b>` : ''}
+      </div>
+      <div class="foot">Esta carga <b>reemplaza por completo</b> el listado de HUB que ya estaba guardado — no se acumula por ticket entre archivos, así que confirma que este Excel ya es el reporte completo y vigente antes de aplicar.</div>
+      <div class="editbar" style="margin-top:10px;">
+        <button id="btnCancelCargaHub">Cancelar</button>
+        <button class="primary" id="btnAplicarCargaHub">Aplicar datos</button>
+      </div>
+    </div>`;
+  }
+  function wireHubUpload(){
+    const btn = document.getElementById('btnUploadHub');
+    if(btn) btn.onclick = () => document.getElementById('fileHub').click();
+    const inp = document.getElementById('fileHub');
+    if(inp) inp.onchange = handleFileUploadHub;
+    const btnCancel = document.getElementById('btnCancelCargaHub');
+    if(btnCancel) btnCancel.onclick = ()=>{ cargaPendienteHub = null; render(); };
+    const btnAplicar = document.getElementById('btnAplicarCargaHub');
+    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosHub(cargaPendienteHub); };
+  }
+  // Nombres de región conocidos con acento/formato "bonito" — cualquier región nueva que no esté en
+  // este diccionario se muestra con un título genérico (primera letra de cada palabra en mayúscula,
+  // números romanos como "I"/"II" se quedan enteros en mayúsculas) en vez de fallar o verse fea.
+  const REGION_HUB_DISPLAY = { 'BAJIO':'Bajío', 'PACIFICO':'Pacífico', 'SUR PENINSULA':'Sur Península' };
+  function tituloRegionHub(regionUpper){
+    if(REGION_HUB_DISPLAY[regionUpper]) return REGION_HUB_DISPLAY[regionUpper];
+    return regionUpper.split(' ').map(w=> /^[IVX]+$/.test(w) ? w : (w.charAt(0) + w.slice(1).toLowerCase())).join(' ');
+  }
+  function claseAvanceHub(pct){
+    if(pct>=90) return 'estable';
+    if(pct>=60) return 'alerta';
+    return 'critica';
+  }
+  function renderHub(c){
+    const hub = state.hub;
+    const registros = hub.registros || [];
+    const COL_TOTAL='#122031', COL_CPU='#0C8599', COL_LAPTOP='#29B6F6', COL_PCT='#1E8E5A';
+
+    // Agrupa por región conservando el orden en que aparece cada región por primera vez en los datos —
+    // luego se ordena de mayor a menor Total con un sort estable, para que los empates conserven ese
+    // mismo orden de aparición (mismo comportamiento que se validó contra la lámina de referencia).
+    const porRegion = {}; const ordenAparicion = [];
+    let totalCpu=0, totalLaptop=0, totalCerrados=0;
+    registros.forEach(r=>{
+      if(!porRegion[r.region]){ porRegion[r.region] = {cpu:0, laptop:0, cerrados:0, total:0}; ordenAparicion.push(r.region); }
+      const g = porRegion[r.region];
+      g.total++;
+      if(r.dispositivo==='CPU'){ g.cpu++; totalCpu++; }
+      else if(r.dispositivo==='LAPTOP'){ g.laptop++; totalLaptop++; }
+      if(r.status==='CERRADO'){ g.cerrados++; totalCerrados++; }
+    });
+    const totalEquipos = registros.length;
+    const pctCerradoGlobal = totalEquipos ? Math.round(100*totalCerrados/totalEquipos) : 0;
+    const filas = ordenAparicion.map(region=>({region, ...porRegion[region]}));
+    filas.sort((a,b)=>b.total-a.total);
+
+    c.innerHTML = `
+      <div class="title">HUB</div>
+      <div class="subtitle">${hub.carga.archivo ? `Última carga: ${hub.carga.archivo} · ${fmtFecha(hub.carga.fecha)}` : 'Equipos desplegados en HUB, por región'}</div>
+
+      ${canEditHub() ? `
+      <div class="uploadbar">
+        <div class="txt">
+          <b>Cargar archivo de HUB (.xlsx)</b> — columnas TICKET, PROCESO, PDV, DISPOSITIVO, STATUS, REGION. Solo se cuentan las filas con PROCESO = "HUB". Esta carga reemplaza por completo el listado anterior.
+          <div id="uploadErrorHub"></div>
+        </div>
+        <input type="file" id="fileHub" accept=".xlsx,.xls" style="display:none">
+        <button class="upload" id="btnUploadHub">Cargar archivo</button>
+      </div>` : ''}
+      ${cargaPendienteHub ? panelConfirmacionHub() : ''}
+
+      ${registros.length===0 ? `
+      <div class="placeholder">
+        <h3>Todavía no hay datos cargados</h3>
+        <p>Sube el Excel con las columnas TICKET, PROCESO, PDV, DISPOSITIVO, STATUS y REGION para llenar esta pestaña.</p>
+      </div>` : `
+      <div class="cards">
+        <div class="card"><div class="head" style="background:${cardGrad(COL_TOTAL)}">Total equipos</div><div class="body"><div class="big">${fmtMX(totalEquipos)}</div><div class="lbl">tickets de HUB</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COL_CPU)}">CPU en HUB</div><div class="body"><div class="big">${fmtMX(totalCpu)}</div><div class="lbl">dispositivo CPU</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COL_LAPTOP)}">Laptops</div><div class="body"><div class="big">${fmtMX(totalLaptop)}</div><div class="lbl">dispositivo Laptop</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COL_PCT)}">% Cerrado</div><div class="body"><div class="big">${pctCerradoGlobal}%</div><div class="lbl">status Cerrado</div></div></div>
+      </div>
+
+      <div class="panel">
+        <h3>KPIs por región · Equipos en HUB</h3>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th style="text-align:left;">Región</th><th>CPU</th><th>Laptops</th><th>Total</th><th>Cerrados</th><th>% Avance</th></tr></thead>
+            <tbody>
+              ${filas.map(f=>{
+                const pct = f.total ? Math.round(100*f.cerrados/f.total) : 0;
+                return `<tr><td>${tituloRegionHub(f.region)}</td><td>${f.cpu}</td><td>${f.laptop}</td><td>${f.total}</td><td>${f.cerrados}</td>
+                  <td><span class="status-badge ${claseAvanceHub(pct)}">${pct}%</span></td></tr>`;
+              }).join('')}
+              <tr style="font-weight:700;"><td>TOTAL</td><td>${totalCpu}</td><td>${totalLaptop}</td><td>${totalEquipos}</td><td>${totalCerrados}</td>
+                <td><span class="status-badge ${claseAvanceHub(pctCerradoGlobal)}">${pctCerradoGlobal}%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="foot">Los indicadores y la tabla se calculan solos a partir del archivo cargado — no son editables a mano.</div>
+      `}
+    `;
+    wireHubUpload();
   }
 
   function renderReemplazoDisco(c){
