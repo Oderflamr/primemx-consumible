@@ -1045,7 +1045,7 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'Leon Gustavo Rivera Arriaga', meses:[125,436,568,353,387,422,300,52], promedio:1.4},
       {nombre:'Josafath setzafel Pacheco Zamorano', meses:[660,349,357,455,334,427,285,32], promedio:2.9}
     ], yoy_2025: [5101,4400,4202,3382,3413,4215,3675,4045,4155,3800,5536,4100] },
-    ticketsmc: { mesa_control: [956,887,1042,777,886,973,829,94,0,0,0,0], agentes: [
+    ticketsmc: { mesa_control: [956,887,1042,777,886,973,829,94,0,0,0,0], por_dia_semana: [0,0,0,0,0,0,0], agentes: [
       {nombre:'MC PPM', meses:[593,390,387,302,337,357,299,21], promedio:2.3},
       {nombre:'MESA CONTROL', meses:[305,144,59,24,19,31,39,0], promedio:5.4},
       {nombre:'MC EGF', meses:[0,233,441,336,378,465,347,48], promedio:1.3}
@@ -1642,6 +1642,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
       if(!state.ticketsmc.categoria_agente) state.ticketsmc.categoria_agente = clone(DEFAULTS.ticketsmc.categoria_agente);
       if(state.ticketsmc.rechazado_cancelado === undefined) state.ticketsmc.rechazado_cancelado = DEFAULTS.ticketsmc.rechazado_cancelado;
+      if(!Array.isArray(state.ticketsmc.por_dia_semana)) state.ticketsmc.por_dia_semana = clone(DEFAULTS.ticketsmc.por_dia_semana);
       if(!state.yoy_notas) state.yoy_notas = clone(DEFAULTS.yoy_notas);
       if(state.expansion.notas_generales === undefined) state.expansion.notas_generales = '';
       if(!state.cierre_tiendas) state.cierre_tiendas = clone(DEFAULTS.cierre_tiendas);
@@ -1836,6 +1837,11 @@ auth.onAuthStateChanged(async function(user){
     const storeMonthVelocidad = { TotalPlay:{}, Telmex:{} };
     const mesaSoporteIT = new Array(12).fill(0);
     const mesaControl = new Array(12).fill(0);
+    // Tickets de Mesa de Control por día de la semana de creación (agosto 2026) — 0=Lunes...6=Domingo,
+    // mismo mapeo que ya usa "caídas de la semana en curso" más abajo ((getDay()+6)%7). Cuenta TODOS
+    // los tickets de Mesa de Control (mismo universo que `mesaControl`, incluye Rechazado/Cancelado)
+    // para que el total de esta gráfica siempre cuadre con "Total Ene-{mes}" de la pestaña.
+    const mesaControlDia = new Array(7).fill(0);
     const agenteMonth = {};
     const agenteDuraciones = {};
     const agenteMonthMC = {};
@@ -1924,6 +1930,7 @@ auth.onAuthStateChanged(async function(user){
       // conjunto de filas, para que los totales siempre cuadren entre las distintas tablas.
       if(MESAS_CONTROL.includes(mesaAyuda)){
         mesaControl[mIdx]++;
+        mesaControlDia[(fc.getDay()+6)%7]++;
         const estadoMC = String(row['Estado']).trim();
         const idTicket = Number(row['ID']);
         const forzarRechazado = IDS_FORZAR_RECHAZADO.includes(idTicket);
@@ -2063,6 +2070,7 @@ auth.onAuthStateChanged(async function(user){
       top_velocidad_telmex: topsVelocidad.Telmex,
       mesa_soporte_it: mesaSoporteIT,
       mesa_control: mesaControl,
+      mesa_control_por_dia_semana: mesaControlDia,
       mesa_control_rechazado_cancelado: rechazoCancelMC,
       ingenieros,
       agentes_mc: agentesMC,
@@ -2107,6 +2115,7 @@ auth.onAuthStateChanged(async function(user){
     state.ingenieros.agentes = datos.ingenieros;
     if(!state.ticketsmc) state.ticketsmc = {};
     state.ticketsmc.mesa_control = datos.mesa_control;
+    state.ticketsmc.por_dia_semana = datos.mesa_control_por_dia_semana;
     state.ticketsmc.rechazado_cancelado = datos.mesa_control_rechazado_cancelado;
     state.ticketsmc.agentes = datos.agentes_mc;
     state.ticketsmc.categorias = datos.mc_categorias;
@@ -4294,6 +4303,15 @@ auth.onAuthStateChanged(async function(user){
     const rechazadoCancelado = tmc.rechazado_cancelado || 0;
     const cerradoAbierto = totalMesa - rechazadoCancelado;
 
+    // Tickets de Mesa de Control por día de la semana (agosto 2026) — mismo universo que `mesaControl`
+    // (TODOS los tickets de la cola, incluye Rechazado/Cancelado), agrupados por el día de la semana
+    // de su fecha de creación. Se calcula solo al cargar el archivo de tickets (ver calcularDatosTickets),
+    // no es editable a mano.
+    const DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+    const porDiaSemana = tmc.por_dia_semana || new Array(7).fill(0);
+    const totalPorDia = porDiaSemana.reduce((a,b)=>a+Number(b||0),0);
+    const idxDiaPico = porDiaSemana.reduce((iMax,v,i,arr)=> v>arr[iMax] ? i : iMax, 0);
+
     const categorias = (tmc.categorias || []).map(r=>({...r, total: r.meses.reduce((x,y)=>x+Number(y||0),0)}))
       .sort((a,b)=>b.total-a.total);
     const catAgenteRows = tmc.categoria_agente || [];
@@ -4333,6 +4351,22 @@ auth.onAuthStateChanged(async function(user){
       </table></div>
       <div class="foot">"Prom. atención" es el promedio de horas entre creación y cierre de los tickets cerrados de cada uno.</div>
       </div>
+
+      <h3 style="margin-top:24px;">Tickets de Mesa de Control por día de la semana</h3>
+      <div class="foot" style="margin-bottom:10px;">Suma de todos los tickets de Mesa de Control (incluye Rechazado/Cancelado, igual que "Total Ene-${state.periodo_actual}" arriba) agrupados por el día de la semana en que se crearon.</div>
+      ${totalPorDia===0 ? `
+      <div class="placeholder">
+        <h3>Todavía no hay datos</h3>
+        <p>Se calcula solo al cargar un archivo de tickets desde "Resumen 2026".</p>
+      </div>` : `
+      <div class="cards cards-2" style="margin-bottom:16px;">
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_MESA)}">Día con más tickets</div>
+          <div class="body"><div class="big">${DIAS_SEMANA[idxDiaPico]}</div><div class="lbl">${porDiaSemana[idxDiaPico].toLocaleString('es-MX')} tickets creados</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_MESA)}">Promedio por día</div>
+          <div class="body"><div class="big">${Math.round(totalPorDia/7).toLocaleString('es-MX')}</div><div class="lbl">tickets · los 7 días</div></div></div>
+      </div>
+      <div class="panel"><canvas id="chartTicketsMCDia"></canvas></div>
+      `}
 
       <h3 style="margin-top:24px;">Detalle de tickets Mesa de Control por categoría</h3>
       <div class="foot" style="margin-bottom:10px;">Solo tickets Cerrado o Abierto de la cola "Mesa de Control", agrupados por categoría del ticket.</div>
@@ -4380,6 +4414,17 @@ auth.onAuthStateChanged(async function(user){
       ]},
       options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
     });
+
+    if(charts.ticketsmcDia) charts.ticketsmcDia.destroy();
+    if(totalPorDia>0){
+      charts.ticketsmcDia = new Chart(document.getElementById('chartTicketsMCDia'), {
+        type:'bar',
+        data:{ labels: DIAS_SEMANA, datasets:[
+          { label:'Tickets Mesa de Control', data: porDiaSemana, backgroundColor: COLOR_MESA, borderRadius:4 }
+        ]},
+        options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+      });
+    }
   }
 
   // ---------- Inventario de Equipo ----------
