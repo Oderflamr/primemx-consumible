@@ -378,7 +378,6 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .noc-modal-status{display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:4px 10px; border-radius:20px; margin-bottom:14px;}
   .noc-modal-status.caida{background:#FBE9E4; color:#C6421B;}
   .noc-modal-status.en-linea{background:#E6F5EC; color:#1E8E5A;}
-  .noc-pageinfo{font-size:11px; color:var(--sub); margin-bottom:10px;}
 
   /* ===== Budget IT 2026 ===== */
   #tbl-budget-it{min-width:1640px; table-layout:fixed;}
@@ -1554,9 +1553,6 @@ auth.onAuthStateChanged(async function(user){
     const idxPagina = ((esvPagina % totalPaginas) + totalPaginas) % totalPaginas; // seguro aunque totalPaginas cambie entre recargas
     const enLineaPagina = pageSize > 0 ? enLinea.slice(idxPagina * pageSize, idxPagina * pageSize + pageSize) : [];
     const ordenadas = [...caidas, ...enLineaPagina];
-    const pageInfoTexto = (pageSize > 0 && enLinea.length > 0)
-      ? `Mostrando ${idxPagina*pageSize+1}–${idxPagina*pageSize+enLineaPagina.length} de ${enLinea.length} tiendas en línea (página ${idxPagina+1} de ${totalPaginas}) · esta parte del tablero rota cada 15 seg`
-      : '';
 
     c.innerHTML = `
       <div class="noc-wrap">
@@ -1573,7 +1569,7 @@ auth.onAuthStateChanged(async function(user){
         </div>
 
         ${totalCaidas > 0
-          ? `<div class="noc-alert"><span class="noc-live-dot"></span> ${totalCaidas} tienda${totalCaidas===1?'':'s'} sin servicio en este momento — quedaron primero en el tablero.</div>`
+          ? `<div class="noc-alert"><span class="noc-live-dot"></span> ${totalCaidas} tienda${totalCaidas===1?'':'s'} sin servicio en este momento.</div>`
           : `<div class="noc-ok">✓ Todas las tiendas activas tienen servicio en este momento.</div>`}
 
         <div class="noc-toolbar">
@@ -1583,8 +1579,6 @@ auth.onAuthStateChanged(async function(user){
           </div>
           <div style="font-size:11px; color:#52514e;">Clic en una tienda para ver el detalle</div>
         </div>
-
-        ${pageInfoTexto ? `<div class="noc-pageinfo">${pageInfoTexto}</div>` : ''}
 
         <div class="noc-grid" id="esvGrid">
           ${ordenadas.map(t=>{
