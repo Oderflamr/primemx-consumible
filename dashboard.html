@@ -2434,7 +2434,6 @@ auth.onAuthStateChanged(async function(user){
         </div>` : ''}
       </div>
       <div id="tabContent"></div>
-      <div class="foot">Los datos se comparten con todo tu equipo (Firebase). ${canEdit ? 'Los cambios de cada pestaña se guardan juntos.' : 'Tu usuario tiene acceso de solo consulta.'}</div>
     `;
     document.getElementById('tabInternetBtn').onclick = (e) => {
       e.stopPropagation();
@@ -2619,7 +2618,6 @@ auth.onAuthStateChanged(async function(user){
       <div style="font-size:13px; line-height:1.8;">
         Filas leídas: <b>${d.resumen.totalFilas}</b> · Total Envíos en el archivo: <b>${fmtMX(d.resumen.totalEnvios)}</b> · Total Recolección en el archivo: <b>${fmtMX(d.resumen.totalRecoleccion)}</b>
       </div>
-      <div class="foot">Si un mes del archivo ya existía, se actualiza con estos valores; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual.</div>
       <div class="editbar" style="margin-top:10px;">
         <button id="btnCancelCargaEnviosRec">Cancelar</button>
         <button class="primary" id="btnAplicarCargaEnviosRec">Aplicar datos</button>
@@ -2656,7 +2654,6 @@ auth.onAuthStateChanged(async function(user){
 
     c.innerHTML = `
       <div class="title">Envíos y Recolecciones</div>
-      <div class="subtitle">${er.carga.archivo ? `Última carga: ${er.carga.archivo} · ${fmtFecha(er.carga.fecha)}` : 'Equipo despachado vs. equipo recuperado, por mes'}</div>
 
       ${canEditEnviosRec() ? `
       <div class="uploadbar">
@@ -2685,7 +2682,6 @@ auth.onAuthStateChanged(async function(user){
         <h3>Envíos vs. recolección por mes</h3>
         <canvas id="chartEnviosRec"></canvas>
       </div>`}
-      <div class="foot">Los 4 indicadores de arriba se calculan solos a partir del archivo cargado — no son editables a mano.</div>
     `;
     if(registrosGrafica.length>0){
       if(charts.enviosRec) charts.enviosRec.destroy();
@@ -2721,7 +2717,6 @@ auth.onAuthStateChanged(async function(user){
 
     c.innerHTML = `
       <div class="title">Resumen de Reemplazos 2026</div>
-      <div class="subtitle">CPU · Laptop · Disco Duro — estado actual Ene–Ago</div>
       <div class="editbar">${enEdicion
         ? `<button id="btnCancelRR">Cancelar</button><button class="primary" id="btnSaveRR">Guardar cambios</button>`
         : (puedeEditar ? `<button id="btnEditRR">Editar</button>` : '')}</div>
@@ -2757,7 +2752,6 @@ auth.onAuthStateChanged(async function(user){
           ${campo('disco','reemplazosSemanaAct','Reemplazos Semana Act','#D97706')}
         </div>
       </div>
-      <div class="foot" style="margin-top:14px;">Resumen ejecutivo de los 3 indicadores de detalle (Reemplazo de Laptop, Reemplazo de CPU, Reemplazo Disco Duro). "Reemplazos Semana Ant/Act" permiten dar seguimiento semana a semana — se actualizan a mano con el botón "Editar".</div>
       ${puedeEditar ? renderHistorialResumenReemplazos() : ''}
     `;
 
@@ -2795,12 +2789,11 @@ auth.onAuthStateChanged(async function(user){
   function renderHistorialResumenReemplazos(){
     const hist = (state.resumen_reemplazos && state.resumen_reemplazos.historial) || [];
     if(!hist.length){
-      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3><div class="foot">Todavía no hay cambios guardados en esta pestaña.</div></div>`;
+      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3></div>`;
     }
     return `
       <div class="panel" style="margin-top:20px;">
         <h3>Historial de cambios</h3>
-        <div class="foot" style="margin-bottom:10px;">Solo visible para amartinez y asanchez. Se guardan los últimos 30 cambios, más reciente arriba.</div>
         <div style="overflow-x:auto;"><table>
           <thead><tr><th style="text-align:left;">Fecha</th><th style="text-align:left;">Usuario</th><th></th></tr></thead>
           <tbody>${hist.map((h,i)=>`
@@ -2835,7 +2828,6 @@ auth.onAuthStateChanged(async function(user){
     const sinDatos = !!opts.sinDatos;
     c.innerHTML = `
       <div class="title">${opts.titulo}</div>
-      <div class="subtitle">${opts.subtitulo}</div>
       ${opts.uploadBarHtml || ''}
       ${opts.previewHtml || ''}
       <div class="cards">${opts.kpis.map(k=>`<div class="card"><div class="head" style="background:${cardGrad(k.color)}">${k.label}</div><div class="body"><div class="big">${k.valor}</div><div class="lbl">${k.lbl}</div></div></div>`).join('')}</div>
@@ -2848,7 +2840,6 @@ auth.onAuthStateChanged(async function(user){
         <h3>${opts.chartTitle}</h3>
         <canvas id="${opts.canvasId}"></canvas>
       </div>`}
-      <div class="foot">${opts.foot}</div>
     `;
     if(!sinDatos){
       if(charts[opts.canvasId]) charts[opts.canvasId].destroy();
@@ -2867,20 +2858,44 @@ auth.onAuthStateChanged(async function(user){
   function renderReemplazoLaptop(c){
     const rl = state.reemplazo_laptop;
     const registros = rl.registros || [];
-    const totalReem = registros.reduce((s,r)=>s+r.reem,0);
     const totalGeneral = registros.reduce((s,r)=>s+r.total,0);
     const totalRobo = registros.reduce((s,r)=>s+r.robo,0);
-    const promedioMes = registros.length ? Math.round(totalReem/registros.length) : 0;
     const porMes = {};
     registros.forEach(r=>{ porMes[normalizarTextoEnvios(r.mes)] = r.reem; });
-    const line2026 = MESES12.map(m => {
+
+    // ---- Ventana Dic25 → mes actual real (agosto 2026 según la fecha de hoy; septiembre el mes que
+    // entra, y así sucesivamente) — pedido explícito del cliente, agosto 2026. Diciembre se recorre al
+    // inicio del eje (referencia 2025) y las barras 2025 se muestran completas, solo reordenadas; los
+    // puntos rojos de 2026 se acotan al mes real (no se dibuja nada de meses que todavía no llegan,
+    // aunque el Excel ya traiga esas filas cargadas de más).
+    const MESES_DIC_PRIMERO = ['Diciembre','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre'];
+    const bars2025Reordenado = MESES_DIC_PRIMERO.map(m => DATA_REEMPLAZO_LAPTOP.bars2025[MESES12.indexOf(m)]);
+    const DIC25_REEM = DATA_REEMPLAZO_LAPTOP.bars2025[MESES12.indexOf('Diciembre')]; // 12 — mismo valor ya fijo en el código
+
+    const hoy = new Date();
+    // Índice dentro de MESES_DIC_PRIMERO (Diciembre=0, Enero=1, ..., Noviembre=11) del mes real actual.
+    // ⚠️ Diciembre 2026 (dentro de 4 meses desde este cambio) es un caso sin resolver: esta ventana de
+    // 12 casillas ya tiene a "Diciembre" ocupado por la referencia de 2025 al inicio, así que no hay
+    // casilla separada para Diciembre 2026 — por ahora el índice se queda topado en Noviembre (11) y no
+    // avanza más. Si se llega a diciembre 2026 y el cliente quiere ver ese mes también, hay que decidir
+    // entonces si se agrega una 13ª casilla o se maneja distinto — no se resuelve aquí para no adivinar.
+    const mesActualIdx = (hoy.getFullYear() < 2026) ? 0
+      : (hoy.getFullYear() === 2026 ? Math.min(hoy.getMonth() + 1, 11) : 11);
+
+    const puntosRojos = MESES_DIC_PRIMERO.map((m, i) => {
+      if (i > mesActualIdx) return null; // acotado: nada de meses que todavía no llegan
+      if (i === 0) return DIC25_REEM; // Diciembre 2025, valor fijo
       const key = normalizarTextoEnvios(m);
       return porMes.hasOwnProperty(key) ? porMes[key] : null;
     });
+
+    // Promedio / mes: Dic25 hasta el mes actual (ventana acotada), solo cuenta las casillas con dato real
+    const puntosConDato = puntosRojos.filter(v => v !== null && v !== undefined);
+    const promedioMes = puntosConDato.length ? Math.round(puntosConDato.reduce((s,v)=>s+v,0) / puntosConDato.length) : 0;
+
     const COL_BAR='#1E88C7', COL_LINE='#EF4444';
     renderBarLineApartado(c, {
       titulo:'Reemplazo de Laptop',
-      subtitulo: rl.carga.archivo ? `Última carga: ${rl.carga.archivo} · ${fmtFecha(rl.carga.fecha)}` : 'Unidades reemplazadas por mes — 2025 vs. 2026',
       uploadBarHtml: canEditInventario() ? `
       <div class="uploadbar">
         <div class="txt">
@@ -2892,19 +2907,16 @@ auth.onAuthStateChanged(async function(user){
       </div>` : '',
       previewHtml: cargaPendienteReemplazoLaptop ? panelConfirmacionReemplazoLaptop() : '',
       kpis:[
-        {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades · 2026', color:COL_BAR},
+        {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades · Dic25 a hoy', color:COL_BAR},
         {label:'Total 2026', valor:fmtMX(totalGeneral), lbl:'unidades reemplazadas', color:'#334155'},
         {label:'Robos 2026', valor:fmtMX(totalRobo), lbl:'en el año', color:'#B91C1C'}
       ],
       chartTitle:'Laptop dañada/reemplazada por mes', canvasId:'chartLaptop',
-      labels: MESES12,
+      labels: MESES_DIC_PRIMERO,
       datasets:[
-        {type:'bar', label:'2025', data:DATA_REEMPLAZO_LAPTOP.bars2025, backgroundColor:COL_BAR, borderRadius:4},
-        {type:'line', label:'2026', data:line2026, borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5, spanGaps:true}
-      ],
-      foot: registros.length
-        ? 'Los indicadores de arriba y la línea 2026 se calculan solos a partir del archivo cargado — no son editables a mano. Las barras 2025 son de referencia (lámina original del PowerPoint).'
-        : 'Todavía no se ha cargado el archivo de 2026 — por ahora solo se ven las barras 2025 (referencia). Sube el Excel con las columnas Mes, Reem., Total y Robo para completar la línea 2026 y los indicadores.'
+        {type:'bar', label:'2025', data:bars2025Reordenado, backgroundColor:COL_BAR, borderRadius:4, order:2},
+        {type:'line', label:'2026', data:puntosRojos, borderColor:COL_LINE, backgroundColor:COL_LINE, showLine:false, pointRadius:6, pointHoverRadius:8, borderWidth:2.5, order:1}
+      ]
     });
     wireReemplazoLaptopUpload();
   }
@@ -2926,7 +2938,6 @@ auth.onAuthStateChanged(async function(user){
     const COL_BAR='#0B3D5C', COL_LINE='#F08A24';
     renderBarLineApartado(c, {
       titulo:'Reemplazo de CPU',
-      subtitulo: rc.carga.archivo ? `Última carga: ${rc.carga.archivo} · ${fmtFecha(rc.carga.fecha)}` : 'Unidades reemplazadas por mes — 2025 vs. 2026',
       uploadBarHtml: canEditInventario() ? `
       <div class="uploadbar">
         <div class="txt">
@@ -2946,10 +2957,7 @@ auth.onAuthStateChanged(async function(user){
       datasets:[
         {type:'bar', label:'2025', data:DATA_REEMPLAZO_CPU.bars2025, backgroundColor:COL_BAR, borderRadius:4},
         {type:'line', label:'2026', data:line2026, borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5, spanGaps:true}
-      ],
-      foot: registros.length
-        ? 'Los indicadores de arriba y la línea 2026 se calculan solos a partir del archivo cargado — no son editables a mano. Las barras 2025 son de referencia (lámina original del PowerPoint).'
-        : 'Todavía no se ha cargado el archivo de 2026 — por ahora solo se ven las barras 2025 (referencia). Sube el Excel con las columnas Mes y Total para completar la línea 2026 y los indicadores.'
+      ]
     });
     wireReemplazoCpuUpload();
   }
@@ -3041,7 +3049,6 @@ auth.onAuthStateChanged(async function(user){
       <div style="font-size:13px; line-height:1.8;">
         Filas leídas: <b>${d.resumen.totalFilas}</b> · Total de unidades en el archivo: <b>${fmtMX(d.resumen.totalUnidades)}</b>
       </div>
-      <div class="foot">Si un mes del archivo ya existía, se actualiza con este valor; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual.</div>
       <div class="editbar" style="margin-top:10px;">
         <button id="btnCancelCargaReemplazoDisco">Cancelar</button>
         <button class="primary" id="btnAplicarCargaReemplazoDisco">Aplicar datos</button>
@@ -3169,7 +3176,6 @@ auth.onAuthStateChanged(async function(user){
       <div style="font-size:13px; line-height:1.8;">
         Filas leídas: <b>${d.resumen.totalFilas}</b> · Reem.: <b>${fmtMX(d.resumen.totales.reem)}</b> · Total: <b>${fmtMX(d.resumen.totales.total)}</b> · Robo: <b>${fmtMX(d.resumen.totales.robo)}</b>
       </div>
-      <div class="foot">Si un mes del archivo ya existía, se actualiza con estos valores; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual. Las barras "2025" de la gráfica no cambian (son de referencia).</div>
       <div class="editbar" style="margin-top:10px;">
         <button id="btnCancelCargaReemplazoLaptop">Cancelar</button>
         <button class="primary" id="btnAplicarCargaReemplazoLaptop">Aplicar datos</button>
@@ -3217,7 +3223,6 @@ auth.onAuthStateChanged(async function(user){
       <div style="font-size:13px; line-height:1.8;">
         Filas leídas: <b>${d.resumen.totalFilas}</b> · Total: <b>${fmtMX(d.resumen.totales.total)}</b>
       </div>
-      <div class="foot">Si un mes del archivo ya existía, se actualiza con este valor; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual. Las barras "2025" de la gráfica no cambian (son de referencia).</div>
       <div class="editbar" style="margin-top:10px;">
         <button id="btnCancelCargaReemplazoCpu">Cancelar</button>
         <button class="primary" id="btnAplicarCargaReemplazoCpu">Aplicar datos</button>
@@ -3269,7 +3274,6 @@ auth.onAuthStateChanged(async function(user){
       <div style="font-size:13px; line-height:1.8;">
         Filas leídas: <b>${d.resumen.totalFilas}</b> · Daños: <b>${fmtMX(d.resumen.totales.danos)}</b> · Reemplazos: <b>${fmtMX(d.resumen.totales.reemplazados)}</b>
       </div>
-      <div class="foot">Si un mes del archivo ya existía, se actualiza con estos valores; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual.</div>
       <div class="editbar" style="margin-top:10px;">
         <button id="btnCancelCargaBiometricos">Cancelar</button>
         <button class="primary" id="btnAplicarCargaBiometricos">Aplicar datos</button>
@@ -3315,7 +3319,6 @@ auth.onAuthStateChanged(async function(user){
       <div style="font-size:13px; line-height:1.8;">
         Filas leídas: <b>${d.resumen.totalFilas}</b> · Daños: <b>${fmtMX(d.resumen.totales.danos)}</b> · Reemplazos: <b>${fmtMX(d.resumen.totales.reemplazados)}</b>
       </div>
-      <div class="foot">Si un mes del archivo ya existía, se actualiza con estos valores; si es un mes nuevo, se agrega. Los meses que no vengan en este archivo se quedan igual.</div>
       <div class="editbar" style="margin-top:10px;">
         <button id="btnCancelCargaPinPad">Cancelar</button>
         <button class="primary" id="btnAplicarCargaPinPad">Aplicar datos</button>
@@ -3424,7 +3427,6 @@ auth.onAuthStateChanged(async function(user){
       <div style="font-size:13px; line-height:1.8;">
         Tickets de HUB encontrados: <b>${d.resumen.totalFilas}</b>${d.resumen.ignoradasProceso ? ` · Filas ignoradas por no ser PROCESO = "HUB": <b>${d.resumen.ignoradasProceso}</b>` : ''}
       </div>
-      <div class="foot">Esta carga <b>reemplaza por completo</b> el listado de HUB que ya estaba guardado — no se acumula por ticket entre archivos, así que confirma que este Excel ya es el reporte completo y vigente antes de aplicar.</div>
       <div class="editbar" style="margin-top:10px;">
         <button id="btnCancelCargaHub">Cancelar</button>
         <button class="primary" id="btnAplicarCargaHub">Aplicar datos</button>
@@ -3479,7 +3481,6 @@ auth.onAuthStateChanged(async function(user){
 
     c.innerHTML = `
       <div class="title">HUB</div>
-      <div class="subtitle">${hub.carga.archivo ? `Última carga: ${hub.carga.archivo} · ${fmtFecha(hub.carga.fecha)}` : 'Equipos desplegados en HUB, por región'}</div>
 
       ${canEditHub() ? `
       <div class="uploadbar">
@@ -3521,7 +3522,6 @@ auth.onAuthStateChanged(async function(user){
           </table>
         </div>
       </div>
-      <div class="foot">Los indicadores y la tabla se calculan solos a partir del archivo cargado — no son editables a mano.</div>
       `}
     `;
     wireHubUpload();
@@ -3542,7 +3542,6 @@ auth.onAuthStateChanged(async function(user){
 
     c.innerHTML = `
       <div class="title">Reemplazo Disco Duro</div>
-      <div class="subtitle">${rd.carga.archivo ? `Última carga: ${rd.carga.archivo} · ${fmtFecha(rd.carga.fecha)}` : 'Unidades reemplazadas por mes — 2026'}</div>
 
       ${canEditReemplazoDisco() ? `
       <div class="uploadbar">
@@ -3571,7 +3570,6 @@ auth.onAuthStateChanged(async function(user){
         <h3>Reemplazos de disco duro por mes</h3>
         <canvas id="chartDisco"></canvas>
       </div>`}
-      <div class="foot">Los indicadores de arriba se calculan solos a partir del archivo cargado — no son editables a mano.</div>
     `;
     if(registros.length>0){
       if(charts.disco) charts.disco.destroy();
@@ -3600,7 +3598,6 @@ auth.onAuthStateChanged(async function(user){
     const COL_BAR='#0B2E4F', COL_LINE='#E4536B';
     renderBarLineApartado(c, {
       titulo:'Biométricos',
-      subtitulo: bio.carga.archivo ? `Última carga: ${bio.carga.archivo} · ${fmtFecha(bio.carga.fecha)}` : 'Equipos dañados vs. reemplazados',
       uploadBarHtml: canEditInventario() ? `
       <div class="uploadbar">
         <div class="txt">
@@ -3622,8 +3619,7 @@ auth.onAuthStateChanged(async function(user){
       datasets:[
         {type:'bar', label:'Dañados', data:registros.map(r=>r.danos), backgroundColor:COL_BAR, borderRadius:4},
         {type:'line', label:'Reemplazados', data:registros.map(r=>r.reemplazados), borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5}
-      ],
-      foot:'Los indicadores y la gráfica se calculan solos a partir del archivo cargado — no son editables a mano.'
+      ]
     });
     wireBiometricosUpload();
   }
@@ -3640,7 +3636,6 @@ auth.onAuthStateChanged(async function(user){
     const COL_BAR='#0369A1', COL_LINE='#E4536B';
     renderBarLineApartado(c, {
       titulo:'Pin Pad',
-      subtitulo: pp.carga.archivo ? `Última carga: ${pp.carga.archivo} · ${fmtFecha(pp.carga.fecha)}` : 'Equipos dañados vs. reemplazados',
       uploadBarHtml: canEditInventario() ? `
       <div class="uploadbar">
         <div class="txt">
@@ -3662,8 +3657,7 @@ auth.onAuthStateChanged(async function(user){
       datasets:[
         {type:'bar', label:'Dañados', data:registros.map(r=>r.danos), backgroundColor:COL_BAR, borderRadius:4},
         {type:'line', label:'Reemplazados', data:registros.map(r=>r.reemplazados), borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5}
-      ],
-      foot:'Los indicadores y la gráfica se calculan solos a partir del archivo cargado — no son editables a mano.'
+      ]
     });
     wirePinPadUpload();
   }
@@ -3767,13 +3761,12 @@ auth.onAuthStateChanged(async function(user){
         ${actual ? heroCard('Próxima guardia', siguiente) : heroCard('Guardia anterior', anterior)}
       </div>
       <div class="panel">
-        ${porMes[mesActualKey] ? bloqueMes(mesActualKey) : '<div class="foot">No hay guardias del mes en curso en la ventana mostrada.</div>'}
+        ${porMes[mesActualKey] ? bloqueMes(mesActualKey) : ''}
         ${mesesOtros.length ? `
           <button class="guardia-toggle" id="btnToggleGuardiaMeses">${guardiaOtrosMesesAbiertos ? '− Ocultar los demás meses' : `+ Ver los demás meses (${mesesOtros.length})`}</button>
           ${guardiaOtrosMesesAbiertos ? mesesOtros.map(bloqueMes).join('') : ''}
         ` : ''}
       </div>
-      <div class="foot">Las guardias solo cubren sábado y domingo — no hay guardia asignada de lunes a viernes en este apartado. "Actual"/"Próxima" se recalculan solas contra la fecha de hoy.</div>
     `;
     const btnToggle = document.getElementById('btnToggleGuardiaMeses');
     if(btnToggle) btnToggle.onclick = ()=>{ guardiaOtrosMesesAbiertos = !guardiaOtrosMesesAbiertos; render(); };
@@ -3796,14 +3789,13 @@ auth.onAuthStateChanged(async function(user){
     }
     c.innerHTML = `
       <div class="title">Tendencia mensual de caídas — Enero a ${state.periodo_actual} ${state.anio}</div>
-      <div class="subtitle">Internet y telefonía · Servicios (tiendas activas) en vivo desde Directorio de Tiendas${catalogoVivo.actualizado ? ` · actualizado ${fmtFecha(catalogoVivo.actualizado)}` : ''}</div>
       <div class="cards">
         ${card('TotalPlay',tp,tp)}
         ${card('Telmex',tm,tm)}
         ${card('Megacable',mc,mc)}
         ${card('Starlink',sl,sl)}
       </div>
-      ${catalogoVivo.error ? `<div class="foot" style="color:var(--crit);">${catalogoVivo.error} <a href="#" id="btnReintentarCatalogo">Reintentar</a></div>` : ''}
+      ${catalogoVivo.error ? `` : ''}
       <div class="panel">
         <div class="editbar">${editing
           ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
@@ -3842,8 +3834,6 @@ auth.onAuthStateChanged(async function(user){
       <div class="servicios-grid" style="grid-template-columns:repeat(2,1fr);">
         <div class="sv-field"><label>Starlink — Caídas</label><input type="number" min="0" id="slExtra" value="${state.tendencia.caidas_extra.Starlink}"></div>
       </div>
-      <div class="foot">Megacable ya no se captura a mano — usa el mismo dato calculado que Metrocarrier (categoría "Metro Carrier" de los tickets), son el mismo proveedor.</div>
-      <div class="foot">"Servicios activos por proveedor" ya no se edita aquí — se lee en vivo del Directorio de Tiendas (columna "activo" y "carrier" de cada tienda). Si un número se ve mal, corrígelo allá.</div>
     </div>`;
   }
   function wireTendenciaEditor(){
@@ -3866,7 +3856,6 @@ auth.onAuthStateChanged(async function(user){
     const notas = state.yoy_notas[prov] || (state.yoy_notas[prov] = []);
     c.innerHTML = `
       <div class="title">Caídas ${prov} — comparativo 2025 vs 2026</div>
-      <div class="subtitle">Barras por mes, acumulado por año</div>
       <div class="cards cards-2">
         <div class="card"><div class="head" style="background:${CARD_COLOR[prov]}">Año ${state.anio}</div>
           <div class="body"><div class="big">${cum2026}</div><div class="lbl">Caídas acumuladas (a ${state.periodo_actual})</div></div></div>
@@ -3886,7 +3875,7 @@ auth.onAuthStateChanged(async function(user){
               🚩 <b>${n.mes} ${n.anio}:</b> ${n.nota}
               ${editing ? `<button data-yoy-nota-remove="${i}" style="padding:1px 6px; margin-left:4px;">✕</button>` : ''}
             </div>`).join('')}
-        </div>` : (editing ? '' : `<div class="foot" style="margin-top:10px;">Sin anotaciones en este comparativo todavía.</div>`)}
+        </div>` : (editing ? '' : ``)}
         ${editing ? `
         <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line);">
           <h3 style="margin-bottom:8px;">Agregar anotación</h3>
@@ -3901,7 +3890,6 @@ auth.onAuthStateChanged(async function(user){
       ${editing ? `<div class="panel"><h3>Caídas ${prov} — año ${state.anio-1}</h3>
         <div style="overflow-x:auto;"><table><thead><tr>${MESES.map(m=>`<th>${m}</th>`).join('')}</tr></thead>
         <tbody><tr>${MESES.map((m,i)=>`<td><input type="number" min="0" data-yoy-idx="${i}" value="${serie2025[i]}"></td>`).join('')}</tr></tbody></table></div>
-        <div class="foot">El año ${state.anio} se toma de la pestaña "Tendencia mensual" — no se edita aquí, para que ambos siempre coincidan.</div>
       </div>` : ''}
     `;
     if(editing){
@@ -4023,7 +4011,6 @@ auth.onAuthStateChanged(async function(user){
           Tiendas con caídas — TotalPlay: <b>${cargaPendiente.resumen.tiendasTP}</b> (${cargaPendiente.resumen.criticasTP} críticas) ·
           Telmex: <b>${cargaPendiente.resumen.tiendasTM}</b> (${cargaPendiente.resumen.criticasTM} críticas)
         </div>
-        <div class="foot">Esto reemplaza Tendencia mensual, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier). Peer y Atn se recalculan solos; Megacable/Starlink no se tocan.</div>
         <div class="editbar" style="margin-top:10px;">
           <button id="btnCancelCarga">Cancelar</button>
           <button class="primary" id="btnAplicarCarga">Aplicar datos</button>
@@ -4032,11 +4019,9 @@ auth.onAuthStateChanged(async function(user){
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
         <div>
           <div class="title" style="margin-bottom:2px;">Total de caídas ${state.anio}</div>
-          <div class="subtitle">${textoSemana}</div>
         </div>
         <div class="panel" style="text-align:center; padding:14px 26px; margin:0;">
           <div style="font-size:24px; font-weight:800;">${total}</div>
-          <div class="foot" style="margin-top:2px;">total caídas ${state.anio}</div>
         </div>
       </div>
       <div class="cards" style="margin-top:16px;">${card('TotalPlay',tp)}${card('Telmex',tm)}${card('Megacable',mg)}${card('Starlink',sl)}</div>
@@ -4044,7 +4029,6 @@ auth.onAuthStateChanged(async function(user){
         <h3>Caídas por proveedor</h3>
         <canvas id="chartResumen"></canvas>
       </div>
-      <div class="foot" style="margin-top:6px;">Peer = caídas ÷ tiendas del catálogo, redondeado a 2 decimales. Atn = mismo promedio que aparece en "ETR". Starlink sigue siendo manual (no viene del archivo de tickets).</div>
     `;
     if(canEdit){
       document.getElementById('btnUpload').onclick = () => document.getElementById('fileTickets').click();
@@ -4069,7 +4053,6 @@ auth.onAuthStateChanged(async function(user){
     const dLabels = ['<4h','4-12h','12-24h','1-3d','>3d'];
     c.innerHTML = `
       <div class="title">Promedio de atención por proveedor — ${state.periodo_actual} ${state.anio}</div>
-      <div class="subtitle">Tiempos de cierre de tickets confirmados como caída</div>
       <div class="editbar">${editing
         ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
         : (canEdit ? `<button id="btnEdit">Editar tiempos de atención</button>` : '')}</div>
@@ -4150,14 +4133,13 @@ auth.onAuthStateChanged(async function(user){
     return `
       <div class="panel">
         <h3 style="margin-bottom:2px;">Problemas con velocidad — ${prov} (no cuenta como caída)</h3>
-        <div class="foot" style="margin-bottom:10px;">Tendencia informativa aparte: estos tickets ya no se suman a "caídas", pero se siguen monitoreando por si conviene actuar.</div>
         <div class="cards cards-2" style="margin-bottom:16px;">
           <div class="card"><div class="head" style="background:var(--sub)">Servicios afectados</div>
             <div class="body"><div class="big">${totalServicios}</div><div class="lbl">tiendas con al menos 1 ticket de velocidad</div></div></div>
           <div class="card"><div class="head" style="background:var(--sub)">Tickets de velocidad</div>
             <div class="body"><div class="big">${totalTickets}</div><div class="lbl">Ene-${state.periodo_actual} ${state.anio}</div></div></div>
         </div>
-        ${filas.length===0 ? `<div class="foot">No hay tickets de "Problemas con velocidad" para ${prov} en el periodo cargado.</div>` : `
+        ${filas.length===0 ? `` : `
         <div style="overflow-x:auto;"><table>
           <thead><tr><th>#</th><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th></tr></thead>
           <tbody>${withTotals.map((r,i)=>`
@@ -4171,7 +4153,6 @@ auth.onAuthStateChanged(async function(user){
               <td><span class="status-badge alerta">Problema de velocidad</span></td>
             </tr>`).join('')}</tbody>
         </table></div>
-        <div class="foot" style="margin-top:8px;">Mostrando las 15 tiendas con más tickets de velocidad, de ${totalServicios} en total.</div>
         `}
       </div>
     `;
@@ -4180,7 +4161,6 @@ auth.onAuthStateChanged(async function(user){
     const rows = state[key];
     c.innerHTML = `
       <div class="title">Top 15 tiendas con más caídas — ${prov} — Ene-${state.periodo_actual} ${state.anio}</div>
-      <div class="subtitle">CRÍTICA ≥5 · ALERTA = 4 · ATENCIÓN 2-3 · ESTABLE = 1</div>
       <div class="editbar">${editing
         ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
         : (canEdit ? `<button id="btnEdit">Editar tabla</button><button id="btnAddRow">Agregar tienda</button>` : '')}</div>
@@ -4247,7 +4227,6 @@ auth.onAuthStateChanged(async function(user){
         </tr>`;
       }).join('')}</tbody>
     </table></div>
-    <div class="foot">Tienda, Carrier y Tecnología vienen del catálogo de tiendas (se empatan por el nombre "PRM TDA..." una vez quitado el alias del ticket) y se consultan en vivo — si corregimos el catálogo, se refleja aquí sin necesidad de volver a cargar tickets. Si ves "—" es que ese nombre no está en el catálogo que me compartiste.</div>
     </div>`;
   }
   function wireRemoveButtons(rows,key){
@@ -4308,17 +4287,12 @@ auth.onAuthStateChanged(async function(user){
     const filasTelmex = filasMigracion(MIGRACION_TELMEX, hasta);
     c.innerHTML = `
       <div class="title">Migración de carrier</div>
-      <div class="subtitle">Cambios de tecnología y de proveedor · Ene-${state.periodo_actual} ${state.anio}</div>
 
       <h3 style="margin-top:6px;">Cambio de tecnología: Microonda → Megacable</h3>
-      <div class="foot" style="margin-bottom:10px;">Tiendas TOTALPLAY/MICROONDA con caídas recurrentes, en proceso de cambio a Megacable.</div>
       ${tablaMigracion(filasMega, mesesCortos, 'Cambio a Megacable', 'En proceso')}
 
       <h3 style="margin-top:24px;">Cambio de carrier: TotalPlay → Telmex</h3>
-      <div class="foot" style="margin-bottom:10px;">Tiendas ya migradas a Telmex. El historial mensual mostrado es de antes de la migración (bajo TotalPlay); todavía no acumulan tickets propios como Telmex.</div>
       ${tablaMigracion(filasTelmex, mesesCortos, 'Migración', 'Migrada Telmex')}
-
-      <div class="foot" style="margin-top:14px;">Las caídas mensuales, Carrier y Tecnología se toman en vivo de Top 15 TotalPlay — se actualizan solas cada vez que cargues un archivo de tickets nuevo. Las columnas de migración son fijas para estas listas de tiendas.</div>
     `;
   }
 
@@ -4342,7 +4316,6 @@ auth.onAuthStateChanged(async function(user){
     return `
       <div style="background:var(--surface, #fff); border:1px solid var(--line); border-radius:12px; padding:16px 18px;">
         <div style="font-weight:700; font-size:14px; margin-bottom:2px;">Pendientes de migrar — ${esTotal ? 'Todas las regiones' : region}</div>
-        <div class="foot" style="margin-bottom:10px;">Incluye Windows 10 y equipos no compatibles. ${puedeEditarW11 ? 'Observaciones editable solo para admin y lalzaga.' : ''}</div>
         ${filas.length ? `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse;">
           <thead><tr>
             <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--line);">Tienda</th>
@@ -4361,7 +4334,7 @@ auth.onAuthStateChanged(async function(user){
                   : (state.win11_observaciones[pdv] || '')}
               </td>
             </tr>`).join('')}</tbody>
-        </table></div>` : `<div class="foot">No se encontró el detalle en la última carga.</div>`}
+        </table></div>` : ``}
         <div style="display:flex; gap:8px; margin-top:12px;">
           <button id="win11BtnCopiar">Copiar</button>
           ${puedeEditarW11 ? `<button id="win11BtnGuardarObs">Guardar notas</button>` : ''}
@@ -4410,7 +4383,6 @@ auth.onAuthStateChanged(async function(user){
 
     c.innerHTML = `
       <div class="title">Migración a Windows 11</div>
-      <div class="subtitle">Avance por región y por tipo de equipo</div>
       ${puedeEditarW11 ? `
       <div class="uploadbar">
         <div class="txt">
@@ -4458,14 +4430,12 @@ auth.onAuthStateChanged(async function(user){
             <div style="display:flex; align-items:center; gap:8px; font-size:13px;">
               <span style="width:10px;height:10px;border-radius:2px;background:#7C3AED;display:inline-block;"></span>Laptop — ${d.laptops.toLocaleString('es-MX')} equipos
             </div>
-            <div class="foot" style="margin-top:12px;">Total del parque: ${d.totalEquipos.toLocaleString('es-MX')} equipos</div>
           </div>
         </div>
       </div>
 
       <div class="panel">
         <h3>Detalle por región</h3>
-        <div class="foot" style="margin-bottom:8px;">Dale clic al número de "Win10 Pro x64" (incluye equipos no compatibles) para ver qué tiendas siguen pendientes.</div>
         <table>
           <thead><tr><th>Región</th><th>Win10 Pro x64</th><th>Win11 Pro x64</th><th>Total</th><th>Avance</th></tr></thead>
           <tbody>
@@ -4639,12 +4609,11 @@ auth.onAuthStateChanged(async function(user){
   function renderHistorialWin11(){
     const hist = state.win11_pendientes_historial || [];
     if(!hist.length){
-      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3><div class="foot">Todavía no se ha cargado ningún archivo en esta pestaña.</div></div>`;
+      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3></div>`;
     }
     return `
       <div class="panel" style="margin-top:20px;">
         <h3>Historial de cambios</h3>
-        <div class="foot" style="margin-bottom:10px;">Solo visible para admin. Se guardan las últimas 30 cargas, más reciente arriba.</div>
         <table>
           <thead><tr><th>Fecha</th><th>Usuario</th><th>Archivo</th><th>Equipos cargados</th></tr></thead>
           <tbody>${hist.map(h=>`<tr><td>${fmtFecha(h.fecha)}</td><td>${h.usuario}</td><td>${h.archivo}</td><td>${h.total}</td></tr>`).join('')}</tbody>
@@ -4678,10 +4647,8 @@ auth.onAuthStateChanged(async function(user){
 
     c.innerHTML = `
       <div class="title">Tickets Soporte</div>
-      <div class="subtitle">Carga de trabajo y tiempos de atención · Ene-${state.periodo_actual} ${state.anio}</div>
 
       <h3>Tickets de Soporte IT — ${state.anio-1} vs ${state.anio}</h3>
-      <div class="foot" style="margin-bottom:10px;">Todos los tickets del archivo, sin importar categoría ni mesa de ayuda — excepto Reset Correo Zimbra, Reset de contraseña, Reactivación de aplicativos ATT y Reset de YUBIKEY (esas son de Mesa de Control, tienen su propia pestaña).</div>
       <div class="cards cards-3" style="margin-bottom:16px;">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE_CLARO)}">Año ${state.anio-1} (Ene-${state.periodo_actual})</div>
           <div class="body"><div class="big">${cum2025.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte</div></div></div>
@@ -4693,7 +4660,6 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel"><canvas id="chartIngenierosYoy"></canvas></div>
 
       <h3 style="margin-top:24px;">Tickets atendidos por ingeniero, por mes</h3>
-      <div class="foot" style="margin-bottom:10px;">Mismas filas de la gráfica de arriba (año ${state.anio}), agrupadas por quién las atendió. "Soporte Prime" agrupa a MC PPM, MC EGF, Mesa de Control, a Alfredo, Eder, Daniel, Ariadna y Luis Alzaga (excluidos a solicitud), y a los tickets sin agente asignado.</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Ingeniero</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
         <tbody>${agentes.map(a=>`
@@ -4705,11 +4671,9 @@ auth.onAuthStateChanged(async function(user){
           </tr>`).join('')}
         </tbody>
       </table></div>
-      <div class="foot">"Prom. atención" es el promedio de horas entre creación y cierre de los tickets cerrados de cada ingeniero.</div>
       </div>
 
       <h3 style="margin-top:24px;">Tickets Soporte por día de la semana</h3>
-      <div class="foot" style="margin-bottom:10px;">Mismo criterio que "Tickets de Soporte IT" arriba (todo el archivo, excepto las 4 categorías de Mesa de Control) agrupado por el día de la semana en que se crearon.</div>
       ${totalSoportePorDia===0 ? `
       <div class="placeholder">
         <h3>Todavía no hay datos</h3>
@@ -4777,10 +4741,8 @@ auth.onAuthStateChanged(async function(user){
 
     c.innerHTML = `
       <div class="title">Tickets Mesa de control</div>
-      <div class="subtitle">Carga de trabajo y tiempos de atención · Ene-${state.periodo_actual} ${state.anio}</div>
 
       <h3>Tickets de Mesa de Control por mes</h3>
-      <div class="foot" style="margin-bottom:10px;">Incluye las colas "Mesa de Control" y "Mesa de Control Nivel 1".</div>
       <div class="cards" style="margin-bottom:16px;">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_MESA)}">Total Ene-${state.periodo_actual}</div>
           <div class="body"><div class="big">${totalMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets de Mesa de Control</div></div></div>
@@ -4794,7 +4756,6 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel"><canvas id="chartTicketsMC"></canvas></div>
 
       <h3 style="margin-top:24px;">Tickets atendidos por Mesa de Control, por mes</h3>
-      <div class="foot" style="margin-bottom:10px;">Solo tickets Cerrado o Abierto (${cerradoAbierto.toLocaleString('es-MX')} de ${totalMesa.toLocaleString('es-MX')}) — no incluye Rechazado/Cancelado. Los tickets sin agente asignado se cuentan dentro de MESA CONTROL.</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Mesa de Control</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
         <tbody>${agentes.map(a=>`
@@ -4806,11 +4767,9 @@ auth.onAuthStateChanged(async function(user){
           </tr>`).join('')}
         </tbody>
       </table></div>
-      <div class="foot">"Prom. atención" es el promedio de horas entre creación y cierre de los tickets cerrados de cada uno.</div>
       </div>
 
       <h3 style="margin-top:24px;">Tickets de Mesa de Control por día de la semana</h3>
-      <div class="foot" style="margin-bottom:10px;">Suma de todos los tickets de Mesa de Control (incluye Rechazado/Cancelado, igual que "Total Ene-${state.periodo_actual}" arriba) agrupados por el día de la semana en que se crearon.</div>
       ${totalPorDia===0 ? `
       <div class="placeholder">
         <h3>Todavía no hay datos</h3>
@@ -4826,7 +4785,6 @@ auth.onAuthStateChanged(async function(user){
       `}
 
       <h3 style="margin-top:24px;">Detalle de tickets Mesa de Control por categoría</h3>
-      <div class="foot" style="margin-bottom:10px;">Solo tickets Cerrado o Abierto de la cola "Mesa de Control", agrupados por categoría del ticket.</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Categoría</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th></tr></thead>
         <tbody>${categorias.map(r=>`
@@ -4840,7 +4798,6 @@ auth.onAuthStateChanged(async function(user){
       </div>
 
       <h3 style="margin-top:24px;">Categoría × Agente de Mesa de Control</h3>
-      <div class="foot" style="margin-bottom:10px;">Cruce de cada categoría contra quién la atendió (los sin agente asignado se cuentan dentro de MESA CONTROL).</div>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Categoría</th>${agentesCols.map(a=>`<th>${a}</th>`).join('')}</tr></thead>
         <tbody>${catAgenteRows.map(r=>`
@@ -4922,22 +4879,18 @@ auth.onAuthStateChanged(async function(user){
             <span style="font-weight:700; color:${color};">Total entregadas</span>
             <b style="color:${color};">${total}</b>
           </div>
-          <div class="foot" style="margin-top:2px;">Se calcula solo, sumando los renglones de Asignación de arriba.</div>
           <div style="display:flex; justify-content:space-between; padding:6px 0 2px;">
             <span style="font-weight:700; color:${color};">Inventario en almacén</span>
             <b style="color:${color};">${data.adquiridas - total}</b>
           </div>
-          <div class="foot" style="margin-top:2px;">Adquiridas (${data.adquiridas}) − Total entregadas (${total}) — lo que aún no se ha asignado.</div>
           <div style="display:flex; justify-content:space-between; padding:6px 0 2px;">
             <span style="font-weight:700; color:${color};">Prom. Mensual</span>
             <b style="color:${color};">${promMensual}</b>
           </div>
-          <div class="foot" style="margin-top:2px;">Total entregadas ÷ ${mesesTranscurridos} (de diciembre a ${state.periodo_actual}) — crece solo cada mes.</div>
           <div style="display:flex; justify-content:space-between; padding:6px 0 2px;">
             <span style="font-weight:700; color:${color};">Proyección Anual</span>
             ${editando ? `<input type="number" data-inv="${tipo}.proyeccion_anual" value="${data.proyeccion_anual}" style="width:80px; text-align:right; font-weight:700;">` : `<b style="color:${color};">${data.proyeccion_anual}</b>`}
           </div>
-          <div class="foot" style="margin-top:2px;">Meta fija definida al comprar el equipo — no se recalcula, se edita a mano si cambia.</div>
         </div>
       </div>
     `;
@@ -4947,7 +4900,6 @@ auth.onAuthStateChanged(async function(user){
     const puedeEditar = canEditInventario();
     c.innerHTML = `
       <div class="title">Adquisición de Equipo ${state.anio}</div>
-      <div class="subtitle">Laptop y CPU — Estado de adquisición, entrega y asignación</div>
       <div class="editbar">${editing && puedeEditar
         ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
         : (puedeEditar ? `<button id="btnEdit">Editar</button>` : '')}</div>
@@ -5042,7 +4994,6 @@ auth.onAuthStateChanged(async function(user){
       <div style="border:1px solid var(--line); border-radius:10px; overflow:hidden;">
         <div style="background:${cardGrad(color)}; color:#fff; font-weight:700; font-size:15px; padding:10px 16px;">Detalle — Masaryk</div>
         <div style="padding:10px 16px;">
-          <div class="foot" style="margin-bottom:8px;">Cada laptop "utilizada" resta del total disponible y agrega su propio recuadro de observación.</div>
           <div style="display:flex; justify-content:space-between; padding:5px 0;">
             <span>Entregadas</span><b>${entregadas}</b>
           </div>
@@ -5062,7 +5013,6 @@ auth.onAuthStateChanged(async function(user){
           <div style="display:flex; justify-content:space-between; padding:8px 0 2px;">
             <span style="font-weight:700; color:${color};">Total disponible</span><b style="color:${color};">${totalDisponible}</b>
           </div>
-        <div class="foot" style="margin-top:2px;">Entregadas (${entregadas}) − Utilizadas (${utilizadas}) = ${totalDisponible}</div>
         </div>
       </div>
     `;
@@ -5071,12 +5021,11 @@ auth.onAuthStateChanged(async function(user){
   function renderHistorialInventario(){
     const hist = state.inventario_historial || [];
     if(!hist.length){
-      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3><div class="foot">Todavía no hay cambios guardados en esta pestaña.</div></div>`;
+      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3></div>`;
     }
     return `
       <div class="panel" style="margin-top:20px;">
         <h3>Historial de cambios</h3>
-        <div class="foot" style="margin-bottom:10px;">Solo visible para admin. Se guardan los últimos 30 cambios, más reciente arriba.</div>
         <div style="overflow-x:auto;"><table>
           <thead><tr><th>Fecha</th><th>Usuario</th><th></th></tr></thead>
           <tbody>${hist.map((h,i)=>`
@@ -5135,7 +5084,6 @@ auth.onAuthStateChanged(async function(user){
     const pdvLaptopNeto = Math.max(0, totalPdvLaptop - laptopCerrado);
     c.innerHTML = `
       <div class="title">Equipos PDV Región</div>
-      <div class="subtitle">Desktop, PDV con laptop y laptop de cambaceo, por región — ordenado de mayor a menor total</div>
       <div class="editbar">${editing && puedeEditar
         ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
         : (puedeEditar ? `<button id="btnEdit">Editar</button>` : '')}</div>
@@ -5163,7 +5111,6 @@ auth.onAuthStateChanged(async function(user){
         </div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Laptop cambaceo</div><div class="body"><div class="big">${totalCambaceo.toLocaleString('es-MX')}</div></div></div>
       </div>
-      <div class="foot" style="margin:8px 0 16px;">Las tarjetas de arriba se calculan solas, sumando las 9 regiones de abajo (menos "Laptop PDV cerrado", que es un dato aparte).</div>
       <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px;">
         ${regs.map((r,rank)=>`
           <div style="border:1px solid var(--line); border-radius:10px; overflow:hidden;">
@@ -5175,7 +5122,6 @@ auth.onAuthStateChanged(async function(user){
             </div>
             <div style="padding:14px 16px;">
             <div style="font-size:26px; font-weight:700;">${r.total}</div>
-            <div class="foot" style="margin:2px 0 10px;">Total equipos</div>
             <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
               <span>PDV laptop</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.pdv_laptop" value="${r.pdv_laptop}" style="width:60px; text-align:right;">` : `<b>${r.pdv_laptop}</b>`}
             </div>
@@ -5248,12 +5194,11 @@ auth.onAuthStateChanged(async function(user){
   function renderHistorialPdvRegion(){
     const hist = state.equipos_pdv_region_historial || [];
     if(!hist.length){
-      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3><div class="foot">Todavía no hay cambios guardados en esta pestaña.</div></div>`;
+      return `<div class="panel" style="margin-top:20px;"><h3>Historial de cambios</h3></div>`;
     }
     return `
       <div class="panel" style="margin-top:20px;">
         <h3>Historial de cambios</h3>
-        <div class="foot" style="margin-bottom:10px;">Solo visible para admin. Se guardan los últimos 30 cambios, más reciente arriba.</div>
         <div style="overflow-x:auto;"><table>
           <thead><tr><th>Fecha</th><th>Usuario</th><th></th></tr></thead>
           <tbody>${hist.map((h,i)=>`
@@ -5331,7 +5276,6 @@ auth.onAuthStateChanged(async function(user){
 
     c.innerHTML = `
       <div class="title">Budget IT 2026</div>
-      <div class="subtitle">Presupuesto y ejercido de proveedores de IT · corte mensual · recreado de Budget 2026_IT.xlsx</div>
       <div class="editbar">${editing && puedeEditar
         ? `<button id="btnCancelBI">Cancelar</button><button class="primary" id="btnSaveBI">Guardar cambios</button>`
         : (puedeEditar ? `<button id="btnEditBI">Editar Jul–Dic</button>` : '')}</div>
@@ -5351,7 +5295,6 @@ auth.onAuthStateChanged(async function(user){
 
       <div class="panel">
         <h3>Presupuesto vs. ejercido — OPEX mensual (Ene–Jun congelado)</h3>
-        <div class="foot" style="margin-bottom:10px;">Enero–Junio son meses cerrados, de solo lectura. Julio en adelante es editable para amartinez, mgiron y admin. Las celdas en cursiva son una proyección (promedio de los últimos meses reales) mientras no se captura el dato real.</div>
         <div style="overflow-x:auto;"><table id="tbl-budget-it">
           <colgroup>
             <col style="width:200px;"><col style="width:130px;"><col style="width:92px;">
@@ -5404,7 +5347,6 @@ auth.onAuthStateChanged(async function(user){
 
       <div class="panel">
         <h3>CAPEX 2026 — ejecución de proyectos</h3>
-        <div class="foot" style="margin-bottom:10px;">Presupuesto anual (no mensual). Desmarca la casilla para excluir un proyecto del cálculo de CAPEX (montos y gráficas) — por ejemplo si se cancela o se mueve a otro año. Para los pendientes incluidos, elige el mes estimado de ejecución para incluirlos en la proyección anual.</div>
         <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:16px;">
           <div style="overflow-x:auto;"><table>
             <thead><tr><th></th><th style="text-align:left;">Proyecto</th><th>Presupuesto</th><th>Ejecutado</th><th>Pendiente</th><th>Mes estimado</th></tr></thead>
@@ -5440,12 +5382,11 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel">
         <h3>Gráficas</h3>
         <div style="display:grid; grid-template-columns:1fr; gap:16px; margin-bottom:16px;">
-          <div><div class="foot" style="margin-bottom:6px;">Ejercido mensual vs. presupuesto</div><canvas id="chartBudgetItTrend"></canvas></div>
+          <div><canvas id="chartBudgetItTrend"></canvas></div>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-          <div><div class="foot" style="margin-bottom:6px;">Gasto Ene–Jun por categoría</div><canvas id="chartBudgetItCat"></canvas></div>
+          <div><canvas id="chartBudgetItCat"></canvas></div>
           <div>
-            <div class="foot" style="margin-bottom:6px;">Presupuesto anual OPEX vs. proyección</div>
             <div class="bi-bullet-wrap">
               <div class="bi-bullet-track">
                 <div class="bi-bullet-seg bi-bullet-real" style="width:${pctReal}%;"></div>
@@ -5462,7 +5403,6 @@ auth.onAuthStateChanged(async function(user){
           </div>
         </div>
         <div style="margin-top:16px;">
-          <div class="foot" style="margin-bottom:6px;">Gasto Ene–Jun por proveedor (de mayor a menor)</div>
           <canvas id="chartBudgetItProv"></canvas>
         </div>
       </div>
@@ -5544,12 +5484,11 @@ auth.onAuthStateChanged(async function(user){
   function renderHistorialBudgetIT(){
     const hist = (state.budget_it && state.budget_it.historial) || [];
     if(!hist.length){
-      return `<div class="panel"><h3>Historial de cambios</h3><div class="foot">Todavía no hay cambios guardados en esta pestaña.</div></div>`;
+      return `<div class="panel"><h3>Historial de cambios</h3></div>`;
     }
     return `
       <div class="panel">
         <h3>Historial de cambios</h3>
-        <div class="foot" style="margin-bottom:10px;">Solo visible para amartinez, mgiron y lalzaga. Se guardan los últimos 30 cambios, más reciente arriba.</div>
         <div style="overflow-x:auto;"><table>
           <thead><tr><th style="text-align:left;">Fecha</th><th style="text-align:left;">Usuario</th><th></th></tr></thead>
           <tbody>${hist.map((h,i)=>`
@@ -5579,8 +5518,6 @@ auth.onAuthStateChanged(async function(user){
     const log = state.actualizaciones || [];
     c.innerHTML = `
       <div class="title">Actualizaciones</div>
-      <div class="subtitle">Registro de cambios guardados en todo el dashboard — quién, qué y cuándo</div>
-      <div class="foot" style="margin-bottom:14px;">Solo visible para amartinez, mgiron y lalzaga. Se guardan las últimas 200 actualizaciones, más reciente arriba. Es de solo lectura: se llena sola cada vez que alguien guarda un cambio en cualquier pestaña.</div>
       ${log.length===0 ? `
       <div class="placeholder">
         <h3>Todavía no hay actualizaciones registradas</h3>
@@ -5608,7 +5545,6 @@ auth.onAuthStateChanged(async function(user){
     if(tiendas.length===0){
       c.innerHTML = `
         <div class="title">Plan de expansión · PrimeMX ${state.anio}</div>
-        <div class="subtitle">Aperturas de tienda, hardware e internet asignado</div>
         ${canEdit ? `
         <div class="uploadbar">
           <div class="txt">
@@ -5638,7 +5574,6 @@ auth.onAuthStateChanged(async function(user){
 
     c.innerHTML = `
       <div class="title">Plan de expansión · PrimeMX ${state.anio}</div>
-      <div class="subtitle">${exp.carga.archivo ? `Última carga: ${exp.carga.archivo}${exp.carga.agregadas!==undefined ? ` · ${exp.carga.agregadas} nuevas, ${exp.carga.actualizadas} actualizadas` : ''} · ${fmtFecha(exp.carga.fecha)}` : 'Aperturas de tienda, hardware e internet asignado'}</div>
 
       ${canEdit ? `
       <div class="uploadbar">
@@ -5712,9 +5647,7 @@ auth.onAuthStateChanged(async function(user){
         ${editing
           ? `<textarea id="notasGenerales" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: Tienda CITY SHOP — cierre de tienda para el 03 de agosto">${exp.notas_generales||''}</textarea>`
           : `<div style="font-size:13px; white-space:pre-wrap; color:${exp.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${exp.notas_generales || 'Sin notas capturadas todavía. Da clic en "Editar todo" arriba para agregar.'}</div>`}
-        <div class="foot">Espacio libre para movimientos que no vienen en el archivo (cierres, cambios de plaza, pausas, etc.). No se sobreescribe al cargar un nuevo Excel.</div>
       </div>
-      <div class="foot">En modo edición puedes cambiar cualquier campo de la tabla, agregar tiendas manualmente o quitarlas. Al cargar un archivo nuevo, esos cambios manuales se respetan salvo que ese mismo campo venga distinto en el Excel para esa Clave PDV.</div>
       ${seccionCierreTiendas()}
     `;
     if(editing){
@@ -5758,7 +5691,6 @@ auth.onAuthStateChanged(async function(user){
         Filas en el archivo: <b>${d.resumen.total}</b> → <b>${nuevas} tiendas nuevas</b> se agregarán, <b>${actualizan}</b> ya existían y se actualizarán.<br>
         En el archivo: Abiertas <b>${d.resumen.abiertas}</b> · En proceso <b>${d.resumen.enProceso}</b> · Prospecto <b>${d.resumen.prospecto}</b>
       </div>
-      <div class="foot">No se borra nada de lo que ya tenías. Las notas manuales que ya hayas escrito se conservan (se empatan por Clave PDV, o por nombre si no tiene clave).</div>
       <div class="editbar" style="margin-top:10px;">
         <button id="btnCancelCargaExp">Cancelar</button>
         <button class="primary" id="btnAplicarCargaExp">Aplicar datos</button>
@@ -5831,9 +5763,7 @@ auth.onAuthStateChanged(async function(user){
     const cerradas = tiendas.filter(t=>t.estatus==='Cerrada').length;
 
     return `
-      <div class="foot" style="margin-top:26px; margin-bottom:4px; height:1px; border-top:1px solid var(--line);"></div>
       <div class="title" style="font-size:18px; margin-top:18px;">Cierre de tiendas</div>
-      <div class="subtitle">Mismos campos que la tabla de arriba, más la columna de Observaciones</div>
 
       ${canEdit && candidatas.length>0 ? `
       <div class="uploadbar">
@@ -5905,7 +5835,6 @@ auth.onAuthStateChanged(async function(user){
           ? `<textarea id="notasGeneralesCierre" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: pendiente confirmar recolección de equipo en Obregón Sonora Puerta">${cz.notas_generales||''}</textarea>`
           : `<div style="font-size:13px; white-space:pre-wrap; color:${cz.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${cz.notas_generales || 'Sin notas capturadas todavía.'}</div>`}
       </div>
-      <div class="foot">En modo edición puedes cambiar cualquier campo de la tabla, agregar tiendas manualmente o quitarlas. "Observaciones" es la única columna nueva respecto a la tabla de arriba.</div>
     `;
   }
   function wireCierreTiendas(){
