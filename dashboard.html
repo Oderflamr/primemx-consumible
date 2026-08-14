@@ -2858,10 +2858,13 @@ auth.onAuthStateChanged(async function(user){
   function renderReemplazoLaptop(c){
     const rl = state.reemplazo_laptop;
     const registros = rl.registros || [];
-    const totalGeneral = registros.reduce((s,r)=>s+r.total,0);
-    const totalRobo = registros.reduce((s,r)=>s+r.robo,0);
     const porMes = {};
-    registros.forEach(r=>{ porMes[normalizarTextoEnvios(r.mes)] = r.reem; });
+    const robosPorMes = {};
+    registros.forEach(r=>{
+      const key = normalizarTextoEnvios(r.mes);
+      porMes[key] = r.reem;
+      robosPorMes[key] = r.robo;
+    });
 
     // ---- Ventana Dic25 → mes actual real (agosto 2026 según la fecha de hoy; septiembre el mes que
     // entra, y así sucesivamente) — pedido explícito del cliente, agosto 2026. Diciembre se recorre al
@@ -2870,7 +2873,14 @@ auth.onAuthStateChanged(async function(user){
     // aunque el Excel ya traiga esas filas cargadas de más).
     const MESES_DIC_PRIMERO = ['Diciembre','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre'];
     const bars2025Reordenado = MESES_DIC_PRIMERO.map(m => DATA_REEMPLAZO_LAPTOP.bars2025[MESES12.indexOf(m)]);
-    const DIC25_REEM = DATA_REEMPLAZO_LAPTOP.bars2025[MESES12.indexOf('Diciembre')]; // 12 — mismo valor ya fijo en el código
+    // Respaldo si todavía no se ha cargado ningún Excel con una fila "Dic.25" — mismo valor que ya traía
+    // la barra azul de referencia (12), solo para que la gráfica no salga vacía en diciembre antes de la
+    // primera carga.
+    const DIC25_REEM_RESPALDO = DATA_REEMPLAZO_LAPTOP.bars2025[MESES12.indexOf('Diciembre')];
+    // Llave de diciembre 2025 dentro de porMes/robosPorMes: viene de la fila "Dic.25" (o variantes) del
+    // Excel, remapeada a 'Dic25' en handleFileUploadReemplazoLaptop → aquí normalizarTextoEnvios('Dic25')
+    // = 'DIC25'. Si el cliente ya cargó esa fila, su Reem./Robo real manda; si no, se usa el respaldo.
+    const DIC25_KEY = normalizarTextoEnvios('Dic25');
 
     const hoy = new Date();
     // Índice dentro de MESES_DIC_PRIMERO (Diciembre=0, Enero=1, ..., Noviembre=11) del mes real actual.
@@ -2884,14 +2894,29 @@ auth.onAuthStateChanged(async function(user){
 
     const puntosRojos = MESES_DIC_PRIMERO.map((m, i) => {
       if (i > mesActualIdx) return null; // acotado: nada de meses que todavía no llegan
-      if (i === 0) return DIC25_REEM; // Diciembre 2025, valor fijo
+      if (i === 0) return porMes.hasOwnProperty(DIC25_KEY) ? porMes[DIC25_KEY] : DIC25_REEM_RESPALDO;
       const key = normalizarTextoEnvios(m);
       return porMes.hasOwnProperty(key) ? porMes[key] : null;
     });
 
-    // Promedio / mes: Dic25 hasta el mes actual (ventana acotada), solo cuenta las casillas con dato real
+    // Robos: misma ventana Dic25→mes actual acotada. Si el Excel ya trae Robo de la fila "Dic.25" se usa
+    // ese valor; si no, diciembre 2025 se queda sin dato de robo (no se inventa). Igual que en puntosRojos:
+    // aunque el Excel traiga filas de meses futuros ya cargadas, se ignoran hasta que ese mes sea
+    // realmente el mes corriente.
+    const robosAcotados = MESES_DIC_PRIMERO.map((m, i) => {
+      if (i > mesActualIdx) return null;
+      if (i === 0) return robosPorMes.hasOwnProperty(DIC25_KEY) ? robosPorMes[DIC25_KEY] : null;
+      const key = normalizarTextoEnvios(m);
+      return robosPorMes.hasOwnProperty(key) ? robosPorMes[key] : null;
+    });
+
+    // Total y Promedio / mes: pedido del cliente (ago 2026) — ambos se calculan sobre la MISMA serie de
+    // reemplazos (puntosRojos), acotada a Dic25→mes actual real. Total = suma; Promedio = suma/meses con
+    // dato. Ya no se usa la columna "Total" del Excel para esta tarjeta (esa columna queda sin uso aquí).
     const puntosConDato = puntosRojos.filter(v => v !== null && v !== undefined);
-    const promedioMes = puntosConDato.length ? Math.round(puntosConDato.reduce((s,v)=>s+v,0) / puntosConDato.length) : 0;
+    const totalReemplazos = puntosConDato.reduce((s,v)=>s+v,0);
+    const promedioMes = puntosConDato.length ? Math.round(totalReemplazos / puntosConDato.length) : 0;
+    const totalRobo = robosAcotados.filter(v => v !== null && v !== undefined).reduce((s,v)=>s+v,0);
 
     const COL_BAR='#1E88C7', COL_LINE='#EF4444';
     renderBarLineApartado(c, {
@@ -2908,8 +2933,8 @@ auth.onAuthStateChanged(async function(user){
       previewHtml: cargaPendienteReemplazoLaptop ? panelConfirmacionReemplazoLaptop() : '',
       kpis:[
         {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades · Dic25 a hoy', color:COL_BAR},
-        {label:'Total 2026', valor:fmtMX(totalGeneral), lbl:'unidades reemplazadas', color:'#334155'},
-        {label:'Robos 2026', valor:fmtMX(totalRobo), lbl:'en el año', color:'#B91C1C'}
+        {label:'Total', valor:fmtMX(totalReemplazos), lbl:'reemplazos · Dic25 a hoy', color:'#334155'},
+        {label:'Robos', valor:fmtMX(totalRobo), lbl:'unidades · Dic25 a hoy', color:'#B91C1C'}
       ],
       chartTitle:'Laptop dañada/reemplazada por mes', canvasId:'chartLaptop',
       labels: MESES_DIC_PRIMERO,
@@ -3128,13 +3153,13 @@ auth.onAuthStateChanged(async function(user){
         agregados++;
       }
     });
-    existentes.sort((a,b)=>{
-      const ia = MESES12.indexOf(a.mes), ib = MESES12.indexOf(b.mes);
-      if(ia<0 && ib<0) return 0;
-      if(ia<0) return 1;
-      if(ib<0) return -1;
-      return ia-ib;
-    });
+    // 'Dic25' (fila ancla de diciembre 2025 de Reemplazo de Laptop, ver esFilaDic25ReemplazoLaptop) va
+    // siempre primero; el resto de los meses conocidos siguen el orden normal de MESES12; cualquier mes
+    // no reconocido, al final — mismo comportamiento de antes, solo se agrega el caso especial 'Dic25'
+    // (los demás apartados que usan esta misma función — CPU/Biométricos/Pin Pad — nunca traen 'Dic25',
+    // así que para ellos el orden no cambia en nada).
+    const ordenMes = (m)=> m==='Dic25' ? -1 : (MESES12.indexOf(m)>=0 ? MESES12.indexOf(m) : 999);
+    existentes.sort((a,b)=> ordenMes(a.mes) - ordenMes(b.mes));
     destino.registros = existentes;
     destino.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados };
     descripcionActualizacion = `Carga de Excel — ${descripcionCorta} (${datos.fileName})`;
@@ -3148,6 +3173,17 @@ auth.onAuthStateChanged(async function(user){
     {key:'total', label:'Total', variantes:['TOTAL']},
     {key:'robo', label:'Robo', variantes:['ROBO','ROBOS']}
   ];
+  // Reconoce la fila ancla de diciembre 2025 en el Excel de Reemplazo de Laptop — el cliente la sube
+  // como "Dic.25" (también se aceptan variantes tipo "Dic25", "Dic-25", "Dic 25", "Diciembre 2025",
+  // sin importar puntos/espacios/guiones) — se remapea a la llave interna 'Dic25', DISTINTA de
+  // "Diciembre" a secas (que en este apartado solo tendría sentido para un diciembre 2026 futuro,
+  // caso que no se resuelve aquí — ver nota de mesActualIdx más abajo). Antes de este cambio esta fila
+  // se ignoraba silenciosamente (no calzaba con ningún mes de MESES12) y el punto de diciembre en la
+  // gráfica salía siempre del valor fijo interno (12), sin importar lo que trajera el archivo.
+  function esFilaDic25ReemplazoLaptop(mesTexto){
+    const compacto = normalizarTextoEnvios(mesTexto).replace(/[.\-\s]/g,'');
+    return /^DIC(IEMBRE)?25$/.test(compacto);
+  }
   function handleFileUploadReemplazoLaptop(e){
     const file = e.target.files[0];
     if(!file) return;
@@ -3160,6 +3196,9 @@ auth.onAuthStateChanged(async function(user){
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows2d = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
         cargaPendienteReemplazoLaptop = calcularDatosPorMes(rows2d, file.name, COLUMNAS_REEMPLAZO_LAPTOP);
+        cargaPendienteReemplazoLaptop.registros.forEach(r=>{
+          if(esFilaDic25ReemplazoLaptop(r.mes)) r.mes = 'Dic25';
+        });
         render();
       }catch(err){
         console.error(err);
