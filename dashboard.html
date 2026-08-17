@@ -684,7 +684,7 @@ auth.onAuthStateChanged(async function(user){
     try{
       const [snapTiendas, snapFallas] = await Promise.all([
         db.collection('tiendas').get(),
-        db.collectionGroup('fallas').where('tipo','==','Sin servicio').get()
+        db.collectionGroup('fallas').get()
       ]);
       const tiendaPorId = {};
       snapTiendas.docs.forEach(d=>{
@@ -695,6 +695,7 @@ auth.onAuthStateChanged(async function(user){
       const porMes = {};
       snapFallas.docs.forEach(d=>{
         const f = d.data();
+        if(String(f.tipo||'').trim() !== 'Sin servicio') return; // filtramos aquí, no en la consulta
         const fc = f.fecha_captura ? new Date(f.fecha_captura) : null;
         if(!fc || isNaN(fc)) return;
         const storeId = d.ref.parent.parent.id;
