@@ -671,6 +671,60 @@ auth.onAuthStateChanged(async function(user){
   // tarjetas "Servicios" de Tendencia mensual, que antes eran un número fijo editado a mano.
   const CARRIER_DASHBOARD_LABEL = { 'TOTALPLAY':'TotalPlay', 'TELMEX':'Telmex', 'MEGA CABLE':'Megacable', 'STARLIK':'Starlink' };
   let catalogoVivo = { cargado:false, cargando:false, error:null, porNombre:{}, activasPorCarrier:{ TotalPlay:0, Telmex:0, Megacable:0, Starlink:0 }, actualizado:null };
+  // Calendario de caídas — 100% independiente del Excel de tickets. Lee en vivo la colección
+  // `fallas` de Directorio (mismo Firebase), filtrando Tipo="Sin servicio". El día es la fecha
+  // de captura de la falla; el estatus es "Abierto" si no tiene fecha_cierre, o "Cerrado" si ya
+  // se cerró. Se organiza por mes (0=Enero...11=Diciembre) para el selector del calendario.
+  let calendarioFallas = { cargado:false, cargando:false, error:null, porMes:{}, actualizado:null };
+  async function cargarCalendarioFallas(opts){
+    const silencioso = !!(opts && opts.silencioso);
+    if(calendarioFallas.cargando) return;
+    calendarioFallas.cargando = true;
+    if(!silencioso && state) render();
+    try{
+      const [snapTiendas, snapFallas] = await Promise.all([
+        db.collection('tiendas').get(),
+        db.collectionGroup('fallas').where('tipo','==','Sin servicio').get()
+      ]);
+      const tiendaPorId = {};
+      snapTiendas.docs.forEach(d=>{
+        const t = d.data();
+        const label = CARRIER_DASHBOARD_LABEL[String(t.carrier||'').toUpperCase().trim()] || (t.carrier||'—');
+        tiendaPorId[d.id] = { plaza: t.plaza || 'Tienda no encontrada', carrier: label };
+      });
+      const porMes = {};
+      snapFallas.docs.forEach(d=>{
+        const f = d.data();
+        const fc = f.fecha_captura ? new Date(f.fecha_captura) : null;
+        if(!fc || isNaN(fc)) return;
+        const storeId = d.ref.parent.parent.id;
+        const tienda = tiendaPorId[storeId] || { plaza:'Tienda no encontrada', carrier:'—' };
+        const mesIdx = fc.getMonth(), dia = fc.getDate();
+        if(!porMes[mesIdx]) porMes[mesIdx] = { caidas_por_dia:{}, detalle_por_dia:{} };
+        const celda = porMes[mesIdx];
+        celda.caidas_por_dia[dia] = (celda.caidas_por_dia[dia]||0) + 1;
+        if(!celda.detalle_por_dia[dia]) celda.detalle_por_dia[dia] = [];
+        celda.detalle_por_dia[dia].push({
+          tienda: tienda.plaza,
+          carrier: tienda.carrier,
+          hora: fc.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}),
+          estatus: f.fecha_cierre ? 'Cerrado' : 'Abierto'
+        });
+      });
+      calendarioFallas = { cargado:true, cargando:false, error:null, porMes, actualizado:new Date().toISOString() };
+    }catch(err){
+      console.error('No se pudo cargar el calendario de fallas desde Directorio', err);
+      calendarioFallas.cargando = false;
+      calendarioFallas.error = 'No se pudo cargar el calendario desde el Directorio de Tiendas.';
+    }
+    if(state) render();
+  }
+  function asegurarCalendarioFallasFresco(){
+    if(calendarioFallas.cargando) return;
+    const stale = !calendarioFallas.actualizado || (Date.now() - new Date(calendarioFallas.actualizado).getTime()) > 60000;
+    if(!calendarioFallas.cargado || stale) cargarCalendarioFallas({silencioso:true});
+  }
+
   async function cargarCatalogoVivo(opts){
     const silencioso = !!(opts && opts.silencioso);
     if(catalogoVivo.cargando) return;
@@ -4047,13 +4101,18 @@ auth.onAuthStateChanged(async function(user){
 
   // ---------- Resumen 2026 ----------
   function renderPanelCalendarioCaidas(){
+    asegurarCalendarioFallasFresco();
     const MESES_CAL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
     const hoy = new Date();
     const mesIdx = mesCalendarioSeleccionado !== null ? mesCalendarioSeleccionado : hoy.getMonth();
     const anio = state.anio || hoy.getFullYear();
     const diasEnMes = new Date(anio, mesIdx+1, 0).getDate();
     const primerDiaSemana = (new Date(anio, mesIdx, 1).getDay() + 6) % 7;
-    const datosMes = (state.resumen.calendario_por_mes && state.resumen.calendario_por_mes[mesIdx]) || { caidas_por_dia:{}, detalle_por_dia:{} };
+
+    if(!calendarioFallas.cargado){
+      return `<div class="panel"><h3>Caídas por día</h3><div class="foot">${calendarioFallas.error || 'Cargando desde el Directorio de Tiendas…'}</div></div>`;
+    }
+    const datosMes = calendarioFallas.porMes[mesIdx] || { caidas_por_dia:{}, detalle_por_dia:{} };
     const esMesActualReal = mesIdx===hoy.getMonth() && anio===hoy.getFullYear();
     const diaHoy = esMesActualReal ? hoy.getDate() : -1;
 
@@ -4082,7 +4141,7 @@ auth.onAuthStateChanged(async function(user){
             ${MESES_CAL.map((nombre,i)=>`<option value="${i}" ${i===mesIdx?'selected':''}>${nombre} ${anio}</option>`).join('')}
           </select>
         </div>
-        <div class="foot" style="margin:6px 0 10px;">Dale clic a un día para ver el detalle de tiendas. Suma TotalPlay + Telmex + Megacable, igual que las tarjetas de arriba.</div>
+        <div class="foot" style="margin:6px 0 10px;">Dale clic a un día para ver el detalle de tiendas. Se calcula en vivo desde el Directorio de Tiendas (Reporte de fallas, Tipo "Sin servicio") — es independiente del Excel de tickets que se carga arriba.</div>
         <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px; font-size:11px; color:var(--sub); text-align:center; margin-bottom:4px;">
           <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
         </div>
