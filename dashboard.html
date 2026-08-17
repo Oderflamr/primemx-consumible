@@ -1859,6 +1859,9 @@ auth.onAuthStateChanged(async function(user){
         if(!state[campo].carga) state[campo].carga = { archivo: null, fecha: null };
       });
       if(!Array.isArray(state.actualizaciones)) state.actualizaciones = [];
+      // Comentarios de seguimiento en Migración de carrier (agosto 2026) — objeto plano nombre de
+      // tienda -> texto libre, exclusivo de amartinez (ver canEditComentariosMigracion()).
+      if(!state.migracion_comentarios) state.migracion_comentarios = {};
       if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
       if(!state.budget_it.historial) state.budget_it.historial = [];
       state.budget_it.capex.forEach(cx=>{ if(cx.incluir===undefined) cx.incluir = true; });
@@ -4498,11 +4501,18 @@ auth.onAuthStateChanged(async function(user){
   // Columna "Motivo" (agosto 2026): a petición del cliente, después de la columna de migración
   // (Cambio a Megacable / Migración) — por ahora el motivo es fijo para todas las filas de ambas tablas.
   const MOTIVO_MIGRACION = 'Problemas de DNS con MO';
+  // Comentarios de seguimiento (agosto 2026) — columna de texto libre por tienda, exclusiva de
+  // amartinez (ni siquiera el resto de admins la puede editar, mismo patrón que canEditHub()).
+  function canEditComentariosMigracion(){
+    return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'amartinez');
+  }
   function tablaMigracion(filas, mesesCortos, tituloMigracion, textoMigracion){
+    const puedeEditarComentarios = editing && canEditComentariosMigracion();
     return `<div class="panel"><div style="overflow-x:auto;"><table>
-        <thead><tr><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th><th>${tituloMigracion}</th><th>Motivo</th></tr></thead>
+        <thead><tr><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th><th>${tituloMigracion}</th><th>Motivo</th><th style="text-align:left;">Comentarios</th></tr></thead>
         <tbody>${filas.map(r=>{
           const st = estatusTienda(r.total);
+          const comentario = state.migracion_comentarios[r.nombre] || '';
           return `<tr>
             <td style="text-align:left;">${r.nombre}</td>
             <td>${r.carrier||'—'}</td>
@@ -4512,6 +4522,9 @@ auth.onAuthStateChanged(async function(user){
             <td><span class="status-badge ${st.cls}">${st.label}</span></td>
             <td><span class="status-badge alerta">${textoMigracion}</span></td>
             <td style="text-align:left; white-space:nowrap;">${MOTIVO_MIGRACION}</td>
+            <td style="text-align:left;">${puedeEditarComentarios
+              ? `<input type="text" data-migracion-comentario="${r.nombre}" value="${comentario.replace(/"/g,'&quot;')}" placeholder="Nota de seguimiento" style="width:180px;">`
+              : (comentario ? comentario : '<span style="color:var(--sub);">—</span>')}</td>
           </tr>`;
         }).join('')}</tbody>
       </table></div></div>`;
@@ -4521,8 +4534,12 @@ auth.onAuthStateChanged(async function(user){
     const mesesCortos = MESES.slice(0,hasta+1);
     const filasMega = filasMigracion(MIGRACION_MEGACABLE, hasta);
     const filasTelmex = filasMigracion(MIGRACION_TELMEX, hasta);
+    const puedeEditarComentarios = canEditComentariosMigracion();
     c.innerHTML = `
       <div class="title">Migración de carrier</div>
+      <div class="editbar">${editing && puedeEditarComentarios
+        ? `<button id="btnCancelMigracion">Cancelar</button><button class="primary" id="btnSaveMigracion">Guardar cambios</button>`
+        : (puedeEditarComentarios ? `<button id="btnEditMigracion">Editar comentarios</button>` : '')}</div>
 
       <h3 style="margin-top:6px;">Cambio de tecnología: Microonda → Megacable</h3>
       ${tablaMigracion(filasMega, mesesCortos, 'Cambio a Megacable', 'En proceso')}
@@ -4530,6 +4547,21 @@ auth.onAuthStateChanged(async function(user){
       <h3 style="margin-top:24px;">Cambio de carrier: TotalPlay → Telmex</h3>
       ${tablaMigracion(filasTelmex, mesesCortos, 'Migración', 'Migrada Telmex')}
     `;
+    if(editing && puedeEditarComentarios){
+      document.getElementById('btnCancelMigracion').onclick = ()=>{ editing=false; render(); };
+      document.getElementById('btnSaveMigracion').onclick = ()=>{
+        document.querySelectorAll('[data-migracion-comentario]').forEach(inp=>{
+          const texto = inp.value.trim();
+          if(texto) state.migracion_comentarios[inp.dataset.migracionComentario] = texto;
+          else delete state.migracion_comentarios[inp.dataset.migracionComentario];
+        });
+        descripcionActualizacion = 'Edición manual — Comentarios de Migración de carrier';
+        editing = false;
+        save();
+      };
+    } else if(puedeEditarComentarios){
+      document.getElementById('btnEditMigracion').onclick = ()=>{ editing=true; render(); };
+    }
   }
 
   // ---------- Migracion Win11 ----------
@@ -5461,7 +5493,12 @@ auth.onAuthStateChanged(async function(user){
   const CAPEX_MESES_BI = ['Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   // Moneda por proveedor — fija, no editable (agosto 2026, a petición del cliente).
   const PROVEEDORES_MONEDA_USD = ['IQSEC (KACE)', 'COLOUR KLUB'];
-  function monedaProveedor(proveedor){ return PROVEEDORES_MONEDA_USD.includes(proveedor) ? 'US' : 'MX'; }
+  // Tipo de cambio fijo (agosto 2026, a petición del cliente): lo que se captura en la casilla de un
+  // proveedor USD se entiende en dólares, y se convierte a pesos con este factor antes de guardarse —
+  // en Firestore y en toda la tabla siempre se ve en pesos, nunca en dólares.
+  const TIPO_CAMBIO_USD = 20;
+  function esProveedorUSD(proveedor){ return PROVEEDORES_MONEDA_USD.includes(proveedor); }
+  function monedaProveedor(proveedor){ return esProveedorUSD(proveedor) ? 'USD' : 'MX'; }
   // Proveedores que meten 2 facturas por mes — en edición se capturan por separado y se suman;
   // solo se guarda el total, nunca las 2 cantidades por separado (agosto 2026).
   const PROVEEDORES_DOBLE_FACTURA = ['COLOUR KLUB', 'GRUPO LEYMARK', 'METROCARRIER', 'MARAFIC', 'RED', 'REDSLOG'];
@@ -5541,6 +5578,7 @@ auth.onAuthStateChanged(async function(user){
 
       <div class="panel">
         <h3>Presupuesto vs. ejercido — OPEX mensual (Ene–Jun congelado)</h3>
+        <div class="foot" style="margin:2px 0 10px;">Nota: los proveedores que manejan moneda en USD consideran un tipo de cambio fijo de $${TIPO_CAMBIO_USD} pesos por dólar.</div>
         <div style="overflow-x:auto;"><table id="tbl-budget-it">
           <colgroup>
             <col style="width:200px;"><col style="width:130px;"><col style="width:70px;"><col style="width:92px;">
@@ -5553,6 +5591,8 @@ auth.onAuthStateChanged(async function(user){
               const valores = d.valoresPorVendor[vi];
               const anual = valores.reduce((s,o)=>s+o.valor,0);
               const dobleFactura = PROVEEDORES_DOBLE_FACTURA.includes(v.proveedor);
+              const esUSD = esProveedorUSD(v.proveedor);
+              const unidadFactura = esUSD ? ' (USD)' : '';
               let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td class="bi-moneda">${monedaProveedor(v.proveedor)}</td><td class="bi-presup">${moneyIT(v.presupuesto_mes)}</td>`;
               valores.forEach((o,i)=>{
                 const bloqueado = i<6 || o.esReal;
@@ -5560,14 +5600,18 @@ auth.onAuthStateChanged(async function(user){
                 if(bloqueado && !puedeReabrir){
                   cells += `<td class="bi-locked" style="background:${bgPresupuesto(o.valor, v.presupuesto_mes)};">${moneyIT(o.valor)}</td>`;
                 } else if(puedeReabrir){
-                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${v.meses[i]!==null && v.meses[i]!==undefined ? v.meses[i] : Math.round(o.valor)}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — mgiron puede editarlo"></td>`;
+                  // El dato guardado siempre está en pesos — para un proveedor USD se vuelve a mostrar
+                  // en dólares (÷ tipo de cambio) para que mgiron edite en la misma unidad de la factura.
+                  const valorPesos = v.meses[i]!==null && v.meses[i]!==undefined ? v.meses[i] : o.valor;
+                  const valorMostrado = esUSD ? Math.round((valorPesos/TIPO_CAMBIO_USD)*100)/100 : Math.round(valorPesos);
+                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${valorMostrado}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — mgiron puede editarlo${esUSD?' (en dólares)':''}"></td>`;
                 } else if(editing && puedeEditar && dobleFactura){
                   cells += `<td><div style="display:flex; flex-direction:column; gap:2px;">
-                    <input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" data-bi-factura="1" placeholder="Factura 1" style="width:72px; font-size:11px;">
-                    <input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" data-bi-factura="2" placeholder="Factura 2" style="width:72px; font-size:11px;">
+                    <input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" data-bi-factura="1" placeholder="Factura 1${unidadFactura}" style="width:72px; font-size:11px;">
+                    <input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" data-bi-factura="2" placeholder="Factura 2${unidadFactura}" style="width:72px; font-size:11px;">
                   </div></td>`;
                 } else if(editing && puedeEditar){
-                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" style="width:72px;"></td>`;
+                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" placeholder="${esUSD?'USD':''}" style="width:72px;"></td>`;
                 } else {
                   cells += `<td><span style="color:var(--sub);">—</span></td>`;
                 }
@@ -5676,17 +5720,22 @@ auth.onAuthStateChanged(async function(user){
         document.querySelectorAll('[data-bi-v]:not([data-bi-factura])').forEach(inp=>{
           const vi = Number(inp.dataset.biV), mi = Number(inp.dataset.biM);
           const raw = inp.value.trim();
-          if(raw!=='') data.opex[vi].meses[mi] = Number(raw);
+          // Para un proveedor USD, lo capturado es dólares — se convierte a pesos con TIPO_CAMBIO_USD
+          // antes de guardarse. En Firestore y en toda la tabla el dato siempre queda en pesos.
+          const factor = esProveedorUSD(data.opex[vi].proveedor) ? TIPO_CAMBIO_USD : 1;
+          if(raw!=='') data.opex[vi].meses[mi] = Number(raw) * factor;
         });
         // Proveedores de doble factura (Colour Klub y los demás en PROVEEDORES_DOBLE_FACTURA): se suman
         // las 2 casillas y se guarda un solo total — nunca se persisten las 2 cantidades por separado.
+        // Si el proveedor es USD (Colour Klub), cada factura también se convierte a pesos antes de sumar.
         document.querySelectorAll('[data-bi-v][data-bi-factura="1"]').forEach(inp1=>{
           const vi = Number(inp1.dataset.biV), mi = Number(inp1.dataset.biM);
           const inp2 = document.querySelector(`[data-bi-v="${vi}"][data-bi-m="${mi}"][data-bi-factura="2"]`);
           const raw1 = inp1.value.trim();
           const raw2 = inp2 ? inp2.value.trim() : '';
+          const factor = esProveedorUSD(data.opex[vi].proveedor) ? TIPO_CAMBIO_USD : 1;
           if(raw1!=='' || raw2!==''){
-            data.opex[vi].meses[mi] = Number(raw1||0) + Number(raw2||0);
+            data.opex[vi].meses[mi] = (Number(raw1||0) + Number(raw2||0)) * factor;
           }
         });
         document.querySelectorAll('[data-bi-capex-incluir]').forEach(chk=>{
