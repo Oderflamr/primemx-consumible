@@ -4101,6 +4101,14 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- Resumen 2026 ----------
+  const ORDEN_CARRIER_CALENDARIO = ['TotalPlay','Telmex','Megacable','Starlink'];
+  function desgloseCarrierDia(detalle){
+    const conteo = {};
+    (detalle||[]).forEach(f=>{ conteo[f.carrier] = (conteo[f.carrier]||0) + 1; });
+    const ordenados = ORDEN_CARRIER_CALENDARIO.filter(p=>conteo[p]).map(p=>({ prov:p, n:conteo[p] }));
+    const otros = Object.keys(conteo).filter(p=>!ORDEN_CARRIER_CALENDARIO.includes(p)).map(p=>({ prov:p, n:conteo[p] }));
+    return ordenados.concat(otros);
+  }
   function renderPanelCalendarioCaidas(){
     asegurarCalendarioFallasFresco();
     const MESES_CAL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -4124,10 +4132,14 @@ auth.onAuthStateChanged(async function(user){
       const tieneDatos = caidas !== undefined;
       const esHoy = d === diaHoy;
       const seleccionado = diaCalendarioExpandido === d;
-      celdas += `<div ${tieneDatos ? `data-dia-calendario="${d}" style="cursor:pointer;` : `style="`}border:1px solid ${seleccionado?'var(--tp)':'var(--line)'}; border-width:${seleccionado?'2px':'1px'}; border-radius:8px; padding:6px; min-height:56px; ${esHoy && !seleccionado?'border-color:var(--tp);':''} background:${tieneDatos?'#FAFAFB':'#fff'};">
-        <div style="font-size:11px; color:var(--sub);">${d}</div>
+      const desglose = tieneDatos ? desgloseCarrierDia(datosMes.detalle_por_dia[d]) : [];
+      celdas += `<div ${tieneDatos ? `data-dia-calendario="${d}" style="cursor:pointer;` : `style="`}border:1px solid ${seleccionado?'var(--tp)':'var(--line)'}; border-width:${seleccionado?'2px':'1px'}; border-radius:8px; padding:6px; min-height:${tieneDatos?'92px':'56px'}; ${esHoy && !seleccionado?'border-color:var(--tp);':''} background:${tieneDatos?'#FAFAFB':'#fff'};">
+        <div style="display:flex; justify-content:space-between; align-items:baseline;">
+          <span style="font-size:11px; color:var(--sub);">${d}</span>
+          ${tieneDatos ? `<span style="font-size:14px; font-weight:700; color:${caidas>=10?'var(--warn)':'var(--ink)'};">${caidas}</span>` : ''}
+        </div>
         ${tieneDatos
-          ? `<div style="font-size:18px; font-weight:700; color:${caidas>=10?'var(--warn)':'var(--ink)'};">${caidas}</div>`
+          ? `<div style="margin-top:4px; display:flex; flex-direction:column; gap:1px;">${desglose.map(x=>`<div style="display:flex; align-items:center; gap:4px; font-size:9.5px; color:var(--sub); line-height:1.5;"><span style="width:6px; height:6px; border-radius:50%; background:${CARD_COLOR[x.prov]||'#999'}; flex:none;"></span><span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${x.prov}</span><span style="margin-left:auto; color:var(--ink);">${x.n}</span></div>`).join('')}</div>`
           : `<div style="font-size:10.5px; color:var(--sub); margin-top:8px;">${esMesActualReal && d > diaHoy ? '—' : 'sin datos'}</div>`}
       </div>`;
     }
