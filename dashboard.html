@@ -754,7 +754,32 @@ auth.onAuthStateChanged(async function(user){
     resumen: {
       peer: { TotalPlay:0.71, Telmex:0.39, Megacable:0.27, Starlink:0.00 },
       atn:  { TotalPlay:'12 hrs', Telmex:'24-48h', Megacable:'8 hrs', Starlink:'8 hrs' },
-      semana_actual: { numero:0, inicio:null, fin:null, caidas:0 }
+      semana_actual: { numero:0, inicio:null, fin:null, caidas:0 },
+      calendario_por_mes: {
+        7: {
+          caidas_por_dia: { 1:2, 2:2, 3:4, 4:2 },
+          detalle_por_dia: {
+            1: [
+              {tienda:'PRM TDA MONTERREY MADERO NORTE', carrier:'TotalPlay', hora:'17:20', estatus:'Cerrado'},
+              {tienda:'PRM TDA ROSARITO', carrier:'TotalPlay', hora:'18:13', estatus:'Cerrado'}
+            ],
+            2: [
+              {tienda:'PRM TDA ACAPULCO PLAZA UNIVERSIDAD', carrier:'Telmex', hora:'13:34', estatus:'Abierto'},
+              {tienda:'PRM TDA CHEDRAUI NEZAHUALCOYOTL II', carrier:'TotalPlay', hora:'13:48', estatus:'Cerrado'}
+            ],
+            3: [
+              {tienda:'PRM TDA REYNOSA PLAZA PERIFERICO', carrier:'TotalPlay', hora:'11:29', estatus:'Cerrado'},
+              {tienda:'PRM TDA PLAZA BLANCARTE', carrier:'TotalPlay', hora:'12:18', estatus:'Cerrado'},
+              {tienda:'PRM TDA CHEDRAUI CENTRO SUR', carrier:'TotalPlay', hora:'13:34', estatus:'Cerrado'},
+              {tienda:'PRM TDA CDMX LUNA PARC', carrier:'TotalPlay', hora:'16:39', estatus:'Cerrado'}
+            ],
+            4: [
+              {tienda:'PRM TDA HERMOSILLO PLAZA CATALUNYA', carrier:'TotalPlay', hora:'11:50', estatus:'En espera'},
+              {tienda:'PRM TDA VILLAHERMOSA DEPORTIVA', carrier:'TotalPlay', hora:'12:02', estatus:'Abierto'}
+            ]
+          }
+        }
+      }
     },
     atencion: {
       TotalPlay: { tickets:366, avg:21.8, dias:0.91, min:0, mediana:18.5, max:172.9, dist:[76,87,74,117,12], pct24:65, pct48:90 },
@@ -1348,6 +1373,8 @@ auth.onAuthStateChanged(async function(user){
   // el desplegable "Internet" liste Estatus de Servicio arriba de Resumen 2026.
   let tab = 'estatus_servicio';
   let editing = false;
+  let mesCalendarioSeleccionado = null; // null = mes actual real
+  let diaCalendarioExpandido = null;
   let editingCierre = false; // edición independiente de la sub-sección "Cierre de tiendas" dentro de Plan de expansión
   let internetMenuAbierto = false;
   let soporteMenuAbierto = false;
@@ -1732,6 +1759,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.win11_pendientes_historial) state.win11_pendientes_historial = clone(DEFAULTS.win11_pendientes_historial);
       if(!state.win11_observaciones) state.win11_observaciones = clone(DEFAULTS.win11_observaciones);
       if(!state.resumen.semana_actual) state.resumen.semana_actual = clone(DEFAULTS.resumen.semana_actual);
+      if(!state.resumen.calendario_por_mes) state.resumen.calendario_por_mes = clone(DEFAULTS.resumen.calendario_por_mes);
       delete state.resumen.clw; delete state.resumen.lw;
       if(!state.inventario.masaryk_detalle) state.inventario.masaryk_detalle = clone(DEFAULTS.inventario.masaryk_detalle);
       if(!state.ticketsmc.categorias) state.ticketsmc.categorias = clone(DEFAULTS.ticketsmc.categorias);
@@ -1963,6 +1991,14 @@ auth.onAuthStateChanged(async function(user){
     }
     let caidasSemanaActual = 0;
 
+    // Calendario de caídas por día, para TODOS los meses que traiga el archivo (para poder
+    // consultar meses anteriores sin volver a cargar). Se guarda conteo y detalle por día.
+    const calendarioPorMes = {}; // { mesIdx: { caidas_por_dia:{dia:n}, detalle_por_dia:{dia:[...]} } }
+    function celdaCalendarioMes(mesIdx){
+      if(!calendarioPorMes[mesIdx]) calendarioPorMes[mesIdx] = { caidas_por_dia:{}, detalle_por_dia:{} };
+      return calendarioPorMes[mesIdx];
+    }
+
     // Detecta tickets duplicados de caída: misma tienda, categoría "Sin servicio", creados con
     // 90 minutos o menos de diferencia, ambos con Estado "Cerrado". El segundo (el más nuevo de
     // cada pareja) se trata igual que un "Rechazado" — no cuenta como caída real.
@@ -2085,6 +2121,18 @@ auth.onAuthStateChanged(async function(user){
       monthCounts[prov][mIdx]++;
       totalCaidas++;
       if(fc >= lunesActual && fc <= domingoActual) caidasSemanaActual++;
+      {
+        const celda = celdaCalendarioMes(fc.getMonth());
+        const dia = fc.getDate();
+        celda.caidas_por_dia[dia] = (celda.caidas_por_dia[dia]||0) + 1;
+        if(!celda.detalle_por_dia[dia]) celda.detalle_por_dia[dia] = [];
+        celda.detalle_por_dia[dia].push({
+          tienda: extraerNombreCanonico(row['Cliente']) || 'Sin nombre',
+          carrier: prov,
+          hora: fc.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}),
+          estatus: String(row['Estado']||'').trim() || '—'
+        });
+      }
 
       if(prov==='TotalPlay' || prov==='Telmex'){
         const store = extraerNombreCanonico(row['Cliente']) || 'Sin nombre';
@@ -2187,7 +2235,8 @@ auth.onAuthStateChanged(async function(user){
           inicio: lunesActual.toISOString(),
           fin: domingoActual.toISOString(),
           caidas: caidasSemanaActual
-        }
+        },
+        calendario_por_mes: calendarioPorMes
       }
     };
   }
@@ -2203,6 +2252,7 @@ auth.onAuthStateChanged(async function(user){
     state.periodo_actual = datos.periodo_actual;
     if(!state.resumen) state.resumen = {};
     state.resumen.semana_actual = datos.resumen.semana_actual;
+    state.resumen.calendario_por_mes = datos.resumen.calendario_por_mes;
     state.atencion.TotalPlay = datos.atencion.TotalPlay;
     state.atencion.Telmex = datos.atencion.Telmex;
     state.atencion.Metrocarrier = datos.atencion.Metrocarrier;
@@ -3996,6 +4046,60 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- Resumen 2026 ----------
+  function renderPanelCalendarioCaidas(){
+    const MESES_CAL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const hoy = new Date();
+    const mesIdx = mesCalendarioSeleccionado !== null ? mesCalendarioSeleccionado : hoy.getMonth();
+    const anio = state.anio || hoy.getFullYear();
+    const diasEnMes = new Date(anio, mesIdx+1, 0).getDate();
+    const primerDiaSemana = (new Date(anio, mesIdx, 1).getDay() + 6) % 7;
+    const datosMes = (state.resumen.calendario_por_mes && state.resumen.calendario_por_mes[mesIdx]) || { caidas_por_dia:{}, detalle_por_dia:{} };
+    const esMesActualReal = mesIdx===hoy.getMonth() && anio===hoy.getFullYear();
+    const diaHoy = esMesActualReal ? hoy.getDate() : -1;
+
+    let celdas = '';
+    for(let i=0; i<primerDiaSemana; i++) celdas += `<div></div>`;
+    for(let d=1; d<=diasEnMes; d++){
+      const caidas = datosMes.caidas_por_dia[d];
+      const tieneDatos = caidas !== undefined;
+      const esHoy = d === diaHoy;
+      const seleccionado = diaCalendarioExpandido === d;
+      celdas += `<div ${tieneDatos ? `data-dia-calendario="${d}" style="cursor:pointer;` : `style="`}border:1px solid ${seleccionado?'var(--tp)':'var(--line)'}; border-width:${seleccionado?'2px':'1px'}; border-radius:8px; padding:6px; min-height:56px; ${esHoy && !seleccionado?'border-color:var(--tp);':''} background:${tieneDatos?'#FAFAFB':'#fff'};">
+        <div style="font-size:11px; color:var(--sub);">${d}</div>
+        ${tieneDatos
+          ? `<div style="font-size:18px; font-weight:700; color:${caidas>=10?'var(--warn)':'var(--ink)'};">${caidas}</div>`
+          : `<div style="font-size:10.5px; color:var(--sub); margin-top:8px;">${esMesActualReal && d > diaHoy ? '—' : 'sin datos'}</div>`}
+      </div>`;
+    }
+
+    const detalleDia = diaCalendarioExpandido ? (datosMes.detalle_por_dia[diaCalendarioExpandido] || []) : null;
+
+    return `
+      <div class="panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <h3 style="margin:0;">Caídas por día</h3>
+          <select id="selMesCalendario" style="width:auto;">
+            ${MESES_CAL.map((nombre,i)=>`<option value="${i}" ${i===mesIdx?'selected':''}>${nombre} ${anio}</option>`).join('')}
+          </select>
+        </div>
+        <div class="foot" style="margin:6px 0 10px;">Dale clic a un día para ver el detalle de tiendas. Suma TotalPlay + Telmex + Megacable, igual que las tarjetas de arriba.</div>
+        <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px; font-size:11px; color:var(--sub); text-align:center; margin-bottom:4px;">
+          <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px;">${celdas}</div>
+        ${detalleDia ? `
+        <div style="margin-top:14px; border-top:1px solid var(--line); padding-top:12px;">
+          <h4 style="margin:0 0 8px;">Detalle — ${diaCalendarioExpandido} de ${MESES_CAL[mesIdx]}</h4>
+          ${detalleDia.length ? `<table>
+            <thead><tr><th style="text-align:left;">Tienda</th><th>Carrier</th><th>Hora</th><th>Estatus</th></tr></thead>
+            <tbody>${detalleDia.map(x=>`<tr><td style="text-align:left;">${x.tienda}</td><td>${x.carrier}</td><td>${x.hora}</td><td>${x.estatus}</td></tr>`).join('')}</tbody>
+          </table>` : `<div class="foot">Sin detalle capturado para este día.</div>`}
+          <button id="btnCerrarDetalleDia" style="margin-top:10px;">Cerrar</button>
+        </div>` : ''}
+      </div>
+    `;
+  }
+
   function renderResumen(c){
     const tp=cumulativo('TotalPlay'), tm=cumulativo('Telmex'), mg=cumulativo('Metrocarrier');
     const sl=Number(state.tendencia.caidas_extra.Starlink||0);
@@ -4068,6 +4172,7 @@ auth.onAuthStateChanged(async function(user){
         <h3>Caídas por proveedor</h3>
         <canvas id="chartResumen"></canvas>
       </div>
+      ${renderPanelCalendarioCaidas()}
     `;
     if(canEdit){
       document.getElementById('btnUpload').onclick = () => document.getElementById('fileTickets').click();
@@ -4083,6 +4188,17 @@ auth.onAuthStateChanged(async function(user){
         backgroundColor:[CARD_COLOR.TotalPlay,CARD_COLOR.Telmex,CARD_COLOR.Megacable,CARD_COLOR.Starlink] }] },
       options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
     });
+    const selMes = document.getElementById('selMesCalendario');
+    if(selMes) selMes.onchange = ()=>{ mesCalendarioSeleccionado = Number(selMes.value); diaCalendarioExpandido = null; render(); };
+    document.querySelectorAll('[data-dia-calendario]').forEach(celda=>{
+      celda.onclick = ()=>{
+        const dia = Number(celda.dataset.diaCalendario);
+        diaCalendarioExpandido = diaCalendarioExpandido===dia ? null : dia;
+        render();
+      };
+    });
+    const btnCerrarDia = document.getElementById('btnCerrarDetalleDia');
+    if(btnCerrarDia) btnCerrarDia.onclick = ()=>{ diaCalendarioExpandido = null; render(); };
   }
 
   // ---------- Atencion ----------
