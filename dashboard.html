@@ -395,13 +395,14 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .noc-modal-status.en-linea{background:#E6F5EC; color:#1E8E5A;}
 
   /* ===== Budget IT 2026 ===== */
-  #tbl-budget-it{min-width:1640px; table-layout:fixed;}
-  /* Proveedor / Categoría / Presup. quedan fijas (sticky) al hacer scroll horizontal para llegar al mes que se necesita editar */
+  #tbl-budget-it{min-width:1710px; table-layout:fixed;}
+  /* Proveedor / Categoría / Moneda / Presup. quedan fijas (sticky) al hacer scroll horizontal para llegar al mes que se necesita editar */
   #tbl-budget-it .bi-prov{position:sticky; left:0; z-index:2; background:#fff; text-align:left; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   #tbl-budget-it .bi-cat{position:sticky; left:200px; z-index:2; background:#fff; text-align:left; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  #tbl-budget-it .bi-presup{position:sticky; left:330px; z-index:2; background:#fff; border-right:2px solid var(--line);}
-  #tbl-budget-it thead th.bi-prov, #tbl-budget-it thead th.bi-cat, #tbl-budget-it thead th.bi-presup{background:#fff; z-index:3;}
-  #tbl-budget-it tr.bi-totales .bi-prov, #tbl-budget-it tr.bi-totales .bi-cat, #tbl-budget-it tr.bi-totales .bi-presup{background:#FAFAFB;}
+  #tbl-budget-it .bi-moneda{position:sticky; left:330px; z-index:2; background:#fff; text-align:center; color:var(--sub); font-weight:600;}
+  #tbl-budget-it .bi-presup{position:sticky; left:400px; z-index:2; background:#fff; border-right:2px solid var(--line);}
+  #tbl-budget-it thead th.bi-prov, #tbl-budget-it thead th.bi-cat, #tbl-budget-it thead th.bi-moneda, #tbl-budget-it thead th.bi-presup{background:#fff; z-index:3;}
+  #tbl-budget-it tr.bi-totales .bi-prov, #tbl-budget-it tr.bi-totales .bi-cat, #tbl-budget-it tr.bi-totales .bi-moneda, #tbl-budget-it tr.bi-totales .bi-presup{background:#FAFAFB;}
   #tbl-budget-it td.bi-locked{background:#F4F5F7; color:var(--sub); position:relative;}
   #tbl-budget-it td.bi-locked::after{content:'🔒'; font-size:8px; position:absolute; top:1px; right:2px; opacity:.5;}
   #tbl-budget-it input.bi-proyectado{color:var(--sub); font-style:italic; background:#FBFBFC;}
@@ -1488,6 +1489,12 @@ auth.onAuthStateChanged(async function(user){
   }
   function canEditBudgetIT(){
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_BUDGET_EDITAR.includes(currentUser.username));
+  }
+  // Excepción exclusiva de mgiron (agosto 2026, a petición del cliente): puede editar CUALQUIER celda
+  // de OPEX aunque ya esté bloqueada — Ene-Jun congelado, o Jul-Dic con dato ya guardado. amartinez
+  // (el otro editor) sigue sin poder tocar una celda ya bloqueada, igual que antes.
+  function puedeEditarBloqueadosBI(){
+    return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'mgiron');
   }
   // Actualizaciones es un log de solo lectura — mismos 3 usuarios que Budget IT, nadie "edita" un log.
   function puedeVerActualizaciones(){
@@ -4137,13 +4144,11 @@ auth.onAuthStateChanged(async function(user){
       const esHoy = d === diaHoy;
       const seleccionado = diaCalendarioExpandido === d;
       const desglose = tieneDatos ? desgloseCarrierDia(datosMes.detalle_por_dia[d]) : [];
-      celdas += `<div ${tieneDatos ? `data-dia-calendario="${d}" style="cursor:pointer;` : `style="`}border:1px solid ${seleccionado?'var(--tp)':'var(--line)'}; border-width:${seleccionado?'2px':'1px'}; border-radius:8px; padding:6px; min-height:${tieneDatos?'92px':'56px'}; ${esHoy && !seleccionado?'border-color:var(--tp);':''} background:${tieneDatos?'#FAFAFB':'#fff'};">
-        <div style="display:flex; justify-content:space-between; align-items:baseline;">
-          <span style="font-size:11px; color:var(--sub);">${d}</span>
-          ${tieneDatos ? `<span style="font-size:14px; font-weight:700; color:${caidas>=10?'var(--warn)':'var(--ink)'};">${caidas}</span>` : ''}
-        </div>
+      celdas += `<div ${tieneDatos ? `data-dia-calendario="${d}" style="cursor:pointer;` : `style="`}border:1px solid ${seleccionado?'var(--tp)':'var(--line)'}; border-width:${seleccionado?'2px':'1px'}; border-radius:8px; padding:6px; min-height:${tieneDatos?'104px':'56px'}; ${esHoy && !seleccionado?'border-color:var(--tp);':''} background:${tieneDatos?'#FAFAFB':'#fff'};">
+        <div style="width:20px; height:20px; border:1px solid var(--line); border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10.5px; color:var(--ink);">${d}</div>
         ${tieneDatos
-          ? `<div style="margin-top:4px; display:flex; flex-direction:column; gap:1px;">${desglose.map(x=>`<div style="display:flex; align-items:center; gap:4px; font-size:9.5px; color:var(--sub); line-height:1.5;"><span style="width:6px; height:6px; border-radius:50%; background:${CARD_COLOR[x.prov]||'#999'}; flex:none;"></span><span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${x.prov}</span><span style="margin-left:auto; color:var(--ink);">${x.n}</span></div>`).join('')}</div>`
+          ? `<div style="margin-top:6px; text-align:left; text-decoration:underline; font-size:11px; color:var(--sub);">Caídas <span style="font-weight:700; color:${caidas>=10?'var(--warn)':'var(--ink)'};">${caidas}</span></div>
+             <div style="margin-top:5px; display:flex; flex-direction:column; gap:1px;">${desglose.map(x=>`<div style="display:flex; align-items:center; gap:4px; font-size:9.5px; color:var(--sub); line-height:1.5;"><span style="width:6px; height:6px; border-radius:50%; background:${CARD_COLOR[x.prov]||'#999'}; flex:none;"></span><span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${x.prov}</span><span style="margin-left:auto; color:var(--ink);">${x.n}</span></div>`).join('')}</div>`
           : `<div style="font-size:10.5px; color:var(--sub); margin-top:8px;">${esMesActualReal && d > diaHoy ? '—' : 'sin datos'}</div>`}
       </div>`;
     }
@@ -5454,6 +5459,16 @@ auth.onAuthStateChanged(async function(user){
   // ---------- Budget IT 2026 ----------
   const MESES_CORTOS_BI = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const CAPEX_MESES_BI = ['Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  // Moneda por proveedor — fija, no editable (agosto 2026, a petición del cliente).
+  const PROVEEDORES_MONEDA_USD = ['IQSEC (KACE)', 'COLOUR KLUB'];
+  function monedaProveedor(proveedor){ return PROVEEDORES_MONEDA_USD.includes(proveedor) ? 'US' : 'MX'; }
+  // Proveedores que meten 2 facturas por mes — en edición se capturan por separado y se suman;
+  // solo se guarda el total, nunca las 2 cantidades por separado (agosto 2026).
+  const PROVEEDORES_DOBLE_FACTURA = ['COLOUR KLUB', 'GRUPO LEYMARK', 'METROCARRIER', 'MARAFIC', 'RED', 'REDSLOG'];
+  // Semáforo de fondo (tenue) para medir cualquier monto real contra el presupuesto/mes de ese proveedor —
+  // aplica a los 14 proveedores, tanto en los meses ya cerrados (Ene–Jun) como en cualquier mes de
+  // Jul–Dic que ya tenga dato capturado. Mismos tonos que ya usa `.status-badge.estable/.critica`.
+  function bgPresupuesto(valor, presupuesto){ return valor<=presupuesto ? '#E7F7EC' : '#FDECEC'; }
   function moneyIT(n){ return '$' + Math.round(n||0).toLocaleString('es-MX'); }
   // Para meses sin dato real (null) se muestra una proyección: promedio de los hasta 3 meses reales
   // más recientes anteriores a ese mes. No se guarda como dato real hasta que alguien lo edite.
@@ -5528,23 +5543,33 @@ auth.onAuthStateChanged(async function(user){
         <h3>Presupuesto vs. ejercido — OPEX mensual (Ene–Jun congelado)</h3>
         <div style="overflow-x:auto;"><table id="tbl-budget-it">
           <colgroup>
-            <col style="width:200px;"><col style="width:130px;"><col style="width:92px;">
+            <col style="width:200px;"><col style="width:130px;"><col style="width:70px;"><col style="width:92px;">
             ${MESES_CORTOS_BI.map(()=>'<col style="width:88px;">').join('')}
             <col style="width:100px;">
           </colgroup>
-          <thead><tr><th class="bi-prov" style="text-align:left;">Proveedor</th><th class="bi-cat" style="text-align:left;">Categoría</th><th class="bi-presup">Presup./mes</th>${MESES_CORTOS_BI.map(m=>`<th>${m}</th>`).join('')}<th>Anual</th></tr></thead>
+          <thead><tr><th class="bi-prov" style="text-align:left;">Proveedor</th><th class="bi-cat" style="text-align:left;">Categoría</th><th class="bi-moneda">Moneda</th><th class="bi-presup">Presup./mes</th>${MESES_CORTOS_BI.map(m=>`<th>${m}</th>`).join('')}<th>Anual</th></tr></thead>
           <tbody>
             ${data.opex.map((v,vi)=>{
               const valores = d.valoresPorVendor[vi];
               const anual = valores.reduce((s,o)=>s+o.valor,0);
-              let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td class="bi-presup">${moneyIT(v.presupuesto_mes)}</td>`;
+              const dobleFactura = PROVEEDORES_DOBLE_FACTURA.includes(v.proveedor);
+              let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td class="bi-moneda">${monedaProveedor(v.proveedor)}</td><td class="bi-presup">${moneyIT(v.presupuesto_mes)}</td>`;
               valores.forEach((o,i)=>{
-                if(i<6){
-                  cells += `<td class="bi-locked">${moneyIT(o.valor)}</td>`;
+                const bloqueado = i<6 || o.esReal;
+                const puedeReabrir = bloqueado && editing && puedeEditar && puedeEditarBloqueadosBI();
+                if(bloqueado && !puedeReabrir){
+                  cells += `<td class="bi-locked" style="background:${bgPresupuesto(o.valor, v.presupuesto_mes)};">${moneyIT(o.valor)}</td>`;
+                } else if(puedeReabrir){
+                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${v.meses[i]!==null && v.meses[i]!==undefined ? v.meses[i] : Math.round(o.valor)}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — mgiron puede editarlo"></td>`;
+                } else if(editing && puedeEditar && dobleFactura){
+                  cells += `<td><div style="display:flex; flex-direction:column; gap:2px;">
+                    <input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" data-bi-factura="1" placeholder="Factura 1" style="width:72px; font-size:11px;">
+                    <input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" data-bi-factura="2" placeholder="Factura 2" style="width:72px; font-size:11px;">
+                  </div></td>`;
                 } else if(editing && puedeEditar){
-                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${v.meses[i]!==null && v.meses[i]!==undefined ? v.meses[i] : ''}" placeholder="${Math.round(o.valor)}" style="width:72px;"></td>`;
+                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" style="width:72px;"></td>`;
                 } else {
-                  cells += `<td>${o.esReal ? moneyIT(o.valor) : '<span style="color:var(--sub);">—</span>'}</td>`;
+                  cells += `<td><span style="color:var(--sub);">—</span></td>`;
                 }
               });
               cells += `<td><b>${moneyIT(anual)}</b></td>`;
@@ -5553,26 +5578,27 @@ auth.onAuthStateChanged(async function(user){
           </tbody>
           <tfoot>
             <tr class="bi-totales">
-              <td class="bi-prov">Total OPEX</td><td class="bi-cat"></td><td class="bi-presup">${moneyIT(d.monthlyBudget)}</td>
+              <td class="bi-prov">Total OPEX</td><td class="bi-cat"></td><td class="bi-moneda"></td><td class="bi-presup">${moneyIT(d.monthlyBudget)}</td>
               ${d.monthlyActual.map(v=>`<td>${moneyIT(v)}</td>`).join('')}
               <td>${moneyIT(d.opexAnnualProjected)}</td>
             </tr>
             <tr class="bi-presupuesto">
-              <td class="bi-prov">Presupuesto/mes</td><td class="bi-cat"></td><td class="bi-presup"></td>
+              <td class="bi-prov">Presupuesto/mes</td><td class="bi-cat"></td><td class="bi-moneda"></td><td class="bi-presup"></td>
               ${d.budgetSeries.map(v=>`<td>${moneyIT(v)}</td>`).join('')}
               <td>${moneyIT(d.opexAnnualBudget)}</td>
             </tr>
             <tr class="bi-ahorro">
-              <td class="bi-prov">Ahorro del mes</td><td class="bi-cat"></td><td class="bi-presup"></td>
+              <td class="bi-prov">Ahorro del mes</td><td class="bi-cat"></td><td class="bi-moneda"></td><td class="bi-presup"></td>
               ${d.monthlyActual.map((v,i)=>{ const s=d.budgetSeries[i]-v; return `<td class="${s>=0?'pos':'neg'}">${moneyIT(s)}</td>`; }).join('')}
               <td class="${d.ahorroProyectado>=0?'pos':'neg'}">${moneyIT(d.ahorroProyectado)}</td>
             </tr>
           </tfoot>
         </table></div>
         <div class="bi-legend">
-          <span><span class="bi-swatch locked"></span> Cerrado (Ene–Jun, no editable)</span>
-          <span><span class="bi-swatch real"></span> Editable — dato real capturado</span>
-          <span>— Sin captura todavía (Jul–Dic editable, aún sin dato real)</span>
+          <span><span class="bi-swatch locked"></span> Con dato capturado (no editable — Ene–Jun cerrado, o Jul–Dic ya guardado)</span>
+          <span><span class="bi-swatch" style="background:#E7F7EC;"></span> Dentro de presupuesto</span>
+          <span><span class="bi-swatch" style="background:#FDECEC;"></span> Sobre presupuesto</span>
+          <span>— Sin captura todavía (editable)</span>
         </div>
       </div>
 
@@ -5644,10 +5670,24 @@ auth.onAuthStateChanged(async function(user){
     if(editing && puedeEditar){
       document.getElementById('btnCancelBI').onclick = ()=>{ editing=false; render(); };
       document.getElementById('btnSaveBI').onclick = ()=>{
-        document.querySelectorAll('[data-bi-v]').forEach(inp=>{
+        // Los inputs solo existen para meses sin dato todavía (ver render de arriba) — si se deja en
+        // blanco, no se toca nada (sigue "sin capturar", se ve como -). Nunca se sobreescribe un mes
+        // que ya tenía un dato real guardado, porque para ese caso no se dibuja ningún input.
+        document.querySelectorAll('[data-bi-v]:not([data-bi-factura])').forEach(inp=>{
           const vi = Number(inp.dataset.biV), mi = Number(inp.dataset.biM);
           const raw = inp.value.trim();
-          data.opex[vi].meses[mi] = raw==='' ? null : Number(raw);
+          if(raw!=='') data.opex[vi].meses[mi] = Number(raw);
+        });
+        // Proveedores de doble factura (Colour Klub y los demás en PROVEEDORES_DOBLE_FACTURA): se suman
+        // las 2 casillas y se guarda un solo total — nunca se persisten las 2 cantidades por separado.
+        document.querySelectorAll('[data-bi-v][data-bi-factura="1"]').forEach(inp1=>{
+          const vi = Number(inp1.dataset.biV), mi = Number(inp1.dataset.biM);
+          const inp2 = document.querySelector(`[data-bi-v="${vi}"][data-bi-m="${mi}"][data-bi-factura="2"]`);
+          const raw1 = inp1.value.trim();
+          const raw2 = inp2 ? inp2.value.trim() : '';
+          if(raw1!=='' || raw2!==''){
+            data.opex[vi].meses[mi] = Number(raw1||0) + Number(raw2||0);
+          }
         });
         document.querySelectorAll('[data-bi-capex-incluir]').forEach(chk=>{
           data.capex[Number(chk.dataset.biCapexIncluir)].incluir = chk.checked;
