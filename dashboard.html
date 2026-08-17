@@ -705,10 +705,14 @@ auth.onAuthStateChanged(async function(user){
         const celda = porMes[mesIdx];
         celda.caidas_por_dia[dia] = (celda.caidas_por_dia[dia]||0) + 1;
         if(!celda.detalle_por_dia[dia]) celda.detalle_por_dia[dia] = [];
+        const fCierre = f.fecha_cierre ? new Date(f.fecha_cierre) : null;
+        const cierreValido = fCierre && !isNaN(fCierre);
         celda.detalle_por_dia[dia].push({
           tienda: tienda.plaza,
           carrier: tienda.carrier,
-          hora: fc.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}),
+          horaAlta: fc.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}),
+          horaCierre: cierreValido ? fCierre.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : null,
+          tardoHoras: cierreValido ? Math.round(((fCierre - fc) / 3600000) * 10) / 10 : null,
           estatus: f.fecha_cierre ? 'Cerrado' : 'Abierto'
         });
       });
@@ -4163,8 +4167,8 @@ auth.onAuthStateChanged(async function(user){
         <div style="margin-top:14px; border-top:1px solid var(--line); padding-top:12px;">
           <h4 style="margin:0 0 8px;">Detalle — ${diaCalendarioExpandido} de ${MESES_CAL[mesIdx]}</h4>
           ${detalleDia.length ? `<table>
-            <thead><tr><th style="text-align:left;">Tienda</th><th>Carrier</th><th>Hora</th><th>Estatus</th></tr></thead>
-            <tbody>${detalleDia.map(x=>`<tr><td style="text-align:left;">${x.tienda}</td><td>${x.carrier}</td><td>${x.hora}</td><td>${x.estatus}</td></tr>`).join('')}</tbody>
+            <thead><tr><th style="text-align:left;">Tienda</th><th>Carrier</th><th>Hora de alta</th><th>Hora de cierre</th><th>Tardó en cerrarse</th><th>Estatus</th></tr></thead>
+            <tbody>${detalleDia.map(x=>`<tr><td style="text-align:left;">${x.tienda}</td><td>${x.carrier}</td><td>${x.horaAlta}</td><td>${x.horaCierre || '—'}</td><td>${x.tardoHoras!=null ? x.tardoHoras+' h' : '—'}</td><td>${x.estatus}</td></tr>`).join('')}</tbody>
           </table>` : `<div class="foot">Sin detalle capturado para este día.</div>`}
           <button id="btnCerrarDetalleDia" style="margin-top:10px;">Cerrar</button>
         </div>` : ''}
