@@ -677,6 +677,14 @@ auth.onAuthStateChanged(async function(user){
   // de captura de la falla; el estatus es "Abierto" si no tiene fecha_cierre, o "Cerrado" si ya
   // se cerró. Se organiza por mes (0=Enero...11=Diciembre) para el selector del calendario.
   let calendarioFallas = { cargado:false, cargando:false, error:null, porMes:{}, actualizado:null };
+  // Día de la semana + hora juntos (agosto 2026) — una falla puede abrirse un día y cerrarse días
+  // después, así que la hora sola es ambigua sin saber a qué día pertenece. Ej: "Lunes 11:53".
+  function diaHoraTexto(fecha){
+    const dia = fecha.toLocaleDateString('es-MX', {weekday:'long'});
+    const diaCap = dia.charAt(0).toUpperCase() + dia.slice(1);
+    const hora = fecha.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
+    return `${diaCap} ${hora}`;
+  }
   async function cargarCalendarioFallas(opts){
     const silencioso = !!(opts && opts.silencioso);
     if(calendarioFallas.cargando) return;
@@ -711,8 +719,8 @@ auth.onAuthStateChanged(async function(user){
         celda.detalle_por_dia[dia].push({
           tienda: tienda.plaza,
           carrier: tienda.carrier,
-          horaAlta: fc.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}),
-          horaCierre: cierreValido ? fCierre.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : null,
+          horaAlta: diaHoraTexto(fc),
+          horaCierre: cierreValido ? diaHoraTexto(fCierre) : null,
           tardoHoras: cierreValido ? Math.round(((fCierre - fc) / 3600000) * 10) / 10 : null,
           estatus: f.fecha_cierre ? 'Cerrado' : 'Abierto'
         });
