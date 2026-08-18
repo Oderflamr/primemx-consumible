@@ -677,13 +677,20 @@ auth.onAuthStateChanged(async function(user){
   // de captura de la falla; el estatus es "Abierto" si no tiene fecha_cierre, o "Cerrado" si ya
   // se cerró. Se organiza por mes (0=Enero...11=Diciembre) para el selector del calendario.
   let calendarioFallas = { cargado:false, cargando:false, error:null, porMes:{}, actualizado:null };
-  // Día de la semana + hora juntos (agosto 2026) — una falla puede abrirse un día y cerrarse días
-  // después, así que la hora sola es ambigua sin saber a qué día pertenece. Ej: "Lunes 11:53".
+  // Fecha completa + hora juntos (agosto 2026) — una falla puede abrirse un día y cerrarse días
+  // después, así que la hora sola es ambigua sin saber a qué día pertenece. Ej: "Lunes 01 Ago 11:43 am".
+  // Se arma a mano (no con toLocaleTimeString con hour12) porque el formato es-MX de Intl mete
+  // "a. m."/"p. m." con puntos y espacio raro en vez de un limpio "am"/"pm".
   function diaHoraTexto(fecha){
     const dia = fecha.toLocaleDateString('es-MX', {weekday:'long'});
     const diaCap = dia.charAt(0).toUpperCase() + dia.slice(1);
-    const hora = fecha.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
-    return `${diaCap} ${hora}`;
+    const diaNum = String(fecha.getDate()).padStart(2,'0');
+    const mes = MESES_CORTOS_BI[fecha.getMonth()];
+    let h = fecha.getHours();
+    const m = String(fecha.getMinutes()).padStart(2,'0');
+    const ampm = h >= 12 ? 'pm' : 'am';
+    h = h % 12; if(h === 0) h = 12;
+    return `${diaCap} ${diaNum} ${mes} ${h}:${m} ${ampm}`;
   }
   async function cargarCalendarioFallas(opts){
     const silencioso = !!(opts && opts.silencioso);
@@ -1336,7 +1343,7 @@ auth.onAuthStateChanged(async function(user){
     // REGION). El cliente confirmó explícitamente que cada carga es un REEMPLAZO TOTAL del listado
     // (igual que "Actualizar catálogo" en Directorio), no una acumulación por mes — el Excel que sube
     // asanchez ya es el reporte completo y vigente de todos los tickets de HUB a la fecha.
-    hub: { registros: [], carga: { archivo: null, fecha: null } },
+    hub: { registros: [], carga: { archivo: null, fecha: null }, directorio: [] },
     // Budget IT 2026: recreado de Budget 2026_IT.xlsx (hoja "Presupuesto 2026"). Enero-Junio son los
     // valores reales ya conciliados (quedan congelados en la UI). Julio trae lo que ya estaba cargado
     // en el Excel (algunos proveedores aún sin dato); Agosto-Diciembre quedan en null y se editan mes
@@ -1541,6 +1548,13 @@ auth.onAuthStateChanged(async function(user){
   let cargaPendienteBiometricos = null;
   let cargaPendientePinPad = null;
   let cargaPendienteHub = null;
+  // Directorio de HUBs de recolección (agosto 2026) — tabla editable a mano dentro de la pestaña HUB
+  // (Región/Estado/Ciudad/Hub/Responsable/Teléfono), independiente del Excel de tickets de esa misma
+  // pestaña. Exclusivo de asanchez (canEditHub()), agregar/editar/borrar fila. `directorioHubDraft` es
+  // una copia de trabajo (clone()) mientras se edita, para que "Cancelar" descarte filas agregadas o
+  // borradas sin tocar state.hub.directorio hasta que se le dé "Guardar cambios".
+  let editingDirectorioHub = false;
+  let directorioHubDraft = null;
   // Guardias: solo el mes en curso se ve abierto de entrada; los demás meses se guardan comprimidos
   // detrás de un botón "+" — a petición explícita del cliente, para no llenar la pantalla con 6 meses
   // de golpe. Vive fuera de renderGuardias() para que no se resetee cada vez que la app repinta.
@@ -1866,6 +1880,10 @@ auth.onAuthStateChanged(async function(user){
         if(!Array.isArray(state[campo].registros)) state[campo].registros = [];
         if(!state[campo].carga) state[campo].carga = { archivo: null, fecha: null };
       });
+      // Directorio de HUBs de recolección (agosto 2026) — tabla aparte dentro de la misma pestaña HUB.
+      // Se precarga con el directorio real (DIRECTORIO_HUBS_INICIAL) la primera vez que el documento en
+      // Firestore no trae este campo; en cuanto asanchez guarde un cambio, lo que quede en Firestore manda.
+      if(!Array.isArray(state.hub.directorio)) state.hub.directorio = clone(DIRECTORIO_HUBS_INICIAL);
       if(!Array.isArray(state.actualizaciones)) state.actualizaciones = [];
       // Comentarios de seguimiento en Migración de carrier (agosto 2026) — objeto plano nombre de
       // tienda -> texto libre, exclusivo de amartinez (ver canEditComentariosMigracion()).
@@ -3064,10 +3082,13 @@ auth.onAuthStateChanged(async function(user){
         {label:'Robos', valor:fmtMX(totalRobo), lbl:'unidades · Dic25 a hoy', color:'#B91C1C'}
       ],
       chartTitle:'Laptop dañada/reemplazada por mes', canvasId:'chartLaptop',
-      labels: MESES_DIC_PRIMERO,
+      // Eje acotado a Dic25 → mes actual real (agosto 2026, a petición del cliente) — antes el eje
+      // siempre mostraba los 12 meses completos (hasta Noviembre) aunque no hubieran llegado; ahora
+      // se recorta igual que ya se recortaban los puntos rojos, así que crece un mes a la vez solo.
+      labels: MESES_DIC_PRIMERO.slice(0, mesActualIdx+1),
       datasets:[
-        {type:'bar', label:'2025', data:bars2025Reordenado, backgroundColor:COL_BAR, borderRadius:4, order:2},
-        {type:'line', label:'2026', data:puntosRojos, borderColor:COL_LINE, backgroundColor:COL_LINE, showLine:false, pointRadius:6, pointHoverRadius:8, borderWidth:2.5, order:1}
+        {type:'bar', label:'2025', data:bars2025Reordenado.slice(0, mesActualIdx+1), backgroundColor:COL_BAR, borderRadius:4, order:2},
+        {type:'line', label:'2026', data:puntosRojos.slice(0, mesActualIdx+1), borderColor:COL_LINE, backgroundColor:COL_LINE, showLine:true, tension:0, pointRadius:6, pointHoverRadius:8, borderWidth:2.5, order:1}
       ]
     });
     wireReemplazoLaptopUpload();
@@ -3087,6 +3108,12 @@ auth.onAuthStateChanged(async function(user){
       const key = normalizarTextoEnvios(m);
       return porMes.hasOwnProperty(key) ? porMes[key] : null;
     });
+    // Eje acotado a Enero → mes actual real (agosto 2026, mismo pedido que ya se aplicó en Reemplazo de
+    // Laptop) — antes el eje siempre mostraba los 12 meses completos aunque no hubieran llegado. Aquí no
+    // hay "Dic25" que anteponer (esa regla es exclusiva de Laptop), así que el índice 0 ya es Enero.
+    const hoy = new Date();
+    const mesActualIdxCpu = (hoy.getFullYear() < 2026) ? 0
+      : (hoy.getFullYear() === 2026 ? hoy.getMonth() : 11);
     const COL_BAR='#0B3D5C', COL_LINE='#F08A24';
     renderBarLineApartado(c, {
       titulo:'Reemplazo de CPU',
@@ -3105,10 +3132,10 @@ auth.onAuthStateChanged(async function(user){
         {label:'Total 2026', valor:fmtMX(totalGeneral), lbl:'unidades reemplazadas', color:'#334155'}
       ],
       chartTitle:'CPU dañada/reemplazada por mes', canvasId:'chartCpu',
-      labels: MESES12,
+      labels: MESES12.slice(0, mesActualIdxCpu+1),
       datasets:[
-        {type:'bar', label:'2025', data:DATA_REEMPLAZO_CPU.bars2025, backgroundColor:COL_BAR, borderRadius:4},
-        {type:'line', label:'2026', data:line2026, borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5, spanGaps:true}
+        {type:'bar', label:'2025', data:DATA_REEMPLAZO_CPU.bars2025.slice(0, mesActualIdxCpu+1), backgroundColor:COL_BAR, borderRadius:4, order:2},
+        {type:'line', label:'2026', data:line2026.slice(0, mesActualIdxCpu+1), borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5, spanGaps:true, order:1}
       ]
     });
     wireReemplazoCpuUpload();
@@ -3689,8 +3716,119 @@ auth.onAuthStateChanged(async function(user){
         </div>
       </div>
       `}
+
+      ${renderDirectorioHubs()}
     `;
     wireHubUpload();
+    wireDirectorioHubs();
+  }
+
+  // Directorio de HUBs de recolección (agosto 2026) — tabla editable a mano (agregar/editar/borrar
+  // fila), independiente del Excel de tickets de arriba. Exclusivo de asanchez, mismo permiso que ya
+  // usa el resto de la pestaña HUB (canEditHub()).
+  // Captura inicial (agosto 2026) tal cual la compartió el cliente — se precarga solo la primera vez
+  // que Firestore no trae el campo `directorio` (ver saneo de state.hub arriba en load()); después de
+  // la primera edición y guardado de asanchez, el dato de Firestore manda, no esta constante.
+  const DIRECTORIO_HUBS_INICIAL = [
+    {region:'Bajío', estado:'Aguascalientes', ciudad:'Aguascalientes', hub:'PRM TDA AGUASCALIENTES VELARIA MALL', responsable:'Israel Gallo Muñoz', telefono:'449-919-30-08'},
+    {region:'Bajío', estado:'San Luis Potosi', ciudad:'San Luis Potosi', hub:'PRM TDA ARMAS II SLP', responsable:'Christian de Jesus Perez Vazquez', telefono:'444-714-72-05'},
+    {region:'Bajío', estado:'Queretaro', ciudad:'JURIQUILLA', hub:'PRM TDA URBAN CENTER JURIQUILLA', responsable:'', telefono:''},
+    {region:'Centro I', estado:'Morelos', ciudad:'Cuernavaca', hub:'PRM TDA PLAZA MARGOL CUERNAVACA', responsable:'Yuriria Ruiz Hernandez', telefono:'777-564-14-38'},
+    {region:'Centro I', estado:'Ciudad de México', ciudad:'CDMX / Roma', hub:'PRM TDA CDMX FUENTE DE CIBELES ROMA', responsable:'Ivan Valencia Campa', telefono:'557-657-22-54'},
+    {region:'Centro II', estado:'Guerrero', ciudad:'Acapulco', hub:'PRM TDA ACAPULCO II', responsable:'Carolina Gómez Orozco', telefono:'744-168-99-18'},
+    {region:'Noroeste I', estado:'Baja California Sur', ciudad:'Baja California Sur', hub:'PRM TDA PLAZA NÁUTICA', responsable:'', telefono:''},
+    {region:'Noroeste I', estado:'Baja California', ciudad:'Tijuana', hub:'PRM TDA TIJUANA PLAZA PACIFICO', responsable:'Rafael Reyes Rangel', telefono:'664-460-03-39'},
+    {region:'Noroeste I', estado:'Baja California Norte', ciudad:'Tijuana', hub:'PRM TDA TIJUANA PLAZA PENINSULA', responsable:'Jose Rafael Araiza Rodriguez', telefono:'663-161-44-42'},
+    {region:'Noroeste II', estado:'Nuevo Leon', ciudad:'', hub:'PRM TDA CULIACAN', responsable:'Mario Antonio Valenzuela Miranda', telefono:'66-7389-4856'},
+    {region:'Norte I', estado:'Nuevo Leon', ciudad:'Monterrey', hub:'PRM TDA MONTERREY PLAZA ALTEA LINCONL', responsable:'Omar Castillo Herrera', telefono:'844-401-20-52'},
+    {region:'Norte I', estado:'Nuevo León', ciudad:'Monterrey', hub:'PRM TDA HUMBERTO LOBO', responsable:'Hector Carreon Imperial', telefono:'812-652-59-45'},
+    {region:'Norte I', estado:'Nuevo León', ciudad:'Monterrey', hub:'PRM TDA SUN MALL VIP', responsable:'Brenda Berenice Bautista', telefono:'818-473-88-87'},
+    {region:'Norte I', estado:'Coahuila', ciudad:'Monclova', hub:'PRM TDA MONCLOVA', responsable:'Saulo Peña', telefono:'866-124-11-60'},
+    {region:'Norte I', estado:'Coahuila', ciudad:'Piedras Negras', hub:'PRM TDA PIEDRAS NEGRAS PLAZA INOVA', responsable:'Saulo Peña', telefono:'866-124-11-60'},
+    {region:'Norte II', estado:'Durango', ciudad:'Durango', hub:'PRM TDA DURANGO I', responsable:'Marcial García', telefono:'618-133-92-97'},
+    {region:'Norte II', estado:'Chihuahua', ciudad:'Ciudad Juárez', hub:'PRM TDA JUÁREZ II', responsable:'Sergio Chaparro', telefono:'614-580-80-00'},
+    {region:'Norte II', estado:'Chihuahua', ciudad:'Chihuahua', hub:'PRM TDA MI PLAZA CHIHUAHUA I', responsable:'Fernando González', telefono:'614-288-22-83'},
+    {region:'Norte II', estado:'Coahuila', ciudad:'Torreón', hub:'PRM TDA TORREÓN', responsable:'Erick Sánchez', telefono:'871-315-04-39'},
+    {region:'Pacífico', estado:'Jalisco', ciudad:'Guadalajara', hub:'PRM TDA GDL COUNTRY', responsable:'', telefono:''},
+    {region:'Pacífico', estado:'Colima', ciudad:'Colima', hub:'PRM TDA COLIMA AV. MADERO', responsable:'', telefono:''}
+  ];
+  const CAMPOS_DIRECTORIO_HUB = [
+    {key:'region', label:'Región'},
+    {key:'estado', label:'Estado'},
+    {key:'ciudad', label:'Ciudad'},
+    {key:'hub', label:'Hub de recolección'},
+    {key:'responsable', label:'Responsable'},
+    {key:'telefono', label:'Teléfono'}
+  ];
+  function renderDirectorioHubs(){
+    const puedeEditar = canEditHub();
+    const filas = editingDirectorioHub ? directorioHubDraft : (state.hub.directorio || []);
+    return `
+      <div class="panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <h3 style="margin:0;">Directorio de HUBs de recolección</h3>
+          ${puedeEditar ? (editingDirectorioHub
+            ? `<div class="editbar" style="margin:0;"><button id="btnCancelDirHub">Cancelar</button><button class="primary" id="btnSaveDirHub">Guardar cambios</button></div>`
+            : `<button id="btnEditDirHub">Editar directorio</button>`) : ''}
+        </div>
+        <div style="overflow-x:auto; margin-top:10px;">
+          <table>
+            <thead><tr>${CAMPOS_DIRECTORIO_HUB.map(cm=>`<th style="text-align:left;">${cm.label}</th>`).join('')}${editingDirectorioHub ? '<th></th>' : ''}</tr></thead>
+            <tbody>
+              ${filas.length===0 ? `<tr><td colspan="${CAMPOS_DIRECTORIO_HUB.length + (editingDirectorioHub?1:0)}" style="color:var(--sub);">Sin registros todavía.</td></tr>` : filas.map((f,fi)=>`
+                <tr>${CAMPOS_DIRECTORIO_HUB.map(cm=>`<td style="text-align:left;">${editingDirectorioHub
+                  ? `<input type="text" data-dirhub-campo="${cm.key}" data-dirhub-fila="${fi}" value="${String(f[cm.key]||'').replace(/"/g,'&quot;')}" style="width:100%; min-width:110px;">`
+                  : (f[cm.key] || '<span style="color:var(--sub);">—</span>')}</td>`).join('')}
+                ${editingDirectorioHub ? `<td><button data-dirhub-eliminar="${fi}" style="border:none; background:none; color:var(--crit); cursor:pointer; font-size:16px;" title="Eliminar fila">×</button></td>` : ''}</tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ${editingDirectorioHub ? `<button id="btnAgregarFilaDirHub" style="margin-top:10px;">+ Agregar fila</button>` : ''}
+      </div>
+    `;
+  }
+  function wireDirectorioHubs(){
+    if(!canEditHub()) return;
+    if(!editingDirectorioHub){
+      const btnEdit = document.getElementById('btnEditDirHub');
+      if(btnEdit) btnEdit.onclick = ()=>{
+        directorioHubDraft = clone(state.hub.directorio || []);
+        editingDirectorioHub = true;
+        render();
+      };
+      return;
+    }
+    document.querySelectorAll('[data-dirhub-campo]').forEach(inp=>{
+      inp.oninput = ()=>{
+        directorioHubDraft[Number(inp.dataset.dirhubFila)][inp.dataset.dirhubCampo] = inp.value;
+      };
+    });
+    document.querySelectorAll('[data-dirhub-eliminar]').forEach(btn=>{
+      btn.onclick = ()=>{
+        directorioHubDraft.splice(Number(btn.dataset.dirhubEliminar), 1);
+        render();
+      };
+    });
+    const btnAgregar = document.getElementById('btnAgregarFilaDirHub');
+    if(btnAgregar) btnAgregar.onclick = ()=>{
+      directorioHubDraft.push({region:'', estado:'', ciudad:'', hub:'', responsable:'', telefono:''});
+      render();
+    };
+    const btnCancel = document.getElementById('btnCancelDirHub');
+    if(btnCancel) btnCancel.onclick = ()=>{
+      editingDirectorioHub = false;
+      directorioHubDraft = null;
+      render();
+    };
+    const btnSave = document.getElementById('btnSaveDirHub');
+    if(btnSave) btnSave.onclick = ()=>{
+      state.hub.directorio = directorioHubDraft;
+      editingDirectorioHub = false;
+      directorioHubDraft = null;
+      descripcionActualizacion = 'Edición manual — Directorio de HUBs de recolección';
+      save();
+    };
   }
 
   function renderReemplazoDisco(c){
