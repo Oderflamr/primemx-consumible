@@ -415,6 +415,7 @@ tbody tr:hover td{background:var(--surface2)}
 <!-- ══ SCRIPTS ════════════════════════════════════════ -->
 <!-- Firebase (compat SDK via CDN — no bundler needed) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -432,24 +433,22 @@ const FIREBASE_CONFIG = {
   appId:             "1:796822637748:web:7e8db90898618d26079be1"
 };
 
-/* ═══════════════════════════════════════════════════
-   CREDENCIALES  (cambia las contraseñas)
-═══════════════════════════════════════════════════ */
-const USERS = {
-  admin:     { pass: "c4d9cVrCN&x%lb#T", role: "admin",     display: "Administrador" },
-  proveedor: { pass: "Pq5hH1T3#pdKTp&d",  role: "proveedor", display: "Proveedor"     },
-  mgiron:    { pass: "mgiron26",           role: "consulta",  display: "Consulta"      },
-  amartinez: { pass: "amartinez26",        role: "admin",     display: "Amartinez"     }
-};
-
 /* ─── Init Firebase ─── */
-let db;
+// agosto 2026: el login ya NO usa el objeto USERS en texto plano — se migró a Firebase Authentication,
+// el mismo mecanismo (y mismo proyecto) que ya usan Dashboard IT y Directorio de Tiendas. Con esto,
+// iniciar sesión en cualquiera de las 3 apps ya no vuelve a pedir usuario/contraseña en las otras 2
+// (misma sesión de Firebase, persistida por el navegador). El rol (admin/proveedor/consulta) se lee
+// de la misma colección Firestore `usuarios` que ya usan las otras 2 apps.
+let db, auth;
 try {
   firebase.initializeApp(FIREBASE_CONFIG);
   db = firebase.firestore();
+  auth = firebase.auth();
 } catch(e) {
   console.warn("Firebase no configurado — modo demo (sin persistencia):", e.message);
 }
+const ROLES_COLLECTION = "usuarios";
+const AUTH_DOMAIN = "primecommsmx.com";
 
 /* ─── State ─── */
 let currentUser = null;
@@ -470,67 +469,62 @@ const ESTATUS = ["ABIERTO","PENDIENTE","CERRADO"];
 const COLORES  = { TONER:"#6d28d9","UNIDAD DE IMAGEN":"#0f766e","KIT MANTENIMIENTO":"#b45309","FALLA IMPRESORA":"#b91c1c" };
 
 /* ══════════════ AUTH ════════════════════════════ */
-// Control de intentos fallidos
-let loginAttempts = 0;
-let loginBlockedUntil = 0;
-
+// Login con Firebase Authentication (email = usuario@primecommsmx.com) — Firebase ya rechaza
+// intentos con backoff propio, por eso ya no hace falta el bloqueo manual que tenía la versión
+// con USERS en texto plano.
 function doLogin() {
-  const now = Date.now();
-  if(now < loginBlockedUntil) {
-    const secsLeft = Math.ceil((loginBlockedUntil - now) / 1000);
-    const errEl = document.getElementById("login-error");
-    errEl.textContent = "Demasiados intentos. Espera " + secsLeft + " segundos.";
-    errEl.style.display = "block";
-    return;
-  }
   const user = document.getElementById("inp-user").value.trim().toLowerCase();
   const pass = document.getElementById("inp-pass").value;
   const err  = document.getElementById("login-error");
   const btn  = document.getElementById("btn-login");
   err.style.display = "none";
-  if (!USERS[user] || USERS[user].pass !== pass) {
-    loginAttempts++;
-    if(loginAttempts >= 5) {
-      loginBlockedUntil = Date.now() + 30000;
-      loginAttempts = 0;
-      err.textContent = "Demasiados intentos fallidos. Espera 30 segundos.";
-      const iv = setInterval(() => {
-        const left = Math.ceil((loginBlockedUntil - Date.now()) / 1000);
-        if(left <= 0) { clearInterval(iv); err.style.display = "none"; }
-        else err.textContent = "Demasiados intentos. Espera " + left + " segundos.";
-      }, 1000);
-    } else {
-      const rem = 5 - loginAttempts;
-      err.textContent = "Usuario o contraseña incorrectos. (" + rem + " intento" + (rem===1?"":"s") + " restante" + (rem===1?"":"s") + ")";
-    }
-    err.style.display = "block";
-    return;
-  }
-  loginAttempts = 0;
   btn.disabled = true;
-  currentUser = { id: user, ...USERS[user] };
-  sessionStorage.setItem("pmx_user", JSON.stringify(currentUser));
-  startApp();
+  auth.signInWithEmailAndPassword(user + '@' + AUTH_DOMAIN, pass).catch(function(e){
+    console.error(e);
+    err.textContent = "Usuario o contraseña incorrectos.";
+    err.style.display = "block";
+    btn.disabled = false;
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-login").addEventListener("click", doLogin);
   document.getElementById("inp-pass").addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
   document.getElementById("inp-user").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("inp-pass").focus(); });
-  const saved = sessionStorage.getItem("pmx_user");
-  if(saved) { currentUser = JSON.parse(saved); startApp(); }
 });
 
 function doLogout() {
-  if(unsubscribe) unsubscribe();
-  currentUser = null;
-  tickets = [];
-  sessionStorage.removeItem("pmx_user");
-  document.getElementById("app-screen").classList.remove("visible");
-  document.getElementById("login-screen").style.display = "flex";
-  document.getElementById("btn-login").disabled = false;
-  document.getElementById("inp-pass").value = "";
+  auth.signOut();
 }
+
+// Se dispara solo al cargar la página si ya había una sesión de Firebase activa (venir de Dashboard
+// IT o Directorio de Tiendas, o haber entrado antes aquí mismo) — así ya no se vuelve a pedir login.
+auth.onAuthStateChanged(async function(user){
+  const btn = document.getElementById("btn-login");
+  if(user){
+    const username = (user.email || '').split('@')[0];
+    let roleInfo = { role: 'consulta', display: username };
+    try{
+      const doc = await db.collection(ROLES_COLLECTION).doc(username).get();
+      if(doc.exists){
+        roleInfo = { role: doc.data().role || 'consulta', display: doc.data().label || username };
+      }
+    }catch(e){
+      console.error('No se pudo leer el rol del usuario', e);
+    }
+    currentUser = { id: username, role: roleInfo.role, display: roleInfo.display };
+    if(btn) btn.disabled = false;
+    startApp();
+  } else {
+    currentUser = null;
+    tickets = [];
+    if(unsubscribe) unsubscribe();
+    document.getElementById("app-screen").classList.remove("visible");
+    document.getElementById("login-screen").style.display = "flex";
+    if(btn) btn.disabled = false;
+    document.getElementById("inp-pass").value = "";
+  }
+});
 
 function startApp() {
   document.getElementById("login-screen").style.display = "none";
