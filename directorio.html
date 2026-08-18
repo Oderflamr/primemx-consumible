@@ -811,7 +811,7 @@ function openOpenTicketsModal(){
           <tr>
             <td>${esc(f.plaza)}</td><td>${esc(f.carrier)}</td><td>${esc(f.tipo)}</td><td>${esc(f.folio_proveedor)||'—'}</td><td>${esc(f.ticket)||'—'}</td>
             <td>${fmtFechaHora(f.fecha_captura)}</td>
-            ${canManage?`<td><input type="date" id="open-cierre-${f.id}" style="width:110px;"> <button data-id="${f.id}" data-store="${f.storeId}" class="btn-guardar-cierre-open" style="font-size:11px;padding:3px 8px;">Guardar</button></td>`:''}
+            ${canManage?`<td><button data-id="${f.id}" data-store="${f.storeId}" class="btn-guardar-cierre-open" style="font-size:11px;padding:3px 8px;">Cerrar ahora</button></td>`:''}
             ${isAdmin?`<td><button data-id="${f.id}" data-store="${f.storeId}" class="btn-editar-falla-open" style="font-size:11px;padding:3px 8px;margin-right:4px;">Editar</button><button data-id="${f.id}" data-store="${f.storeId}" class="btn-eliminar-falla-open" style="font-size:11px;padding:3px 8px;color:var(--warn);">Eliminar</button></td>`:''}
           </tr>
         `).join('')}
@@ -825,10 +825,8 @@ function openOpenTicketsModal(){
 
   document.querySelectorAll('.btn-guardar-cierre-open').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
-      const val = document.getElementById(`open-cierre-${btn.dataset.id}`).value;
-      if(!val){ toast('Selecciona una fecha de cierre','error'); return; }
       try{
-        await fallasRef(btn.dataset.store).doc(btn.dataset.id).update({fecha_cierre: val});
+        await fallasRef(btn.dataset.store).doc(btn.dataset.id).update({fecha_cierre: new Date().toISOString()});
         toast('Falla cerrada', 'ok');
         await loadOpenTicketsCount();
         await refrescarFallasAbiertasYGrid();
@@ -963,6 +961,25 @@ function fmtFechaHora(iso){
   return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
 }
 
+// Validación central para cerrar una falla (agosto 2026) — antes el campo de cierre era type="date"
+// (solo día) y se guardaba tal cual: un string "YYYY-MM-DD" se interpreta como medianoche UTC, que en
+// hora de México se ve como las 6pm del día ANTERIOR (de ahí que "Tardó en cerrarse" saliera negativo
+// en el calendario de Dashboard IT). Ahora el campo es datetime-local (día y hora reales); new Date()
+// sobre un string sin zona horaria sí lo toma como hora local, sin ese corrimiento.
+// Devuelve {ok:false} sin toast si valorDatetimeLocal viene vacío (para que cada llamador decida qué
+// hacer con "vacío" — en unos casos es error, en el formulario de editar es "reabrir la falla").
+function fechaCierreDesdeInput(valorDatetimeLocal, fechaCapturaISO){
+  if(!valorDatetimeLocal) return {ok:false};
+  const cierre = new Date(valorDatetimeLocal);
+  if(isNaN(cierre)){ toast('Fecha de cierre inválida.', 'error'); return {ok:false, error:true}; }
+  const captura = new Date(fechaCapturaISO);
+  if(!isNaN(captura) && cierre < captura){
+    toast('La fecha de cierre no puede ser anterior a la fecha de alta.', 'error');
+    return {ok:false, error:true};
+  }
+  return {ok:true, iso: cierre.toISOString()};
+}
+
 async function loadAndRenderFallas(storeId){
   const container = document.getElementById('fallas-list');
   if(!container) return;
@@ -990,11 +1007,9 @@ function renderFallasList(storeId, fallas){
   const cierreHtml = abierta
     ? (canManage ? `
         <div class="falla-cierre-row">
-          <span style="font-size:11px;color:var(--ink-soft);">Fecha de cierre:</span>
-          <input type="date" id="cierre-input-${ultima.id}">
-          <button data-id="${ultima.id}" class="btn-guardar-cierre">Guardar</button>
+          <button data-id="${ultima.id}" class="btn-guardar-cierre">Cerrar ahora</button>
         </div>` : '')
-    : `<div style="margin-top:8px;font-size:11.5px;color:var(--ink-soft);">Cerrado: <strong>${esc(ultima.fecha_cierre)}</strong></div>`;
+    : `<div style="margin-top:8px;font-size:11.5px;color:var(--ink-soft);">Cerrado: <strong>${fmtFechaHora(ultima.fecha_cierre)}</strong></div>`;
   const adminFallaActions = isAdmin ? `
     <div class="falla-cierre-row">
       <button data-id="${ultima.id}" class="btn-editar-falla-card" style="font-size:11px;padding:4px 9px;">Editar</button>
@@ -1032,11 +1047,8 @@ function renderFallasList(storeId, fallas){
   container.querySelectorAll('.btn-guardar-cierre').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const fallaId = btn.dataset.id;
-      const input = document.getElementById(`cierre-input-${fallaId}`);
-      const val = input.value;
-      if(!val){ toast('Selecciona una fecha de cierre','error'); return; }
       try{
-        await fallasRef(storeId).doc(fallaId).update({fecha_cierre: val});
+        await fallasRef(storeId).doc(fallaId).update({fecha_cierre: new Date().toISOString()});
         toast('Falla cerrada', 'ok');
         await refrescarFallasAbiertasYGrid();
         loadAndRenderFallas(storeId);
@@ -1409,8 +1421,8 @@ function renderFallaSearchResults(){
         ${matches.map(f=>{
           const abierta = !f.fecha_cierre;
           const cierreCell = abierta
-            ? (canManage ? `<input type="date" id="search-cierre-${f.id}" style="width:110px;"> <button data-id="${f.id}" data-store="${f.storeId}" class="btn-guardar-cierre-search" style="font-size:11px;padding:3px 8px;">Guardar</button>` : '—')
-            : esc(f.fecha_cierre);
+            ? (canManage ? `<button data-id="${f.id}" data-store="${f.storeId}" class="btn-guardar-cierre-search" style="font-size:11px;padding:3px 8px;">Cerrar ahora</button>` : '—')
+            : fmtFechaHora(f.fecha_cierre);
           const acciones = isAdmin ? `
             <button data-id="${f.id}" data-store="${f.storeId}" class="btn-editar-falla" style="font-size:11px;padding:3px 8px;margin-right:4px;">Editar</button>
             <button data-id="${f.id}" data-store="${f.storeId}" class="btn-eliminar-falla" style="font-size:11px;padding:3px 8px;color:var(--warn);">Eliminar</button>` : '';
@@ -1429,10 +1441,8 @@ function renderFallaSearchResults(){
 
   resultsEl.querySelectorAll('.btn-guardar-cierre-search').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
-      const val = document.getElementById(`search-cierre-${btn.dataset.id}`).value;
-      if(!val){ toast('Selecciona una fecha de cierre','error'); return; }
       try{
-        await fallasRef(btn.dataset.store).doc(btn.dataset.id).update({fecha_cierre: val});
+        await fallasRef(btn.dataset.store).doc(btn.dataset.id).update({fecha_cierre: new Date().toISOString()});
         toast('Falla cerrada', 'ok');
         await refrescarFallasAbiertasYGrid();
         await loadFallasReport();
@@ -1457,6 +1467,11 @@ function openEditFallaForm(storeId, fallaId, fallaData){
   const pad = n => String(n).padStart(2,'0');
   const d = new Date(f.fecha_captura);
   const fechaLocal = isNaN(d) ? '' : `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  // Ojo al revisar un registro viejo: si su fecha_cierre todavía viene del formato con el bug (solo
+  // "YYYY-MM-DD", sin hora), esta casilla va a precargar un día y una hora equivocados (el bug ya
+  // descrito arriba en fechaCierreDesdeInput) — bórralo y escribe la fecha y hora reales de cierre.
+  const dCierre = f.fecha_cierre ? new Date(f.fecha_cierre) : null;
+  const cierreLocal = (dCierre && !isNaN(dCierre)) ? `${dCierre.getFullYear()}-${pad(dCierre.getMonth()+1)}-${pad(dCierre.getDate())}T${pad(dCierre.getHours())}:${pad(dCierre.getMinutes())}` : '';
 
   const editOverlay = document.createElement('div');
   editOverlay.className = 'modal-overlay show';
@@ -1485,8 +1500,8 @@ function openEditFallaForm(storeId, fallaId, fallaData){
         <input type="datetime-local" id="edit-falla-fecha" value="${fechaLocal}">
       </div>
       <div class="field">
-        <label>Fecha de cierre (dejar vacío si sigue abierta)</label>
-        <input type="date" id="edit-falla-cierre" value="${esc(f.fecha_cierre)||''}">
+        <label>Fecha y hora de cierre (dejar vacío si sigue abierta)</label>
+        <input type="datetime-local" id="edit-falla-cierre" value="${cierreLocal}">
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="cancel-edit-falla-btn">Cancelar</button>
@@ -1507,13 +1522,20 @@ function openEditFallaForm(storeId, fallaId, fallaData){
       return;
     }
     const parsed = new Date(fechaInput);
+    const fechaCapturaFinal = isNaN(parsed) ? f.fecha_captura : parsed.toISOString();
+    let fechaCierreFinal = null;
+    if(cierreInput){
+      const res = fechaCierreDesdeInput(cierreInput, fechaCapturaFinal);
+      if(!res.ok) return; // fechaCierreDesdeInput ya mostró el toast de error correspondiente
+      fechaCierreFinal = res.iso;
+    }
     try{
       await fallasRef(storeId).doc(fallaId).update({
         tipo,
         folio_proveedor: folio,
         ticket,
-        fecha_captura: isNaN(parsed) ? f.fecha_captura : parsed.toISOString(),
-        fecha_cierre: cierreInput || null
+        fecha_captura: fechaCapturaFinal,
+        fecha_cierre: fechaCierreFinal
       });
       toast('Falla actualizada', 'ok');
       editOverlay.remove();
