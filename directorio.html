@@ -470,6 +470,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
         <button class="btn btn-ghost" id="export-btn">Exportar CSV</button>
         <button class="btn btn-ghost" id="reload-catalog-btn" style="display:none;">Actualizar catálogo</button>
         <button class="btn btn-ghost" id="update-estructura-btn" style="display:none;">Actualizar estructura regional</button>
+        <button class="btn btn-ghost" id="fix-cierres-btn" style="display:none;">Corregir cierres de agosto</button>
         <button class="btn btn-primary" id="new-store-btn" style="display:none;">+ Nueva tienda</button>
       </div>
     </div>
@@ -651,6 +652,9 @@ async function initApp(){
   document.getElementById('new-store-btn').style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
   document.getElementById('reload-catalog-btn').style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
   document.getElementById('update-estructura-btn').style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
+  // Corrección masiva de cierres de agosto 2026 (bug del type="date" viejo) — exclusiva de amartinez,
+  // no de todo admin, a petición explícita del cliente.
+  document.getElementById('fix-cierres-btn').style.display = esAmartinez() ? 'inline-block' : 'none';
   if(currentUser.role === 'admin') loadEstructuraInfo();
   document.getElementById('filter-activo').style.display = currentUser.role === 'admin' ? 'inline-block' : 'none';
 
@@ -979,6 +983,100 @@ function fechaCierreDesdeInput(valorDatetimeLocal, fechaCapturaISO){
   }
   return {ok:true, iso: cierre.toISOString()};
 }
+
+// Corrección masiva de cierres de agosto 2026 (agosto 2026, a petición explícita del cliente) —
+// exclusiva de amartinez. Busca fallas cuyo fecha_cierre siga guardado con el formato viejo (un string
+// "YYYY-MM-DD" de solo fecha, sin hora — la señal inequívoca del bug: nunca se genera así desde el
+// arreglo de hoy, que siempre guarda un ISO completo). Para esas, reconstruye el día EXACTO que se
+// había escrito a mano (leyendo el string tal cual, sin pasar por new Date() que lo correría un día por
+// la zona horaria) y le pone las 18:01 hora de México como referencia — no se inventa la hora real,
+// solo se corrige el día.
+function esAmartinez(){
+  return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'amartinez');
+}
+
+async function abrirFixCierresAgosto(){
+  toast('Buscando fallas de agosto con el formato de cierre viejo...');
+  let snap;
+  try{
+    snap = await db.collectionGroup('fallas').get();
+  }catch(err){
+    console.error(err);
+    toast('No se pudo leer las fallas.', 'error');
+    return;
+  }
+  const corregibles = [];
+  const revisarManual = [];
+  snap.forEach(doc=>{
+    const f = doc.data();
+    if(typeof f.fecha_cierre !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(f.fecha_cierre)) return;
+    const captura = new Date(f.fecha_captura);
+    if(isNaN(captura) || captura.getFullYear()!==2026 || captura.getMonth()!==7) return; // solo agosto 2026
+    const [y, m, d] = f.fecha_cierre.split('-').map(Number);
+    const corregido = new Date(y, m-1, d, 18, 1, 0); // día tal cual se guardó, 18:01 hora de México
+    const storeId = doc.ref.parent.parent.id;
+    const store = allStores.find(s=>s.id===storeId);
+    const item = {
+      ref: doc.ref,
+      plaza: store?.plaza || 'Tienda no encontrada',
+      ticket: f.ticket || '—',
+      capturaTexto: fmtFechaHora(f.fecha_captura),
+      viejoTexto: fmtFechaHora(f.fecha_cierre),
+      nuevoIso: corregido.toISOString(),
+      nuevoTexto: fmtFechaHora(corregido.toISOString())
+    };
+    if(corregido < captura) revisarManual.push(item);
+    else corregibles.push(item);
+  });
+  mostrarPreviewFixCierres(corregibles, revisarManual);
+}
+
+function mostrarPreviewFixCierres(corregibles, revisarManual){
+  document.getElementById('modal-content').innerHTML = `
+    <h2>Corregir horas de cierre — agosto 2026</h2>
+    <p class="modal-sub">Se encontraron ${corregibles.length + revisarManual.length} falla(s) de agosto con el formato de cierre viejo (solo fecha, sin hora). A las que sí se pueden corregir se les pondrá <strong>18:01</strong> sobre el día que quedó guardado — no es la hora real de cierre (esa nunca se capturó), solo corrige el día que el bug de zona horaria corría.</p>
+    ${corregibles.length ? `
+    <div class="report-table-wrap" style="max-height:260px; overflow-y:auto;">
+      <table class="report-table">
+        <thead><tr><th>Tienda</th><th>Ticket</th><th>Alta</th><th>Cierre actual (con bug)</th><th>Cierre corregido</th></tr></thead>
+        <tbody>${corregibles.map(it=>`<tr><td>${esc(it.plaza)}</td><td>${esc(it.ticket)}</td><td>${it.capturaTexto}</td><td style="color:var(--warn);text-decoration:line-through;">${it.viejoTexto}</td><td>${it.nuevoTexto}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>` : `<p class="falla-empty">No hay ninguna que se pueda corregir automáticamente.</p>`}
+    ${revisarManual.length ? `
+    <p class="modal-sub" style="margin-top:14px;color:var(--warn);">${revisarManual.length} falla(s) quedarían con cierre antes que su alta — no se tocan, revísalas a mano con "Editar falla":</p>
+    <div class="report-table-wrap" style="max-height:180px; overflow-y:auto;">
+      <table class="report-table">
+        <thead><tr><th>Tienda</th><th>Ticket</th><th>Alta</th><th>Cierre actual (con bug)</th></tr></thead>
+        <tbody>${revisarManual.map(it=>`<tr><td>${esc(it.plaza)}</td><td>${esc(it.ticket)}</td><td>${it.capturaTexto}</td><td>${it.viejoTexto}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>` : ''}
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancel-fix-cierres-btn">Cancelar</button>
+      ${corregibles.length ? `<button class="btn btn-primary" id="confirm-fix-cierres-btn">Corregir ${corregibles.length} falla(s)</button>` : ''}
+    </div>
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+  document.getElementById('cancel-fix-cierres-btn').addEventListener('click', closeModal);
+  const btnConfirm = document.getElementById('confirm-fix-cierres-btn');
+  if(btnConfirm) btnConfirm.addEventListener('click', async ()=>{
+    closeModal();
+    toast('Aplicando correcciones...');
+    try{
+      const batchSize = 400;
+      for(let i=0; i<corregibles.length; i+=batchSize){
+        const batch = db.batch();
+        corregibles.slice(i, i+batchSize).forEach(it=> batch.update(it.ref, {fecha_cierre: it.nuevoIso}));
+        await batch.commit();
+      }
+      toast(`${corregibles.length} falla(s) corregidas`, 'ok');
+      await refrescarFallasAbiertasYGrid();
+    }catch(err){
+      console.error(err);
+      toast('Error al aplicar las correcciones.', 'error');
+    }
+  });
+}
+document.getElementById('fix-cierres-btn').addEventListener('click', abrirFixCierresAgosto);
 
 async function loadAndRenderFallas(storeId){
   const container = document.getElementById('fallas-list');
