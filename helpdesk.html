@@ -261,9 +261,8 @@ main{flex:1;padding:20px;max-width:1200px;margin:0 auto;width:100%;}
       <button class="btn btn-primary" id="solicitud-abrir-btn">+ Nueva solicitud</button>
       <div id="solicitud-form" style="display:none;margin-top:12px;">
         <div class="field"><label>Cuéntanos qué problema tienes</label><textarea id="sol-descripcion" placeholder="Ej. No puedo conectarme a la VPN desde mi laptop…" style="min-height:90px;"></textarea></div>
-        <div class="modal-actions split">
+        <div class="modal-actions" style="justify-content:flex-end;">
           <button class="btn btn-ghost" id="sol-cancelar-btn">Cancelar</button>
-          <button class="btn btn-primary" id="sol-continuar-btn">Continuar</button>
         </div>
         <div id="sol-sugerencia" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px;">
           <div class="solicitud-suggestion" id="sol-sugerencia-texto"></div>
@@ -783,6 +782,9 @@ document.getElementById('solicitud-abrir-btn').addEventListener('click', ()=>{
   document.getElementById('solicitud-form').style.display='block';
   document.getElementById('sol-descripcion').focus();
 });
+let solTituloTocado=false;
+document.getElementById('sol-titulo').addEventListener('input', ()=>{ solTituloTocado=true; });
+
 function cerrarSolicitudPanel(){
   document.getElementById('solicitud-abrir-btn').style.display='inline-block';
   document.getElementById('solicitud-form').style.display='none';
@@ -791,7 +793,7 @@ function cerrarSolicitudPanel(){
   document.getElementById('sol-titulo').value='';
   document.getElementById('sol-area').value='';
   document.getElementById('sol-error').classList.remove('show');
-  solCategoriaId=null; solAreaCvePdv=null;
+  solCategoriaId=null; solAreaCvePdv=null; solTituloTocado=false;
 }
 document.getElementById('sol-cancelar-btn').addEventListener('click', cerrarSolicitudPanel);
 document.getElementById('sol-cancelar2-btn').addEventListener('click', cerrarSolicitudPanel);
@@ -805,9 +807,15 @@ function pintarSugerenciaSeleccionada(cat){
   });
 }
 
-document.getElementById('sol-continuar-btn').addEventListener('click', ()=>{
+let solDebounceTimer=null;
+document.getElementById('sol-descripcion').addEventListener('input', ()=>{
+  clearTimeout(solDebounceTimer);
+  solDebounceTimer=setTimeout(actualizarSugerencias, 350);
+});
+
+function actualizarSugerencias(){
   const desc=document.getElementById('sol-descripcion').value.trim();
-  if(!desc){ return; }
+  if(!desc){ document.getElementById('sol-sugerencia').style.display='none'; return; }
   const sugeridas=suggestCategories(desc, 5);
   const sugText=document.getElementById('sol-sugerencia-texto');
   const lista=document.getElementById('sol-sugerencias-lista');
@@ -829,7 +837,9 @@ document.getElementById('sol-continuar-btn').addEventListener('click', ()=>{
     sugText.textContent='No encontramos sugerencias automáticas para esta descripción — búscala manualmente abajo.';
     lista.innerHTML='';
   }
-  document.getElementById('sol-titulo').value = desc.length>60 ? desc.slice(0,57).trim()+'…' : desc;
+  if(!solTituloTocado){
+    document.getElementById('sol-titulo').value = desc.length>60 ? desc.slice(0,57).trim()+'…' : desc;
+  }
   document.getElementById('sol-sugerencia').style.display='block';
 
   if(!solCatPickerReady){
@@ -852,7 +862,7 @@ document.getElementById('sol-continuar-btn').addEventListener('click', ()=>{
       onSelect:(t)=>{ solAreaCvePdv=t.cve_pdv; document.getElementById('sol-area').value = t.plaza || t.cve_pdv; }
     });
   }
-});
+}
 
 document.getElementById('sol-crear-btn').addEventListener('click', async ()=>{
   const errEl=document.getElementById('sol-error');
