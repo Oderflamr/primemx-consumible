@@ -157,6 +157,18 @@ main{flex:1;padding:20px;max-width:1200px;margin:0 auto;width:100%;}
 .history-item .detalle{color:var(--ink-soft);}
 .history-item .ts{font-size:10.5px;color:#9CA3AF;}
 
+.solicitud-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px;}
+.solicitud-suggestion{background:var(--signal-soft);color:var(--signal-dark);border-radius:8px;padding:10px 12px;font-size:13px;}
+.catalog-summary{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.catalog-tree{max-height:50vh;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#FAFBFB;}
+.cat-node{margin:2px 0;}
+.cat-node > summary{cursor:pointer;padding:4px 2px;font-size:13px;font-weight:600;list-style:none;display:flex;align-items:center;flex-wrap:wrap;gap:4px;}
+.cat-node > summary::-webkit-details-marker{display:none;}
+.cat-node > summary::before{content:'▸';color:var(--ink-soft);font-size:11px;margin-right:4px;transition:transform .1s ease;}
+.cat-node[open] > summary::before{transform:rotate(90deg);}
+.cat-children{padding-left:16px;border-left:1px solid var(--line);margin-left:5px;}
+.cat-leaf{padding:4px 2px 4px 20px;font-size:12.5px;color:var(--ink);display:flex;align-items:center;flex-wrap:wrap;gap:4px;}
+.cat-id{margin-left:2px;font-family:var(--font-mono);font-size:10px;color:#9CA3AF;}
 .admin-table{width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:16px;}
 .admin-table th{text-align:left;padding:6px 8px;color:var(--ink-soft);border-bottom:1px solid var(--line);font-weight:600;}
 .admin-table td{padding:7px 8px;border-top:1px solid var(--line);}
@@ -225,7 +237,6 @@ main{flex:1;padding:20px;max-width:1200px;margin:0 auto;width:100%;}
     <div class="user-chip">
       <span id="user-label"></span>
       <span class="role-tag" id="role-tag"></span>
-      <a href="../dashboard.html" style="color:var(--signal-dark);text-decoration:none;font-weight:600;font-size:13px;margin-right:2px;">Dashboard IT →</a>
       <button class="btn btn-ghost" id="logout-btn" style="padding:7px 12px;font-size:12.5px;">Salir</button>
     </div>
   </header>
@@ -233,15 +244,62 @@ main{flex:1;padding:20px;max-width:1200px;margin:0 auto;width:100%;}
   <main>
     <div class="stats-row" id="stats-row"></div>
 
-    <div class="toolbar">
+    <div class="toolbar" id="toolbar">
       <div class="search-box"><input type="text" id="search-input" placeholder="Buscar por número, título o categoría…"></div>
       <select class="filter-select" id="filter-estado"><option value="todos">Todos los estados</option></select>
       <select class="filter-select" id="filter-grupo" style="display:none;"><option value="todos">Todos los grupos</option></select>
       <div class="spacer"></div>
       <div class="toolbar-actions">
+        <button class="btn btn-ghost" id="admin-catalog-btn" style="display:none;">Catálogo</button>
         <button class="btn btn-ghost" id="admin-users-btn" style="display:none;">Gestionar ingenieros</button>
         <button class="btn btn-ghost" id="refresh-btn">↻ Actualizar</button>
         <button class="btn btn-primary" id="new-ticket-btn">+ Nuevo ticket</button>
+      </div>
+    </div>
+
+    <div class="solicitud-panel" id="solicitud-panel" style="display:none;">
+      <button class="btn btn-primary" id="solicitud-abrir-btn">+ Nueva solicitud</button>
+      <div id="solicitud-form" style="display:none;margin-top:12px;">
+        <div class="field"><label>Cuéntanos qué problema tienes</label><textarea id="sol-descripcion" placeholder="Ej. No puedo conectarme a la VPN desde mi laptop…" style="min-height:90px;"></textarea></div>
+        <div class="modal-actions split">
+          <button class="btn btn-ghost" id="sol-cancelar-btn">Cancelar</button>
+          <button class="btn btn-primary" id="sol-continuar-btn">Continuar</button>
+        </div>
+        <div id="sol-sugerencia" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px;">
+          <div class="solicitud-suggestion" id="sol-sugerencia-texto"></div>
+          <div class="field" style="margin-top:12px;">
+            <label>Categoría</label>
+            <div class="picker">
+              <button type="button" class="btn btn-ghost picker-btn" id="sol-cat-btn"><span class="placeholder" id="sol-cat-label">Selecciona una categoría del catálogo…</span><span>▾</span></button>
+              <div class="picker-panel" id="sol-cat-panel">
+                <div class="picker-search"><input type="text" id="sol-cat-search" placeholder="Buscar: laptop, VPN, POS…"></div>
+                <div class="picker-list" id="sol-cat-list"></div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-grid">
+            <div class="field"><label>Título</label><input type="text" id="sol-titulo"></div>
+            <div class="field"><label>Prioridad</label><select id="sol-prioridad"></select></div>
+          </div>
+          <div class="field">
+            <label>Área / Tienda</label>
+            <div style="display:flex;gap:6px;">
+              <input type="text" id="sol-area" placeholder="Ej. Tienda Polanco / Trade Marketing" style="flex:1;">
+              <button type="button" class="btn btn-ghost" id="sol-area-btn" title="Buscar tienda del catálogo">🔍</button>
+            </div>
+            <div class="picker" style="position:relative;">
+              <div class="picker-panel" id="sol-area-panel">
+                <div class="picker-search"><input type="text" id="sol-area-search" placeholder="Buscar por clave PDV o nombre…"></div>
+                <div class="picker-list" id="sol-area-list"></div>
+              </div>
+            </div>
+          </div>
+          <div id="sol-error" class="login-error"></div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" id="sol-cancelar2-btn">Cancelar</button>
+            <button class="btn btn-primary" id="sol-crear-btn">Crear solicitud</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -285,6 +343,23 @@ const TIENDAS_COLLECTION = "tiendas";   // colección de Directorio (solo lectur
 /* ===================== Catálogo real (InvGate export) ===================== */
 const CATEGORIES = [{"id":381,"path":["Software","Aplicativos","Actualizacion Asistencia"],"grupo":"Soporte IT Nivel 1"},{"id":366,"path":["Software","Aplicativos","CIEF","Actualización versión  CIEF"],"grupo":"Soporte IT Nivel 1"},{"id":367,"path":["Software","Aplicativos","Otros","Asistencia"],"grupo":"Soporte IT Nivel 1"},{"id":369,"path":["Software","Aplicativos","AVS","AVS NUBE"],"grupo":"Soporte IT Nivel 1"},{"id":343,"path":["Equipo de Red","Balanceador"],"grupo":"Soporte IT Nivel 1"},{"id":379,"path":["Hardware","Laptop","Clave Recuperación BitLocker"],"grupo":"Soporte IT Nivel 1"},{"id":323,"path":["Hardware","Equipo de escritorio (PC)","Configuracion"],"grupo":"Soporte IT Nivel 1"},{"id":382,"path":["Hardware","Lector de codigo de barras","Configuración de Lector de Código de Barras"],"grupo":"Soporte IT Nivel 1"},{"id":370,"path":["Hardware","PIN Pad","Configuracion Pinpad  Lane/3000"],"grupo":"Soporte IT Nivel 1"},{"id":344,"path":["Software","Configuracion usuario Service"],"grupo":"Soporte IT"},{"id":380,"path":["Software","Aplicativos","Otros","Contraseña Bitlocker"],"grupo":"Soporte IT Nivel 1"},{"id":324,"path":["Software","Aplicativos","AVS","Habilitar CRM en Edge"],"grupo":"Soporte IT Nivel 1"},{"id":371,"path":["Software","Soporte Zscaler (VPN)","Incidencia Zscaler (VPN)"],"grupo":"Soporte IT"},{"id":348,"path":["Software","Aplicativos","AVS","Ligue de MAC Adress"],"grupo":"Soporte IT Nivel 1"},{"id":338,"path":["Hardware","Reemplazo partes o perifericos","Memoria RAM"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":443,"path":["Mesa de Control"],"grupo":"Mesa de Control"},{"id":383,"path":["Internet y telefonia","Totalplay","Migración de Servicio"],"grupo":"Soporte IT Nivel 1"},{"id":374,"path":["Hardware","PIN Pad","Movimiento  entre PDV´s  Lane 3000"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":339,"path":["Hardware","Biometricos","Movimiento de equipo entre PDV´s"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":340,"path":["Hardware","Equipo de escritorio (PC)","Movimiento de equipo entre PDV´s"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":341,"path":["Hardware","PIN Pad","Movimiento de equipo entre PDV´s"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":334,"path":["Problemas masivos","Problema Global Logon"],"grupo":"Eventos masivos Nivel 1"},{"id":330,"path":["Problemas masivos","Problema masivo ASD"],"grupo":"Eventos masivos Nivel 1"},{"id":333,"path":["Problemas masivos","Problema masivo AVS"],"grupo":"Eventos masivos Nivel 1"},{"id":327,"path":["Problemas masivos","Problema masivo CRM (PRIME)"],"grupo":"Eventos masivos Nivel 1"},{"id":326,"path":["Problemas masivos","Problema masivo de biometricos"],"grupo":"Eventos masivos Nivel 1"},{"id":335,"path":["Problemas masivos","Problema masivo Oracle"],"grupo":"Eventos masivos Nivel 1"},{"id":328,"path":["Problemas masivos","Problema masivo Paymentbox"],"grupo":"Eventos masivos Nivel 1"},{"id":329,"path":["Problemas masivos","Problema masivo PinPads"],"grupo":"Eventos masivos Nivel 1"},{"id":332,"path":["Problemas masivos","Problema masivo portal PRIME"],"grupo":"Eventos masivos Nivel 1"},{"id":331,"path":["Problemas masivos","Problema masivo VPN"],"grupo":"Eventos masivos Nivel 1"},{"id":376,"path":["Software","Problemas con Salesforce"],"grupo":"Soporte IT Nivel 1"},{"id":325,"path":["Problemas masivos"],"grupo":"Eventos masivos Nivel 1"},{"id":378,"path":["Hardware","Equipo de escritorio (PC)","Recuperación Clave BitLocker"],"grupo":"Soporte IT Nivel 1"},{"id":345,"path":["Hardware","Laptop","Reemplazo de bateria"],"grupo":"Equipo de computo y periféricos"},{"id":346,"path":["Hardware","Laptop","Reemplazo de cargador"],"grupo":"Equipo de computo y periféricos"},{"id":342,"path":["Hardware","Equipo de escritorio (PC)","Reemplazo de Disco Duro"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":368,"path":["Hardware","Laptop","Reemplazo de Disco Duro"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":337,"path":["Hardware","Equipo de escritorio (PC)","Reemplazo de Monitor"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":373,"path":["Hardware","PIN Pad","Reemplazo de Pinpad Lane 3000"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":105,"path":["Hardware","Reemplazo partes o perifericos"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":365,"path":["Equipo de Red","Reorganización de site"],"grupo":"Equipo de Red Nivel 1"},{"id":445,"path":["Mesa de Control","Reset Correo Zimbra"],"grupo":"Mesa de Control"},{"id":377,"path":["Software","Office","Reset de contraseña y MFA"],"grupo":"Soporte IT Nivel 1"},{"id":444,"path":["Mesa de Control","Reset de Token VPN"],"grupo":"Mesa de Control"},{"id":30,"path":["Software","Microsoft EDGE","Al abrir una pagina se queda en blanco"],"grupo":"Soporte IT Nivel 1"},{"id":31,"path":["Software","Google Chrome","Al abrir una pagina se queda en blanco"],"grupo":"Soporte IT Nivel 1"},{"id":23,"path":["Software","Aplicativos"],"grupo":"Soporte IT Nivel 1"},{"id":35,"path":["Software","Aplicativos","AVS"],"grupo":"Soporte IT Nivel 1"},{"id":62,"path":["Software","Aplicativos","Otros","CCSolutions"],"grupo":"Soporte IT Nivel 1"},{"id":113,"path":["Equipo de Red","Configuracion de WIFI"],"grupo":"Soporte IT Nivel 1"},{"id":36,"path":["Software","Aplicativos","AVS","Errores dentro de AVS"],"grupo":"Soporte IT Nivel 1"},{"id":7,"path":["Software","Office","Instalacion"],"grupo":"Soporte IT Nivel 1"},{"id":11,"path":["Software","PDF","Instalacion"],"grupo":"Soporte IT Nivel 1"},{"id":53,"path":["Software","Aplicativos","CIEF","Instalacion"],"grupo":"Soporte IT Nivel 1"},{"id":69,"path":["Hardware","Multifuncionales e Impresoras"],"grupo":"Soporte IT Nivel 1"},{"id":57,"path":["Software","Aplicativos","Portal interno (PRIME)","No muestra el calendario"],"grupo":"Soporte IT Nivel 1"},{"id":94,"path":["Hardware","Equipo de escritorio (PC)","No prende"],"grupo":"Soporte IT Nivel 1"},{"id":100,"path":["Hardware","Laptop","No prende"],"grupo":"Soporte IT Nivel 1"},{"id":48,"path":["Software","Aplicativos","Oracle","No se puede mostrar la pagina"],"grupo":"Soporte IT Nivel 1"},{"id":108,"path":["Internet y telefonia","Telmex","Problemas con velocidad"],"grupo":"Soporte IT Nivel 1"},{"id":109,"path":["Internet y telefonia","Totalplay","Problemas con velocidad"],"grupo":"Soporte IT Nivel 1"},{"id":447,"path":["Mesa de Control","Reactivacion de aplicativos de ventas y servicios ATT"],"grupo":"Mesa de Control"},{"id":15,"path":["Software","Correo de Tienda","Restablecer contraseña"],"grupo":"Soporte IT Nivel 1"},{"id":142,"path":["Internet y telefonia","Metro Carrier","Sin servicio"],"grupo":"Soporte IT Nivel 1"},{"id":2,"path":["Software"],"grupo":"Soporte IT Nivel 1"},{"id":106,"path":["Internet y telefonia","Telmex"],"grupo":"Soporte IT Nivel 1"},{"id":78,"path":["Hardware","Biometricos"],"grupo":"Soporte IT Nivel 1"},{"id":27,"path":["Software","Microsoft EDGE","Bitdefender Endpoint Security bloqueo esta pagina"],"grupo":"Soporte IT Nivel 1"},{"id":32,"path":["Software","Google Chrome","Bitdefender Endpoint Security bloqueó esta página"],"grupo":"Soporte IT Nivel 1"},{"id":124,"path":["Software","Aplicativos","Otros","CCI"],"grupo":"Soporte IT Nivel 1"},{"id":114,"path":["Equipo de Red","Configuracion AP"],"grupo":"Soporte IT Nivel 1"},{"id":16,"path":["Software","Correo de Tienda","Configuracion correo tienda"],"grupo":"Soporte IT Nivel 1"},{"id":14,"path":["Software","Correo de Tienda"],"grupo":"Soporte IT Nivel 1"},{"id":80,"path":["Hardware","Biometricos","Fallas"],"grupo":"Soporte IT Nivel 1"},{"id":85,"path":["Hardware","PIN Pad","Fallas"],"grupo":"Soporte IT Nivel 1"},{"id":90,"path":["Hardware","Lector de codigo de barras","Fallas"],"grupo":"Soporte IT Nivel 1"},{"id":70,"path":["Hardware","Multifuncionales e Impresoras","Fallas con la Impresora"],"grupo":"Soporte IT Nivel 1"},{"id":3,"path":["Hardware"],"grupo":"Soporte IT Nivel 1"},{"id":54,"path":["Software","Aplicativos","CIEF","No detecta el escaner"],"grupo":"Soporte IT Nivel 1"},{"id":44,"path":["Software","Aplicativos","Paymentbox","No se puede mostrar la pagina"],"grupo":"Soporte IT Nivel 1"},{"id":8,"path":["Software","Office","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":12,"path":["Software","PDF","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":49,"path":["Software","Aplicativos","Oracle","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":58,"path":["Software","Aplicativos","Portal interno (PRIME)","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":95,"path":["Hardware","Equipo de escritorio (PC)","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":101,"path":["Hardware","Laptop","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":42,"path":["Software","Aplicativos","Paymentbox"],"grupo":"Soporte IT Nivel 1"},{"id":143,"path":["Internet y telefonia","Metro Carrier","Problemas con velocidad"],"grupo":"Soporte IT Nivel 1"},{"id":450,"path":["Mesa de Control","Reset de contraseña"],"grupo":"Mesa de Control"},{"id":110,"path":["Internet y telefonia","Totalplay","Sin servicio"],"grupo":"Soporte IT Nivel 1"},{"id":111,"path":["Internet y telefonia","Telmex","Sin servicio"],"grupo":"Soporte IT Nivel 1"},{"id":107,"path":["Internet y telefonia","Totalplay"],"grupo":"Soporte IT Nivel 1"},{"id":13,"path":["Software","PDF","Al abrir un documento se cierra"],"grupo":"Soporte IT Nivel 1"},{"id":22,"path":["Software","Google Chrome"],"grupo":"Soporte IT Nivel 1"},{"id":71,"path":["Hardware","Multifuncionales e Impresoras","Instalacion de Impresora"],"grupo":"Soporte IT Nivel 1"},{"id":4,"path":["Internet y telefonia"],"grupo":"Soporte IT Nivel 1"},{"id":63,"path":["Software","Aplicativos","Otros","Intranet (AT&T)"],"grupo":"Soporte IT Nivel 1"},{"id":140,"path":["Internet y telefonia","Metro Carrier"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":38,"path":["Software","Aplicativos","AVS","No abre el aplicativo"],"grupo":"Soporte IT Nivel 1"},{"id":47,"path":["Software","Aplicativos","Oracle"],"grupo":"Soporte IT Nivel 1"},{"id":28,"path":["Software","Microsoft EDGE","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":33,"path":["Software","Google Chrome","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":45,"path":["Software","Aplicativos","Paymentbox","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":55,"path":["Software","Aplicativos","CIEF","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":96,"path":["Hardware","Equipo de escritorio (PC)","Pantallazo azul"],"grupo":"Soporte IT Nivel 1"},{"id":102,"path":["Hardware","Laptop","Pantallazo azul"],"grupo":"Soporte IT Nivel 1"},{"id":83,"path":["Hardware","PIN Pad"],"grupo":"Soporte IT Nivel 1"},{"id":50,"path":["Software","Aplicativos","Oracle","Problemas al ingresar"],"grupo":"Soporte IT Nivel 1"},{"id":59,"path":["Software","Aplicativos","Portal interno (PRIME)","Problemas con acceso"],"grupo":"Soporte IT Nivel 1"},{"id":115,"path":["Equipo de Red","Problemas con cableado o nodos"],"grupo":"Soporte IT Nivel 1"},{"id":81,"path":["Hardware","Biometricos","Reemplazo de equipo"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":91,"path":["Hardware","Lector de codigo de barras","Reemplazo de equipo"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":9,"path":["Software","Office","Reset de contraseña"],"grupo":"Soporte IT Nivel 1"},{"id":455,"path":["Mesa de Control","RESET de YUBIKEY por BAJA de colaborador"],"grupo":"Mesa de Control"},{"id":46,"path":["Software","Aplicativos","Paymentbox","Al querer ingresar se queda la pagina en blanco"],"grupo":"Soporte IT Nivel 1"},{"id":52,"path":["Software","Aplicativos","CIEF"],"grupo":"Soporte IT Nivel 1"},{"id":18,"path":["Software","Correo de Tienda","Instalacion"],"grupo":"Soporte IT Nivel 1"},{"id":64,"path":["Software","Aplicativos","Otros","Inventarios (AT&T)"],"grupo":"Soporte IT Nivel 1"},{"id":21,"path":["Software","Microsoft EDGE"],"grupo":"Soporte IT Nivel 1"},{"id":39,"path":["Software","Aplicativos","AVS","No genera contrato"],"grupo":"Soporte IT Nivel 1"},{"id":72,"path":["Hardware","Multifuncionales e Impresoras","Problemas al escanear"],"grupo":"Soporte IT Nivel 1"},{"id":51,"path":["Software","Aplicativos","Oracle","Problemas al visualizar modulos"],"grupo":"Soporte IT Nivel 1"},{"id":116,"path":["Equipo de Red","Problemas con Switch"],"grupo":"Soporte IT Nivel 1"},{"id":29,"path":["Software","Microsoft EDGE","Problemas de navegacion"],"grupo":"Soporte IT Nivel 1"},{"id":34,"path":["Software","Google Chrome","Problemas de navegación"],"grupo":"Soporte IT Nivel 1"},{"id":103,"path":["Hardware","Laptop","Reemplazo de equipo"],"grupo":"Soporte IT"},{"id":97,"path":["Hardware","Equipo de escritorio (PC)","Reemplazo de equipo (CPU)"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":82,"path":["Hardware","Biometricos","Solicitud de nuevo equipo"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":87,"path":["Hardware","PIN Pad","Solicitud de nuevo equipo"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":93,"path":["Hardware","Equipo de escritorio (PC)"],"grupo":"Equipo de computo y periféricos"},{"id":112,"path":["Equipo de Red"],"grupo":"Soporte IT Nivel 1"},{"id":128,"path":["Hardware","PIN Pad","Instalación de certificado a PIN PAD"],"grupo":"Soporte IT Nivel 1"},{"id":65,"path":["Software","Aplicativos","Otros","NOE"],"grupo":"Soporte IT Nivel 1"},{"id":6,"path":["Software","Office"],"grupo":"Soporte IT Nivel 1"},{"id":19,"path":["Software","Correo de Tienda","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":40,"path":["Software","Aplicativos","AVS","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":56,"path":["Software","Aplicativos","Portal interno (PRIME)"],"grupo":"Soporte IT Nivel 1"},{"id":117,"path":["Equipo de Red","Problemas con WIFI"],"grupo":"Soporte IT Nivel 1"},{"id":98,"path":["Hardware","Equipo de escritorio (PC)","Solicitud equipo nuevo"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":104,"path":["Hardware","Laptop","Solicitud equipo nuevo"],"grupo":"Equipo de computo y periféricos"},{"id":99,"path":["Hardware","Laptop"],"grupo":"Soporte IT Nivel 1"},{"id":61,"path":["Software","Aplicativos","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":10,"path":["Software","PDF"],"grupo":"Soporte IT Nivel 1"},{"id":41,"path":["Software","Aplicativos","AVS","Problemas de inicio de sesion"],"grupo":"Soporte IT Nivel 1"},{"id":66,"path":["Software","Aplicativos","Otros","PVS"],"grupo":"Soporte IT Nivel 1"},{"id":118,"path":["Equipo de Red","Reemplazo de Switch"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":134,"path":["Hardware","Laptop","Reemplazo por Robo (Adjuntar Acta de Robo)"],"grupo":"Equipo de computo y periféricos"},{"id":448,"path":["Hardware","Equipo de escritorio (PC)","Reemplazo por Robo (Adjuntar Acta de Robo)"],"grupo":"Equipo de computo y periféricos"},{"id":74,"path":["Hardware","Multifuncionales e Impresoras","Solicitud de toner"],"grupo":"Impresoras y Multifuncionales Nivel 1"},{"id":125,"path":["Software","Aplicativos","Instalacion codigo de barra en excel"],"grupo":"Soporte IT Nivel 1"},{"id":454,"path":["Hardware","Equipo de escritorio (PC)","Instalacion de Disco Duro"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":122,"path":["Equipo de Red","Reemplazo de AP"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":75,"path":["Hardware","Multifuncionales e Impresoras","Solicitud de unidad de imagen"],"grupo":"Impresoras y Multifuncionales Nivel 1"},{"id":20,"path":["Software","Soporte Zscaler (VPN)"],"grupo":"Soporte IT Nivel 1"},{"id":139,"path":["Software","Aplicativos","AVS","Instalacion de certificados para Digital (Venta empresarial)"],"grupo":"Soporte IT Nivel 1"},{"id":88,"path":["Hardware","Lector de codigo de barras"],"grupo":"Soporte IT Nivel 1"},{"id":136,"path":["Software","Aplicativos","Limpieza de equipo por cambio de usuario"],"grupo":"Soporte IT"},{"id":67,"path":["Software","Solicitud acceso a paginas"],"grupo":"Soporte IT Nivel 1"},{"id":119,"path":["Equipo de Red","Solicitud de cableado o nodo"],"grupo":"Equipo de Red Nivel 1"},{"id":451,"path":["Software","Aplicativos","Error en Carga de Documentos"],"grupo":"Soporte IT Nivel 1"},{"id":68,"path":["Software","Otras instalaciones"],"grupo":"Soporte IT Nivel 1"},{"id":138,"path":["Hardware","Recolección de Equipo Obsoleto"],"grupo":"Soporte IT Nivel 1"},{"id":120,"path":["Equipo de Red","Solicitud de AP"],"grupo":"Equipo de Red Nivel 1"},{"id":77,"path":["Hardware","Multifuncionales e Impresoras","Solicitud Kit de mantenimiento"],"grupo":"Soporte IT Nivel 1"},{"id":452,"path":["Hardware","Multifuncionales e Impresoras","Mantenimiento a la Impresora"],"grupo":"Equipo de computo y periféricos"},{"id":126,"path":["Software","Otros problemas"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":130,"path":["Software","Migración de Internos a externos."],"grupo":"Soporte IT Nivel 1"},{"id":135,"path":["Software","Instalacion de antivirus por falla en portal PRIME"],"grupo":"Soporte IT"},{"id":453,"path":["Software","Migracion a Windows 11"],"grupo":"Soporte IT Nivel 1"}];
 const GROUPS = [...new Set(CATEGORIES.map(c => c.grupo))].sort();
+
+function buildCategoryTree(categories){
+  const root = {children:{}, segments:[]};
+  categories.forEach(cat=>{
+    let node = root;
+    let acc=[];
+    cat.path.forEach((seg,i)=>{
+      acc = acc.concat(seg);
+      node.children = node.children || {};
+      if(!node.children[seg]) node.children[seg] = {children:null, segments:acc.slice(), entry:null};
+      node = node.children[seg];
+      if(i===cat.path.length-1) node.entry = cat;
+    });
+  });
+  return root;
+}
+const CATEGORY_TREE = buildCategoryTree(CATEGORIES);
 
 /* ══════════════════ Tokens de estado ══════════════════ */
 const PRIORIDADES = {
@@ -335,6 +410,7 @@ function authErrorMessage(err){
 function closeModal(){
   document.getElementById('modal-overlay').classList.remove('show');
   document.getElementById('modal-content').innerHTML='';
+  document.getElementById('modal-content').style.maxWidth='';
 }
 document.getElementById('modal-overlay').addEventListener('click',function(e){
   if(e.target===this) closeModal();
@@ -451,7 +527,11 @@ async function initApp(){
   roleTag.className='role-tag'+(currentUser.role==='admin'?' admin':'');
 
   document.getElementById('admin-users-btn').style.display = currentUser.role==='admin' ? 'inline-block' : 'none';
+  document.getElementById('admin-catalog-btn').style.display = currentUser.role==='admin' ? 'inline-block' : 'none';
   document.getElementById('filter-grupo').style.display = currentUser.role==='usuario' ? 'none' : 'inline-block';
+
+  document.getElementById('toolbar').style.display = currentUser.role==='usuario' ? 'none' : 'flex';
+  document.getElementById('solicitud-panel').style.display = currentUser.role==='usuario' ? 'block' : 'none';
 
   const estadoSel=document.getElementById('filter-estado');
   Object.entries(ESTADOS).forEach(([k,v])=>{
@@ -459,6 +539,10 @@ async function initApp(){
   });
   const grupoSel=document.getElementById('filter-grupo');
   GROUPS.forEach(g=>{ const o=document.createElement('option'); o.value=g; o.textContent=g; grupoSel.appendChild(o); });
+  const prioridadSel=document.getElementById('sol-prioridad');
+  Object.entries(PRIORIDADES).forEach(([k,v])=>{
+    const o=document.createElement('option'); o.value=k; o.textContent=v.label; if(k==='media') o.selected=true; prioridadSel.appendChild(o);
+  });
 
   cargarTiendas();
   cargarTickets();
@@ -656,6 +740,117 @@ function attachPicker({btnId, panelId, inputId, listId, items, keyOf, renderRow,
 }
 
 /* ══════════════════ Modal: Nuevo ticket ══════════════════ */
+/* ══════════════════ Solicitud simplificada (rol usuario): emparejamiento por palabras clave ══════════════════ */
+const COMBINING_MARKS_RE = new RegExp('[' + String.fromCharCode(768) + '-' + String.fromCharCode(879) + ']', 'g');
+function normalizeText(s){
+  return (s||'').toLowerCase().normalize('NFD').replace(COMBINING_MARKS_RE,'').replace(/[^a-z0-9\s]/g,' ');
+}
+const CATEGORY_TOKENS = CATEGORIES.map(cat => new Set(normalizeText(categoryLabel(cat.path)).split(/\s+/).filter(Boolean)));
+const CATEGORY_WORD_DOCFREQ = (() => {
+  const freq = {};
+  CATEGORY_TOKENS.forEach(tokens => { tokens.forEach(t => { freq[t] = (freq[t]||0) + 1; }); });
+  return freq;
+})();
+function guessCategory(descripcion){
+  const words = normalizeText(descripcion).split(/\s+/).filter(w=>w.length>2);
+  if(!words.length) return null;
+  let best=null, bestScore=0, bestMatches=0;
+  CATEGORIES.forEach((cat,i)=>{
+    const tokens = CATEGORY_TOKENS[i];
+    let score=0, matches=0;
+    words.forEach(w=>{
+      if(tokens.has(w)){
+        const df = CATEGORY_WORD_DOCFREQ[w] || CATEGORIES.length;
+        score += 1/df; // palabras raras (en pocas categorías) pesan más que palabras comunes
+        matches++;
+      }
+    });
+    if(score>bestScore){ bestScore=score; best=cat; bestMatches=matches; }
+  });
+  // Con una sola palabra coincidente el riesgo de falso positivo es alto (ej. una palabra rara
+  // pero irrelevante al contexto real) — mejor admitir que no se pudo adivinar que sugerir mal.
+  return bestMatches>=2 ? best : null;
+}
+
+let solCategoriaId=null, solAreaCvePdv=null, solCatPickerReady=false;
+
+document.getElementById('solicitud-abrir-btn').addEventListener('click', ()=>{
+  document.getElementById('solicitud-abrir-btn').style.display='none';
+  document.getElementById('solicitud-form').style.display='block';
+  document.getElementById('sol-descripcion').focus();
+});
+function cerrarSolicitudPanel(){
+  document.getElementById('solicitud-abrir-btn').style.display='inline-block';
+  document.getElementById('solicitud-form').style.display='none';
+  document.getElementById('sol-sugerencia').style.display='none';
+  document.getElementById('sol-descripcion').value='';
+  document.getElementById('sol-titulo').value='';
+  document.getElementById('sol-area').value='';
+  document.getElementById('sol-error').classList.remove('show');
+  solCategoriaId=null; solAreaCvePdv=null;
+}
+document.getElementById('sol-cancelar-btn').addEventListener('click', cerrarSolicitudPanel);
+document.getElementById('sol-cancelar2-btn').addEventListener('click', cerrarSolicitudPanel);
+
+document.getElementById('sol-continuar-btn').addEventListener('click', ()=>{
+  const desc=document.getElementById('sol-descripcion').value.trim();
+  if(!desc){ return; }
+  const match=guessCategory(desc);
+  const sugText=document.getElementById('sol-sugerencia-texto');
+  if(match){
+    solCategoriaId=match.id;
+    document.getElementById('sol-cat-label').textContent=categoryLabel(match.path);
+    document.getElementById('sol-cat-label').classList.remove('placeholder');
+    sugText.innerHTML=`Según lo que describiste, esto parece ser: <strong>${esc(categoryLabel(match.path))}</strong> → se asignaría a <strong>${esc(match.grupo)}</strong>. Si no es correcto, cámbiala abajo.`;
+  } else {
+    solCategoriaId=null;
+    document.getElementById('sol-cat-label').textContent='Selecciona una categoría del catálogo…';
+    document.getElementById('sol-cat-label').classList.add('placeholder');
+    sugText.innerHTML='No pudimos adivinar la categoría automáticamente — selecciónala manualmente abajo.';
+  }
+  document.getElementById('sol-titulo').value = desc.length>60 ? desc.slice(0,57).trim()+'…' : desc;
+  document.getElementById('sol-sugerencia').style.display='block';
+
+  if(!solCatPickerReady){
+    solCatPickerReady=true;
+    attachPicker({
+      btnId:'sol-cat-btn', panelId:'sol-cat-panel', inputId:'sol-cat-search', listId:'sol-cat-list',
+      items:CATEGORIES, keyOf:c=>c.id, getSearchText:c=>categoryLabel(c.path),
+      renderRow:(c,key)=>`<button type="button" class="picker-row" data-key="${key}">${esc(categoryLabel(c.path))}<span class="grp">${esc(c.grupo)}</span></button>`,
+      onSelect:(c)=>{
+        solCategoriaId=c.id;
+        document.getElementById('sol-cat-label').textContent=categoryLabel(c.path);
+        document.getElementById('sol-cat-label').classList.remove('placeholder');
+      }
+    });
+    attachPicker({
+      btnId:'sol-area-btn', panelId:'sol-area-panel', inputId:'sol-area-search', listId:'sol-area-list',
+      items:tiendasCatalogo, keyOf:t=>t.cve_pdv,
+      getSearchText:t=>`${t.plaza||''} ${t.cve_pdv||''}`,
+      renderRow:(t,key)=>`<button type="button" class="picker-row" data-key="${esc(key)}">${esc(t.plaza||t.cve_pdv)}<span class="grp">${esc(t.cve_pdv)}</span></button>`,
+      onSelect:(t)=>{ solAreaCvePdv=t.cve_pdv; document.getElementById('sol-area').value = t.plaza || t.cve_pdv; }
+    });
+  }
+});
+
+document.getElementById('sol-crear-btn').addEventListener('click', async ()=>{
+  const errEl=document.getElementById('sol-error');
+  const titulo=document.getElementById('sol-titulo').value.trim();
+  if(!titulo){ errEl.textContent='Escribe un título para la solicitud.'; errEl.classList.add('show'); return; }
+  if(!solCategoriaId){ errEl.textContent='Selecciona una categoría.'; errEl.classList.add('show'); return; }
+  const btn=document.getElementById('sol-crear-btn'); btn.disabled=true;
+  try{
+    await crearTicket({
+      titulo, descripcion:document.getElementById('sol-descripcion').value.trim(),
+      categoriaId:solCategoriaId, prioridad:document.getElementById('sol-prioridad').value,
+      areaTexto:document.getElementById('sol-area').value.trim(), areaCvePdv:solAreaCvePdv
+    });
+    cerrarSolicitudPanel();
+    toast('Solicitud creada correctamente.','ok');
+  }catch(err){ console.error(err); errEl.textContent='No se pudo crear la solicitud.'; errEl.classList.add('show'); }
+  btn.disabled=false;
+});
+
 document.getElementById('new-ticket-btn').addEventListener('click', openNuevoTicket);
 function openNuevoTicket(){
   document.getElementById('modal-content').innerHTML = `
@@ -895,6 +1090,53 @@ function openRecategorizar(t, id){
     await recategorizarTicket(t, categoriaId);
     openDetalle(id); toast('Categoría actualizada.','ok');
   });
+}
+
+/* ══════════════════ Admin: catálogo de categorías ══════════════════ */
+function nodeMatchesQuery(node, query){
+  if(node.segments.join(' ').toLowerCase().includes(query)) return true;
+  if(node.children) return Object.values(node.children).some(c=>nodeMatchesQuery(c,query));
+  return false;
+}
+function renderCatalogTree(node, query){
+  const childrenObj = node.children || {};
+  const keys = Object.keys(childrenObj).sort((a,b)=>a.localeCompare(b,'es'));
+  return keys.map(key=>{
+    const child = childrenObj[key];
+    if(query && !nodeMatchesQuery(child, query)) return '';
+    const hasKids = child.children && Object.keys(child.children).length>0;
+    const badge = child.entry ? `<span class="chip" style="background:var(--signal-soft);color:var(--signal-dark);">${esc(child.entry.grupo)}</span><span class="cat-id">#${child.entry.id}</span>` : '';
+    if(hasKids){
+      return `<details class="cat-node" ${query?'open':''}>
+        <summary>${esc(key)}${badge}</summary>
+        <div class="cat-children">${renderCatalogTree(child, query)}</div>
+      </details>`;
+    }
+    return `<div class="cat-leaf">${esc(key)}${badge}</div>`;
+  }).join('');
+}
+document.getElementById('admin-catalog-btn').addEventListener('click', openCatalogo);
+function openCatalogo(){
+  const porGrupo={};
+  CATEGORIES.forEach(c=>{ porGrupo[c.grupo]=(porGrupo[c.grupo]||0)+1; });
+  document.getElementById('modal-content').style.maxWidth='760px';
+  document.getElementById('modal-content').innerHTML = `
+    <h2>Catálogo de categorías</h2>
+    <p class="modal-sub">${CATEGORIES.length} categorías/subcategorías del catálogo InvGate, organizadas por jerarquía. Cada una se enruta a un grupo de soporte.</p>
+    <div class="catalog-summary">
+      ${Object.entries(porGrupo).sort((a,b)=>b[1]-a[1]).map(([g,n])=>`<span class="chip" style="background:var(--violet-soft);color:var(--violet);">${esc(g)}: ${n}</span>`).join('')}
+    </div>
+    <div class="field"><input type="text" id="cat-tree-search" placeholder="Buscar categoría, subcategoría o grupo…"></div>
+    <div class="catalog-tree" id="catalog-tree" style="margin-top:10px;"></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="cat-tree-close">Cerrar</button></div>
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+  function paint(q){
+    document.getElementById('catalog-tree').innerHTML = renderCatalogTree(CATEGORY_TREE, (q||'').trim().toLowerCase()) || '<div class="picker-empty">Sin resultados</div>';
+  }
+  paint('');
+  document.getElementById('cat-tree-search').addEventListener('input', e=>paint(e.target.value));
+  document.getElementById('cat-tree-close').addEventListener('click', closeModal);
 }
 
 /* ══════════════════ Admin: gestionar ingenieros ══════════════════ */
