@@ -267,8 +267,9 @@ main{flex:1;padding:20px;max-width:1200px;margin:0 auto;width:100%;}
         </div>
         <div id="sol-sugerencia" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px;">
           <div class="solicitud-suggestion" id="sol-sugerencia-texto"></div>
+          <div id="sol-sugerencias-lista" class="picker-list" style="margin-top:8px;border:1px solid var(--line);border-radius:8px;max-height:none;"></div>
           <div class="field" style="margin-top:12px;">
-            <label>Categoría</label>
+            <label>O búscala manualmente</label>
             <div class="picker">
               <button type="button" class="btn btn-ghost picker-btn" id="sol-cat-btn"><span class="placeholder" id="sol-cat-label">Selecciona una categoría del catálogo…</span><span>▾</span></button>
               <div class="picker-panel" id="sol-cat-panel">
@@ -745,31 +746,34 @@ const COMBINING_MARKS_RE = new RegExp('[' + String.fromCharCode(768) + '-' + Str
 function normalizeText(s){
   return (s||'').toLowerCase().normalize('NFD').replace(COMBINING_MARKS_RE,'').replace(/[^a-z0-9\s]/g,' ');
 }
-const CATEGORY_TOKENS = CATEGORIES.map(cat => new Set(normalizeText(categoryLabel(cat.path)).split(/\s+/).filter(Boolean)));
+function wordsWithBigrams(text){
+  const words = normalizeText(text).split(/\s+/).filter(Boolean);
+  const tokens = new Set(words);
+  for(let i=0;i<words.length-1;i++) tokens.add(words[i]+words[i+1]); // "pin"+"pad" -> "pinpad", para calzar palabras que el catálogo trae separadas
+  return tokens;
+}
+const CATEGORY_TOKENS = CATEGORIES.map(cat => wordsWithBigrams(categoryLabel(cat.path)));
 const CATEGORY_WORD_DOCFREQ = (() => {
   const freq = {};
   CATEGORY_TOKENS.forEach(tokens => { tokens.forEach(t => { freq[t] = (freq[t]||0) + 1; }); });
   return freq;
 })();
-function guessCategory(descripcion){
-  const words = normalizeText(descripcion).split(/\s+/).filter(w=>w.length>2);
-  if(!words.length) return null;
-  let best=null, bestScore=0, bestMatches=0;
-  CATEGORIES.forEach((cat,i)=>{
+function suggestCategories(descripcion, limit=5){
+  const queryTerms = [...wordsWithBigrams(descripcion)].filter(w=>w.length>2);
+  if(!queryTerms.length) return [];
+  const scored = CATEGORIES.map((cat,i)=>{
     const tokens = CATEGORY_TOKENS[i];
     let score=0, matches=0;
-    words.forEach(w=>{
+    queryTerms.forEach(w=>{
       if(tokens.has(w)){
         const df = CATEGORY_WORD_DOCFREQ[w] || CATEGORIES.length;
         score += 1/df; // palabras raras (en pocas categorías) pesan más que palabras comunes
         matches++;
       }
     });
-    if(score>bestScore){ bestScore=score; best=cat; bestMatches=matches; }
-  });
-  // Con una sola palabra coincidente el riesgo de falso positivo es alto (ej. una palabra rara
-  // pero irrelevante al contexto real) — mejor admitir que no se pudo adivinar que sugerir mal.
-  return bestMatches>=2 ? best : null;
+    return {cat, score, matches};
+  }).filter(s=>s.matches>0).sort((a,b)=>b.score-a.score);
+  return scored.slice(0,limit).map(s=>s.cat);
 }
 
 let solCategoriaId=null, solAreaCvePdv=null, solCatPickerReady=false;
@@ -792,21 +796,38 @@ function cerrarSolicitudPanel(){
 document.getElementById('sol-cancelar-btn').addEventListener('click', cerrarSolicitudPanel);
 document.getElementById('sol-cancelar2-btn').addEventListener('click', cerrarSolicitudPanel);
 
+function pintarSugerenciaSeleccionada(cat){
+  solCategoriaId=cat.id;
+  document.getElementById('sol-cat-label').textContent=categoryLabel(cat.path);
+  document.getElementById('sol-cat-label').classList.remove('placeholder');
+  document.querySelectorAll('#sol-sugerencias-lista [data-key]').forEach(btn=>{
+    btn.style.background = Number(btn.dataset.key)===cat.id ? 'var(--signal-soft)' : '';
+  });
+}
+
 document.getElementById('sol-continuar-btn').addEventListener('click', ()=>{
   const desc=document.getElementById('sol-descripcion').value.trim();
   if(!desc){ return; }
-  const match=guessCategory(desc);
+  const sugeridas=suggestCategories(desc, 5);
   const sugText=document.getElementById('sol-sugerencia-texto');
-  if(match){
-    solCategoriaId=match.id;
-    document.getElementById('sol-cat-label').textContent=categoryLabel(match.path);
-    document.getElementById('sol-cat-label').classList.remove('placeholder');
-    sugText.innerHTML=`Según lo que describiste, esto parece ser: <strong>${esc(categoryLabel(match.path))}</strong> → se asignaría a <strong>${esc(match.grupo)}</strong>. Si no es correcto, cámbiala abajo.`;
+  const lista=document.getElementById('sol-sugerencias-lista');
+  solCategoriaId=null;
+  document.getElementById('sol-cat-label').textContent='Selecciona una categoría del catálogo…';
+  document.getElementById('sol-cat-label').classList.add('placeholder');
+
+  if(sugeridas.length){
+    sugText.textContent='Según lo que describiste, podría ser alguna de estas — dale clic a la que aplique:';
+    lista.innerHTML = sugeridas.map(c=>`<button type="button" class="picker-row" data-key="${c.id}">${esc(categoryLabel(c.path))}<span class="grp">${esc(c.grupo)}</span></button>`).join('');
+    lista.querySelectorAll('[data-key]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const cat=CATEGORIES.find(c=>c.id===Number(btn.dataset.key));
+        pintarSugerenciaSeleccionada(cat);
+      });
+    });
+    pintarSugerenciaSeleccionada(sugeridas[0]);
   } else {
-    solCategoriaId=null;
-    document.getElementById('sol-cat-label').textContent='Selecciona una categoría del catálogo…';
-    document.getElementById('sol-cat-label').classList.add('placeholder');
-    sugText.innerHTML='No pudimos adivinar la categoría automáticamente — selecciónala manualmente abajo.';
+    sugText.textContent='No encontramos sugerencias automáticas para esta descripción — búscala manualmente abajo.';
+    lista.innerHTML='';
   }
   document.getElementById('sol-titulo').value = desc.length>60 ? desc.slice(0,57).trim()+'…' : desc;
   document.getElementById('sol-sugerencia').style.display='block';
