@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>PrimeMX · Mesa de Servicio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F4F6F5;
+  --panel:#FFFFFF;
+  --ink:#122031;
+  --ink-soft:#4B5A6B;
+  --line:#DCE3E2;
+  --signal:#0C8599;
+  --signal-dark:#0A6B79;
+  --signal-soft:#E3F1F2;
+  --ok:#1E8E5A;
+  --ok-soft:#E6F5EC;
+  --warn:#C6421B;
+  --warn-soft:#FBE9E4;
+  --warn-dark:#7A1F1A;
+  --amber:#B8791E;
+  --amber-soft:#FBF1E1;
+  --violet:#6E4C8A;
+  --violet-soft:#EFE9F4;
+  --radius:10px;
+  --font-ui:'IBM Plex Sans',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);min-height:100vh;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+
+/* ===== LOGIN ===== */
+#login-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(circle at 15% 20%, rgba(12,133,153,0.10), transparent 45%),
+             radial-gradient(circle at 85% 80%, rgba(12,133,153,0.08), transparent 45%), var(--bg);
+}
+.login-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:40px 36px;width:100%;max-width:400px;box-shadow:0 12px 40px rgba(18,32,49,0.08);}
+.login-signal{display:flex;gap:4px;align-items:flex-end;height:22px;margin-bottom:18px;}
+.login-signal span{width:6px;background:var(--signal);border-radius:2px;animation:pulseBar 1.6s ease-in-out infinite;}
+.login-signal span:nth-child(1){height:30%;animation-delay:0s;}
+.login-signal span:nth-child(2){height:55%;animation-delay:.15s;}
+.login-signal span:nth-child(3){height:80%;animation-delay:.3s;}
+.login-signal span:nth-child(4){height:100%;animation-delay:.45s;}
+@keyframes pulseBar{0%,100%{opacity:.4;}50%{opacity:1;}}
+.login-card h1{font-size:20px;margin:0 0 2px;letter-spacing:-0.01em;}
+.login-card .sub{color:var(--ink-soft);font-size:13px;margin:0 0 20px;}
+.login-tabs{display:flex;background:var(--bg);border-radius:8px;padding:3px;margin-bottom:18px;font-size:13px;font-weight:600;}
+.login-tabs button{flex:1;border:none;background:transparent;border-radius:6px;padding:8px 0;color:var(--ink-soft);}
+.login-tabs button.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(18,32,49,0.12);}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;}
+.field input,.field select,.field textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#FAFBFB;color:var(--ink);}
+.field textarea{resize:vertical;min-height:80px;}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--signal);outline-offset:1px;border-color:var(--signal);}
+.field .hint{margin-top:5px;font-size:11px;color:var(--ink-soft);}
+.btn{border:none;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:600;transition:transform .05s ease, opacity .15s ease;}
+.btn:active{transform:scale(0.98);}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-primary{background:var(--signal);color:#fff;}
+.btn-primary:hover{background:var(--signal-dark);}
+.btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line);}
+.btn-ghost:hover{background:#F0F2F1;}
+.btn-block{width:100%;}
+.login-error{background:var(--warn-soft);color:var(--warn);font-size:13px;padding:9px 12px;border-radius:8px;margin-bottom:14px;display:none;}
+.login-error.show{display:block;}
+.login-hint{margin-top:18px;font-size:11.5px;color:#8B9AA5;line-height:1.5;}
+
+/* ===== APP SHELL ===== */
+#app{display:none;min-height:100vh;flex-direction:column;}
+#app.show{display:flex;}
+header.topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:20;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand h1{font-size:15px;margin:0;font-weight:700;}
+.brand .brand-sub{font-size:11px;color:var(--ink-soft);margin:0;}
+.user-chip{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-soft);}
+.role-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:3px 8px;border-radius:20px;background:var(--signal-soft);color:var(--signal-dark);}
+.role-tag.admin{background:#FDEBD8;color:#A6560F;}
+
+main{flex:1;padding:20px;max-width:1200px;margin:0 auto;width:100%;}
+
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;}
+.stat-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;}
+.stat-card .num{font-family:var(--font-mono);font-size:22px;font-weight:600;}
+.stat-card .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;margin-top:2px;}
+
+.toolbar{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:center;}
+.search-box{flex:1 1 220px;position:relative;}
+.search-box input{width:100%;padding:10px 12px 10px 34px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:#FAFBFB;}
+.search-box::before{content:'⌕';position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-soft);font-size:16px;}
+.filter-select{padding:10px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#FAFBFB;color:var(--ink);min-width:150px;}
+.toolbar .spacer{flex:1;}
+.toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.result-count{font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;}
+.empty-state{text-align:center;padding:60px 20px;color:var(--ink-soft);background:var(--panel);border:1px dashed var(--line);border-radius:var(--radius);}
+.empty-state .big{font-size:32px;margin-bottom:8px;}
+
+/* Ticket list */
+.ticket-grid{display:flex;flex-direction:column;gap:8px;}
+.ticket-card{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;cursor:pointer;text-align:left;width:100%;transition:border-color .12s ease, box-shadow .12s ease;}
+.ticket-card:hover{border-color:var(--signal);box-shadow:0 4px 14px rgba(18,32,49,0.07);}
+.ticket-bar{width:5px;flex-shrink:0;}
+.ticket-body{flex:1;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0;}
+.ticket-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.ticket-num{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--signal-dark);}
+.ticket-title{font-size:14px;font-weight:600;margin:0;}
+.ticket-meta{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink-soft);}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:600;white-space:nowrap;}
+.load-more-row{display:flex;justify-content:center;margin-top:16px;}
+
+/* Category / tienda picker */
+.picker{position:relative;}
+.picker-btn{width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.picker-btn .placeholder{color:#9CA3AF;}
+.picker-panel{display:none;position:absolute;z-index:60;margin-top:4px;width:100%;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(18,32,49,0.12);overflow:hidden;}
+.picker-panel.show{display:block;}
+.picker-search{border-bottom:1px solid var(--line);padding:8px;}
+.picker-search input{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-size:13px;}
+.picker-list{max-height:220px;overflow-y:auto;}
+.picker-row{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 12px;font-size:12.5px;border-bottom:1px solid #F0F1EE;cursor:pointer;}
+.picker-row:hover{background:var(--bg);}
+.picker-row .grp{margin-left:6px;font-size:10.5px;color:var(--violet);}
+.picker-empty{padding:14px;text-align:center;font-size:12px;color:var(--ink-soft);}
+.picker-route{margin-top:6px;font-size:11px;color:var(--ink-soft);display:flex;align-items:center;gap:5px;}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(18,32,49,0.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:100;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--panel);border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:26px;}
+.modal h2{margin:0 0 4px;font-size:18px;}
+.modal .modal-sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 20px;}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.modal-grid .full{grid-column:1/-1;}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;}
+.modal-actions.split{justify-content:space-between;}
+
+.detail-info{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12.5px;margin:16px 0;}
+.detail-info .box{background:var(--bg);border-radius:8px;padding:9px 11px;}
+.detail-info .box .k{display:flex;align-items:center;gap:5px;font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);}
+.detail-info .box .v{margin-top:3px;color:var(--ink);word-break:break-word;}
+
+.action-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;border-top:1px solid var(--line);padding-top:16px;}
+.action-btn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;border:1px solid transparent;}
+
+.history-section{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;}
+.history-section h3{font-size:13px;margin:0 0 10px;}
+.history-item{display:flex;gap:9px;font-size:12.5px;margin-bottom:12px;}
+.history-dot{width:7px;height:7px;border-radius:50%;background:var(--signal);margin-top:4px;flex-shrink:0;}
+.history-item .accion{font-weight:600;}
+.history-item .detalle{color:var(--ink-soft);}
+.history-item .ts{font-size:10.5px;color:#9CA3AF;}
+
+.admin-table{width:100%;font-size:12.5px;border-collapse:collapse;margin-bottom:16px;}
+.admin-table th{text-align:left;padding:6px 8px;color:var(--ink-soft);border-bottom:1px solid var(--line);font-weight:600;}
+.admin-table td{padding:7px 8px;border-top:1px solid var(--line);}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--ink);color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;opacity:0;transition:all .25s ease;z-index:200;pointer-events:none;max-width:90vw;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.error{background:var(--warn);}
+.toast.ok{background:var(--ok);}
+
+@media (max-width:640px){
+  main{padding:14px;}
+  .modal-grid{grid-template-columns:1fr;}
+  .detail-info{grid-template-columns:1fr;}
+  header.topbar{padding:12px 14px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-signal"><span></span><span></span><span></span><span></span></div>
+    <div style="display:flex;align-items:baseline;justify-content:center;margin-bottom:14px;">
+      <span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:22px;letter-spacing:-1px;color:#1a1a18">PR<span style="color:#00AEEF">I</span>ME</span>
+      <span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:18px;letter-spacing:-1px;color:#1a1a18">MX</span>
+    </div>
+    <h1>Mesa de Servicio</h1>
+    <p class="sub">PrimeMX · Soporte IT interno</p>
+
+    <div class="login-tabs">
+      <button type="button" id="tab-login-btn" class="active">Iniciar sesión</button>
+      <button type="button" id="tab-register-btn">Crear cuenta</button>
+    </div>
+
+    <div class="login-error" id="login-error"></div>
+
+    <form id="login-form">
+      <div class="field"><label>Usuario</label><input type="text" id="login-user" autocomplete="username" required></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="login-pass" autocomplete="current-password" required></div>
+      <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+    </form>
+
+    <form id="register-form" style="display:none;">
+      <div class="field"><label>Usuario</label><input type="text" id="reg-user" autocomplete="username" required></div>
+      <div class="field"><label>Nombre completo</label><input type="text" id="reg-nombre" required></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="reg-pass" autocomplete="new-password" required></div>
+      <p class="field hint" style="margin:-8px 0 14px;">Se crea como cuenta de solicitante. Si eres ingeniero de soporte, pide a un administrador que te dé de alta con tu grupo asignado.</p>
+      <button type="submit" class="btn btn-primary btn-block">Crear cuenta</button>
+    </form>
+
+    <p class="login-hint">Acceso restringido al personal de PrimeMX. Contacta a IT si no tienes credenciales.</p>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div style="display:flex;align-items:baseline;">
+        <span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:22px;letter-spacing:-1px;color:#1a1a18">PR<span style="color:#00AEEF">I</span>ME</span>
+        <span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:18px;letter-spacing:-1px;color:#1a1a18">MX</span>
+      </div>
+      <div><h1>Mesa de Servicio</h1><p class="brand-sub">Soporte IT interno</p></div>
+    </div>
+    <div class="user-chip">
+      <span id="user-label"></span>
+      <span class="role-tag" id="role-tag"></span>
+      <a href="../dashboard.html" style="color:var(--signal-dark);text-decoration:none;font-weight:600;font-size:13px;margin-right:2px;">Dashboard IT →</a>
+      <button class="btn btn-ghost" id="logout-btn" style="padding:7px 12px;font-size:12.5px;">Salir</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="stats-row" id="stats-row"></div>
+
+    <div class="toolbar">
+      <div class="search-box"><input type="text" id="search-input" placeholder="Buscar por número, título o categoría…"></div>
+      <select class="filter-select" id="filter-estado"><option value="todos">Todos los estados</option></select>
+      <select class="filter-select" id="filter-grupo" style="display:none;"><option value="todos">Todos los grupos</option></select>
+      <div class="spacer"></div>
+      <div class="toolbar-actions">
+        <button class="btn btn-ghost" id="admin-users-btn" style="display:none;">Gestionar ingenieros</button>
+        <button class="btn btn-ghost" id="refresh-btn">↻ Actualizar</button>
+        <button class="btn btn-primary" id="new-ticket-btn">+ Nuevo ticket</button>
+      </div>
+    </div>
+
+    <p class="result-count" id="result-count"></p>
+    <div class="ticket-grid" id="ticket-grid"></div>
+    <div class="load-more-row" id="load-more-row" style="display:none;"><button class="btn btn-ghost" id="load-more-btn">Cargar más tickets</button></div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+/* ══════════════════ CONFIGURACIÓN FIREBASE (mismo proyecto que Dashboard IT / Directorio) ══════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCIQGZGwNEw3vAlL4clGVbClLYCcUy3CYU",
+  authDomain: "primemx-consumibles.firebaseapp.com",
+  projectId: "primemx-consumibles",
+  storageBucket: "primemx-consumibles.firebasestorage.app",
+  messagingSenderId: "796822637748",
+  appId: "1:796822637748:web:7e8db90898618d26079be1"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const AUTH_DOMAIN = "primecommsmx.com";
+const PERFILES_COLLECTION = "helpdesk_perfiles";
+const TICKETS_COLLECTION = "helpdesk_tickets";
+const META_COLLECTION = "helpdesk_meta";
+const USUARIOS_COLLECTION = "usuarios"; // colección compartida con Dashboard IT / Directorio (solo lectura, para bootstrap de admin)
+const TIENDAS_COLLECTION = "tiendas";   // colección de Directorio (solo lectura)
+
+/* ===================== Catálogo real (InvGate export) ===================== */
+const CATEGORIES = [{"id":381,"path":["Software","Aplicativos","Actualizacion Asistencia"],"grupo":"Soporte IT Nivel 1"},{"id":366,"path":["Software","Aplicativos","CIEF","Actualización versión  CIEF"],"grupo":"Soporte IT Nivel 1"},{"id":367,"path":["Software","Aplicativos","Otros","Asistencia"],"grupo":"Soporte IT Nivel 1"},{"id":369,"path":["Software","Aplicativos","AVS","AVS NUBE"],"grupo":"Soporte IT Nivel 1"},{"id":343,"path":["Equipo de Red","Balanceador"],"grupo":"Soporte IT Nivel 1"},{"id":379,"path":["Hardware","Laptop","Clave Recuperación BitLocker"],"grupo":"Soporte IT Nivel 1"},{"id":323,"path":["Hardware","Equipo de escritorio (PC)","Configuracion"],"grupo":"Soporte IT Nivel 1"},{"id":382,"path":["Hardware","Lector de codigo de barras","Configuración de Lector de Código de Barras"],"grupo":"Soporte IT Nivel 1"},{"id":370,"path":["Hardware","PIN Pad","Configuracion Pinpad  Lane/3000"],"grupo":"Soporte IT Nivel 1"},{"id":344,"path":["Software","Configuracion usuario Service"],"grupo":"Soporte IT"},{"id":380,"path":["Software","Aplicativos","Otros","Contraseña Bitlocker"],"grupo":"Soporte IT Nivel 1"},{"id":324,"path":["Software","Aplicativos","AVS","Habilitar CRM en Edge"],"grupo":"Soporte IT Nivel 1"},{"id":371,"path":["Software","Soporte Zscaler (VPN)","Incidencia Zscaler (VPN)"],"grupo":"Soporte IT"},{"id":348,"path":["Software","Aplicativos","AVS","Ligue de MAC Adress"],"grupo":"Soporte IT Nivel 1"},{"id":338,"path":["Hardware","Reemplazo partes o perifericos","Memoria RAM"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":443,"path":["Mesa de Control"],"grupo":"Mesa de Control"},{"id":383,"path":["Internet y telefonia","Totalplay","Migración de Servicio"],"grupo":"Soporte IT Nivel 1"},{"id":374,"path":["Hardware","PIN Pad","Movimiento  entre PDV´s  Lane 3000"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":339,"path":["Hardware","Biometricos","Movimiento de equipo entre PDV´s"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":340,"path":["Hardware","Equipo de escritorio (PC)","Movimiento de equipo entre PDV´s"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":341,"path":["Hardware","PIN Pad","Movimiento de equipo entre PDV´s"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":334,"path":["Problemas masivos","Problema Global Logon"],"grupo":"Eventos masivos Nivel 1"},{"id":330,"path":["Problemas masivos","Problema masivo ASD"],"grupo":"Eventos masivos Nivel 1"},{"id":333,"path":["Problemas masivos","Problema masivo AVS"],"grupo":"Eventos masivos Nivel 1"},{"id":327,"path":["Problemas masivos","Problema masivo CRM (PRIME)"],"grupo":"Eventos masivos Nivel 1"},{"id":326,"path":["Problemas masivos","Problema masivo de biometricos"],"grupo":"Eventos masivos Nivel 1"},{"id":335,"path":["Problemas masivos","Problema masivo Oracle"],"grupo":"Eventos masivos Nivel 1"},{"id":328,"path":["Problemas masivos","Problema masivo Paymentbox"],"grupo":"Eventos masivos Nivel 1"},{"id":329,"path":["Problemas masivos","Problema masivo PinPads"],"grupo":"Eventos masivos Nivel 1"},{"id":332,"path":["Problemas masivos","Problema masivo portal PRIME"],"grupo":"Eventos masivos Nivel 1"},{"id":331,"path":["Problemas masivos","Problema masivo VPN"],"grupo":"Eventos masivos Nivel 1"},{"id":376,"path":["Software","Problemas con Salesforce"],"grupo":"Soporte IT Nivel 1"},{"id":325,"path":["Problemas masivos"],"grupo":"Eventos masivos Nivel 1"},{"id":378,"path":["Hardware","Equipo de escritorio (PC)","Recuperación Clave BitLocker"],"grupo":"Soporte IT Nivel 1"},{"id":345,"path":["Hardware","Laptop","Reemplazo de bateria"],"grupo":"Equipo de computo y periféricos"},{"id":346,"path":["Hardware","Laptop","Reemplazo de cargador"],"grupo":"Equipo de computo y periféricos"},{"id":342,"path":["Hardware","Equipo de escritorio (PC)","Reemplazo de Disco Duro"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":368,"path":["Hardware","Laptop","Reemplazo de Disco Duro"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":337,"path":["Hardware","Equipo de escritorio (PC)","Reemplazo de Monitor"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":373,"path":["Hardware","PIN Pad","Reemplazo de Pinpad Lane 3000"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":105,"path":["Hardware","Reemplazo partes o perifericos"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":365,"path":["Equipo de Red","Reorganización de site"],"grupo":"Equipo de Red Nivel 1"},{"id":445,"path":["Mesa de Control","Reset Correo Zimbra"],"grupo":"Mesa de Control"},{"id":377,"path":["Software","Office","Reset de contraseña y MFA"],"grupo":"Soporte IT Nivel 1"},{"id":444,"path":["Mesa de Control","Reset de Token VPN"],"grupo":"Mesa de Control"},{"id":30,"path":["Software","Microsoft EDGE","Al abrir una pagina se queda en blanco"],"grupo":"Soporte IT Nivel 1"},{"id":31,"path":["Software","Google Chrome","Al abrir una pagina se queda en blanco"],"grupo":"Soporte IT Nivel 1"},{"id":23,"path":["Software","Aplicativos"],"grupo":"Soporte IT Nivel 1"},{"id":35,"path":["Software","Aplicativos","AVS"],"grupo":"Soporte IT Nivel 1"},{"id":62,"path":["Software","Aplicativos","Otros","CCSolutions"],"grupo":"Soporte IT Nivel 1"},{"id":113,"path":["Equipo de Red","Configuracion de WIFI"],"grupo":"Soporte IT Nivel 1"},{"id":36,"path":["Software","Aplicativos","AVS","Errores dentro de AVS"],"grupo":"Soporte IT Nivel 1"},{"id":7,"path":["Software","Office","Instalacion"],"grupo":"Soporte IT Nivel 1"},{"id":11,"path":["Software","PDF","Instalacion"],"grupo":"Soporte IT Nivel 1"},{"id":53,"path":["Software","Aplicativos","CIEF","Instalacion"],"grupo":"Soporte IT Nivel 1"},{"id":69,"path":["Hardware","Multifuncionales e Impresoras"],"grupo":"Soporte IT Nivel 1"},{"id":57,"path":["Software","Aplicativos","Portal interno (PRIME)","No muestra el calendario"],"grupo":"Soporte IT Nivel 1"},{"id":94,"path":["Hardware","Equipo de escritorio (PC)","No prende"],"grupo":"Soporte IT Nivel 1"},{"id":100,"path":["Hardware","Laptop","No prende"],"grupo":"Soporte IT Nivel 1"},{"id":48,"path":["Software","Aplicativos","Oracle","No se puede mostrar la pagina"],"grupo":"Soporte IT Nivel 1"},{"id":108,"path":["Internet y telefonia","Telmex","Problemas con velocidad"],"grupo":"Soporte IT Nivel 1"},{"id":109,"path":["Internet y telefonia","Totalplay","Problemas con velocidad"],"grupo":"Soporte IT Nivel 1"},{"id":447,"path":["Mesa de Control","Reactivacion de aplicativos de ventas y servicios ATT"],"grupo":"Mesa de Control"},{"id":15,"path":["Software","Correo de Tienda","Restablecer contraseña"],"grupo":"Soporte IT Nivel 1"},{"id":142,"path":["Internet y telefonia","Metro Carrier","Sin servicio"],"grupo":"Soporte IT Nivel 1"},{"id":2,"path":["Software"],"grupo":"Soporte IT Nivel 1"},{"id":106,"path":["Internet y telefonia","Telmex"],"grupo":"Soporte IT Nivel 1"},{"id":78,"path":["Hardware","Biometricos"],"grupo":"Soporte IT Nivel 1"},{"id":27,"path":["Software","Microsoft EDGE","Bitdefender Endpoint Security bloqueo esta pagina"],"grupo":"Soporte IT Nivel 1"},{"id":32,"path":["Software","Google Chrome","Bitdefender Endpoint Security bloqueó esta página"],"grupo":"Soporte IT Nivel 1"},{"id":124,"path":["Software","Aplicativos","Otros","CCI"],"grupo":"Soporte IT Nivel 1"},{"id":114,"path":["Equipo de Red","Configuracion AP"],"grupo":"Soporte IT Nivel 1"},{"id":16,"path":["Software","Correo de Tienda","Configuracion correo tienda"],"grupo":"Soporte IT Nivel 1"},{"id":14,"path":["Software","Correo de Tienda"],"grupo":"Soporte IT Nivel 1"},{"id":80,"path":["Hardware","Biometricos","Fallas"],"grupo":"Soporte IT Nivel 1"},{"id":85,"path":["Hardware","PIN Pad","Fallas"],"grupo":"Soporte IT Nivel 1"},{"id":90,"path":["Hardware","Lector de codigo de barras","Fallas"],"grupo":"Soporte IT Nivel 1"},{"id":70,"path":["Hardware","Multifuncionales e Impresoras","Fallas con la Impresora"],"grupo":"Soporte IT Nivel 1"},{"id":3,"path":["Hardware"],"grupo":"Soporte IT Nivel 1"},{"id":54,"path":["Software","Aplicativos","CIEF","No detecta el escaner"],"grupo":"Soporte IT Nivel 1"},{"id":44,"path":["Software","Aplicativos","Paymentbox","No se puede mostrar la pagina"],"grupo":"Soporte IT Nivel 1"},{"id":8,"path":["Software","Office","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":12,"path":["Software","PDF","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":49,"path":["Software","Aplicativos","Oracle","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":58,"path":["Software","Aplicativos","Portal interno (PRIME)","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":95,"path":["Hardware","Equipo de escritorio (PC)","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":101,"path":["Hardware","Laptop","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":42,"path":["Software","Aplicativos","Paymentbox"],"grupo":"Soporte IT Nivel 1"},{"id":143,"path":["Internet y telefonia","Metro Carrier","Problemas con velocidad"],"grupo":"Soporte IT Nivel 1"},{"id":450,"path":["Mesa de Control","Reset de contraseña"],"grupo":"Mesa de Control"},{"id":110,"path":["Internet y telefonia","Totalplay","Sin servicio"],"grupo":"Soporte IT Nivel 1"},{"id":111,"path":["Internet y telefonia","Telmex","Sin servicio"],"grupo":"Soporte IT Nivel 1"},{"id":107,"path":["Internet y telefonia","Totalplay"],"grupo":"Soporte IT Nivel 1"},{"id":13,"path":["Software","PDF","Al abrir un documento se cierra"],"grupo":"Soporte IT Nivel 1"},{"id":22,"path":["Software","Google Chrome"],"grupo":"Soporte IT Nivel 1"},{"id":71,"path":["Hardware","Multifuncionales e Impresoras","Instalacion de Impresora"],"grupo":"Soporte IT Nivel 1"},{"id":4,"path":["Internet y telefonia"],"grupo":"Soporte IT Nivel 1"},{"id":63,"path":["Software","Aplicativos","Otros","Intranet (AT&T)"],"grupo":"Soporte IT Nivel 1"},{"id":140,"path":["Internet y telefonia","Metro Carrier"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":38,"path":["Software","Aplicativos","AVS","No abre el aplicativo"],"grupo":"Soporte IT Nivel 1"},{"id":47,"path":["Software","Aplicativos","Oracle"],"grupo":"Soporte IT Nivel 1"},{"id":28,"path":["Software","Microsoft EDGE","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":33,"path":["Software","Google Chrome","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":45,"path":["Software","Aplicativos","Paymentbox","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":55,"path":["Software","Aplicativos","CIEF","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":96,"path":["Hardware","Equipo de escritorio (PC)","Pantallazo azul"],"grupo":"Soporte IT Nivel 1"},{"id":102,"path":["Hardware","Laptop","Pantallazo azul"],"grupo":"Soporte IT Nivel 1"},{"id":83,"path":["Hardware","PIN Pad"],"grupo":"Soporte IT Nivel 1"},{"id":50,"path":["Software","Aplicativos","Oracle","Problemas al ingresar"],"grupo":"Soporte IT Nivel 1"},{"id":59,"path":["Software","Aplicativos","Portal interno (PRIME)","Problemas con acceso"],"grupo":"Soporte IT Nivel 1"},{"id":115,"path":["Equipo de Red","Problemas con cableado o nodos"],"grupo":"Soporte IT Nivel 1"},{"id":81,"path":["Hardware","Biometricos","Reemplazo de equipo"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":91,"path":["Hardware","Lector de codigo de barras","Reemplazo de equipo"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":9,"path":["Software","Office","Reset de contraseña"],"grupo":"Soporte IT Nivel 1"},{"id":455,"path":["Mesa de Control","RESET de YUBIKEY por BAJA de colaborador"],"grupo":"Mesa de Control"},{"id":46,"path":["Software","Aplicativos","Paymentbox","Al querer ingresar se queda la pagina en blanco"],"grupo":"Soporte IT Nivel 1"},{"id":52,"path":["Software","Aplicativos","CIEF"],"grupo":"Soporte IT Nivel 1"},{"id":18,"path":["Software","Correo de Tienda","Instalacion"],"grupo":"Soporte IT Nivel 1"},{"id":64,"path":["Software","Aplicativos","Otros","Inventarios (AT&T)"],"grupo":"Soporte IT Nivel 1"},{"id":21,"path":["Software","Microsoft EDGE"],"grupo":"Soporte IT Nivel 1"},{"id":39,"path":["Software","Aplicativos","AVS","No genera contrato"],"grupo":"Soporte IT Nivel 1"},{"id":72,"path":["Hardware","Multifuncionales e Impresoras","Problemas al escanear"],"grupo":"Soporte IT Nivel 1"},{"id":51,"path":["Software","Aplicativos","Oracle","Problemas al visualizar modulos"],"grupo":"Soporte IT Nivel 1"},{"id":116,"path":["Equipo de Red","Problemas con Switch"],"grupo":"Soporte IT Nivel 1"},{"id":29,"path":["Software","Microsoft EDGE","Problemas de navegacion"],"grupo":"Soporte IT Nivel 1"},{"id":34,"path":["Software","Google Chrome","Problemas de navegación"],"grupo":"Soporte IT Nivel 1"},{"id":103,"path":["Hardware","Laptop","Reemplazo de equipo"],"grupo":"Soporte IT"},{"id":97,"path":["Hardware","Equipo de escritorio (PC)","Reemplazo de equipo (CPU)"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":82,"path":["Hardware","Biometricos","Solicitud de nuevo equipo"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":87,"path":["Hardware","PIN Pad","Solicitud de nuevo equipo"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":93,"path":["Hardware","Equipo de escritorio (PC)"],"grupo":"Equipo de computo y periféricos"},{"id":112,"path":["Equipo de Red"],"grupo":"Soporte IT Nivel 1"},{"id":128,"path":["Hardware","PIN Pad","Instalación de certificado a PIN PAD"],"grupo":"Soporte IT Nivel 1"},{"id":65,"path":["Software","Aplicativos","Otros","NOE"],"grupo":"Soporte IT Nivel 1"},{"id":6,"path":["Software","Office"],"grupo":"Soporte IT Nivel 1"},{"id":19,"path":["Software","Correo de Tienda","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":40,"path":["Software","Aplicativos","AVS","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":56,"path":["Software","Aplicativos","Portal interno (PRIME)"],"grupo":"Soporte IT Nivel 1"},{"id":117,"path":["Equipo de Red","Problemas con WIFI"],"grupo":"Soporte IT Nivel 1"},{"id":98,"path":["Hardware","Equipo de escritorio (PC)","Solicitud equipo nuevo"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":104,"path":["Hardware","Laptop","Solicitud equipo nuevo"],"grupo":"Equipo de computo y periféricos"},{"id":99,"path":["Hardware","Laptop"],"grupo":"Soporte IT Nivel 1"},{"id":61,"path":["Software","Aplicativos","Otros"],"grupo":"Soporte IT Nivel 1"},{"id":10,"path":["Software","PDF"],"grupo":"Soporte IT Nivel 1"},{"id":41,"path":["Software","Aplicativos","AVS","Problemas de inicio de sesion"],"grupo":"Soporte IT Nivel 1"},{"id":66,"path":["Software","Aplicativos","Otros","PVS"],"grupo":"Soporte IT Nivel 1"},{"id":118,"path":["Equipo de Red","Reemplazo de Switch"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":134,"path":["Hardware","Laptop","Reemplazo por Robo (Adjuntar Acta de Robo)"],"grupo":"Equipo de computo y periféricos"},{"id":448,"path":["Hardware","Equipo de escritorio (PC)","Reemplazo por Robo (Adjuntar Acta de Robo)"],"grupo":"Equipo de computo y periféricos"},{"id":74,"path":["Hardware","Multifuncionales e Impresoras","Solicitud de toner"],"grupo":"Impresoras y Multifuncionales Nivel 1"},{"id":125,"path":["Software","Aplicativos","Instalacion codigo de barra en excel"],"grupo":"Soporte IT Nivel 1"},{"id":454,"path":["Hardware","Equipo de escritorio (PC)","Instalacion de Disco Duro"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":122,"path":["Equipo de Red","Reemplazo de AP"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":75,"path":["Hardware","Multifuncionales e Impresoras","Solicitud de unidad de imagen"],"grupo":"Impresoras y Multifuncionales Nivel 1"},{"id":20,"path":["Software","Soporte Zscaler (VPN)"],"grupo":"Soporte IT Nivel 1"},{"id":139,"path":["Software","Aplicativos","AVS","Instalacion de certificados para Digital (Venta empresarial)"],"grupo":"Soporte IT Nivel 1"},{"id":88,"path":["Hardware","Lector de codigo de barras"],"grupo":"Soporte IT Nivel 1"},{"id":136,"path":["Software","Aplicativos","Limpieza de equipo por cambio de usuario"],"grupo":"Soporte IT"},{"id":67,"path":["Software","Solicitud acceso a paginas"],"grupo":"Soporte IT Nivel 1"},{"id":119,"path":["Equipo de Red","Solicitud de cableado o nodo"],"grupo":"Equipo de Red Nivel 1"},{"id":451,"path":["Software","Aplicativos","Error en Carga de Documentos"],"grupo":"Soporte IT Nivel 1"},{"id":68,"path":["Software","Otras instalaciones"],"grupo":"Soporte IT Nivel 1"},{"id":138,"path":["Hardware","Recolección de Equipo Obsoleto"],"grupo":"Soporte IT Nivel 1"},{"id":120,"path":["Equipo de Red","Solicitud de AP"],"grupo":"Equipo de Red Nivel 1"},{"id":77,"path":["Hardware","Multifuncionales e Impresoras","Solicitud Kit de mantenimiento"],"grupo":"Soporte IT Nivel 1"},{"id":452,"path":["Hardware","Multifuncionales e Impresoras","Mantenimiento a la Impresora"],"grupo":"Equipo de computo y periféricos"},{"id":126,"path":["Software","Otros problemas"],"grupo":"Equipo de computo y periféricos Nivel 1"},{"id":130,"path":["Software","Migración de Internos a externos."],"grupo":"Soporte IT Nivel 1"},{"id":135,"path":["Software","Instalacion de antivirus por falla en portal PRIME"],"grupo":"Soporte IT"},{"id":453,"path":["Software","Migracion a Windows 11"],"grupo":"Soporte IT Nivel 1"}];
+const GROUPS = [...new Set(CATEGORIES.map(c => c.grupo))].sort();
+
+/* ══════════════════ Tokens de estado ══════════════════ */
+const PRIORIDADES = {
+  baja:{label:"Baja",color:"#6B7280"},
+  media:{label:"Media",color:"#B8791E"},
+  alta:{label:"Alta",color:"#C6421B"},
+  urgente:{label:"Urgente",color:"#7A1F1A"},
+};
+const ESTADOS = {
+  abierto:{label:"Abierto",color:"#C6421B"},
+  en_progreso:{label:"En progreso",color:"#B8791E"},
+  resuelto:{label:"Resuelto",color:"#1E8E5A"},
+  cerrado:{label:"Cerrado",color:"#6B7280"},
+  rechazado:{label:"Rechazado",color:"#7A1F1A"},
+};
+
+/* ══════════════════ Utilidades ══════════════════ */
+function esc(v){ return (v===undefined||v===null) ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg,type=""){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='toast show'+(type?' '+type:'');
+  setTimeout(()=>el.className='toast',2500);
+}
+function categoryLabel(path){ return path.join(' › '); }
+function timeAgo(ts){
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60) return 'justo ahora';
+  const m=Math.floor(s/60); if(m<60) return `hace ${m} min`;
+  const h=Math.floor(m/60); if(h<24) return `hace ${h} h`;
+  const d=Math.floor(h/24); return `hace ${d} d`;
+}
+function fmtDateTime(ts){
+  return new Date(ts).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function authErrorMessage(err){
+  const code=err && err.code || '';
+  if(code.startsWith('auth/requests-from-referer') || code==='auth/api-key-not-valid' || code==='auth/unauthorized-domain'){
+    return 'Firebase está bloqueando este dominio (' + location.origin + '). No es tu usuario/contraseña — hay que autorizar este dominio en Google Cloud Console → Credenciales → tu API key de Firebase (ver consola del navegador, código: '+code+').';
+  }
+  if(code==='auth/wrong-password' || code==='auth/user-not-found' || code==='auth/invalid-credential' || code==='auth/invalid-login-credentials'){
+    return 'Usuario o contraseña incorrectos.';
+  }
+  if(code==='auth/network-request-failed') return 'No hay conexión con Firebase. Revisa tu internet.';
+  if(code==='auth/too-many-requests') return 'Demasiados intentos fallidos. Espera un momento antes de volver a intentar.';
+  return 'No se pudo completar la operación (' + (code || (err&&err.message) || 'error desconocido') + '). Revisa la consola del navegador.';
+}
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('show');
+  document.getElementById('modal-content').innerHTML='';
+}
+document.getElementById('modal-overlay').addEventListener('click',function(e){
+  if(e.target===this) closeModal();
+});
+
+/* ══════════════════ Estado de sesión y datos ══════════════════ */
+let currentUser=null;      // {username,nombre,role,grupo,activo}
+let tiendasCatalogo=[];    // [{cve_pdv,plaza,activo}] — solo lectura, de Directorio
+let allTickets=[];
+let ticketLimit=300;
+let searchQuery='';
+let estadoFilter='todos';
+let grupoFilter='todos';
+
+/* ══════════════════ LOGIN / REGISTRO ══════════════════ */
+document.getElementById('tab-login-btn').addEventListener('click',()=>switchAuthTab('login'));
+document.getElementById('tab-register-btn').addEventListener('click',()=>switchAuthTab('register'));
+function switchAuthTab(mode){
+  document.getElementById('tab-login-btn').classList.toggle('active',mode==='login');
+  document.getElementById('tab-register-btn').classList.toggle('active',mode==='register');
+  document.getElementById('login-form').style.display=mode==='login'?'block':'none';
+  document.getElementById('register-form').style.display=mode==='register'?'block':'none';
+  const errEl=document.getElementById('login-error');
+  errEl.classList.remove('show'); errEl.textContent='';
+}
+
+document.getElementById('login-form').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const u=document.getElementById('login-user').value.trim().toLowerCase();
+  const p=document.getElementById('login-pass').value;
+  const errEl=document.getElementById('login-error');
+  const btn=e.target.querySelector('button[type="submit"]');
+  btn.disabled=true;
+  try{
+    await auth.signInWithEmailAndPassword(u+'@'+AUTH_DOMAIN, p);
+    errEl.classList.remove('show');
+  }catch(err){
+    console.error(err);
+    errEl.textContent=authErrorMessage(err);
+    errEl.classList.add('show');
+  }
+  btn.disabled=false;
+});
+
+document.getElementById('register-form').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const u=document.getElementById('reg-user').value.trim().toLowerCase();
+  const nombre=document.getElementById('reg-nombre').value.trim();
+  const p=document.getElementById('reg-pass').value;
+  const errEl=document.getElementById('login-error');
+  const btn=e.target.querySelector('button[type="submit"]');
+  if(!/^[a-z0-9._-]{3,}$/.test(u)){ errEl.textContent='Usuario inválido (solo letras, números, puntos y guiones, mínimo 3 caracteres).'; errEl.classList.add('show'); return; }
+  if(!nombre){ errEl.textContent='Escribe tu nombre completo.'; errEl.classList.add('show'); return; }
+  btn.disabled=true;
+  try{
+    const cred=await auth.createUserWithEmailAndPassword(u+'@'+AUTH_DOMAIN, p);
+    await db.collection(PERFILES_COLLECTION).doc(u).set({
+      username:u, nombre, role:'usuario', grupo:null, activo:true, createdAt:Date.now()
+    });
+    errEl.classList.remove('show');
+  }catch(err){
+    console.error(err);
+    if(err.code==='auth/email-already-in-use') errEl.textContent='Ese usuario ya existe.';
+    else if(err.code==='auth/weak-password') errEl.textContent='La contraseña debe tener al menos 6 caracteres.';
+    else errEl.textContent=authErrorMessage(err);
+    errEl.classList.add('show');
+  }
+  btn.disabled=false;
+});
+
+document.getElementById('logout-btn').addEventListener('click',()=>auth.signOut());
+
+auth.onAuthStateChanged(async function(user){
+  if(user){
+    const username=(user.email||'').split('@')[0];
+    let perfil=null;
+    try{
+      const doc=await db.collection(PERFILES_COLLECTION).doc(username).get();
+      if(doc.exists) perfil=doc.data();
+      else{
+        // Bootstrap: si ya es admin en Dashboard/Directorio (colección compartida "usuarios"), se provisiona como admin aquí también.
+        const legacy=await db.collection(USUARIOS_COLLECTION).doc(username).get();
+        if(legacy.exists && legacy.data().role==='admin'){
+          perfil={username, nombre:legacy.data().label||username, role:'admin', grupo:null, activo:true, createdAt:Date.now()};
+          await db.collection(PERFILES_COLLECTION).doc(username).set(perfil);
+        }
+      }
+    }catch(err){ console.error('No se pudo leer el perfil de helpdesk', err); }
+
+    if(!perfil || perfil.activo===false){
+      toast('Tu cuenta no tiene un perfil activo en Mesa de Servicio. Pide a un administrador que te dé de alta.','error');
+      auth.signOut();
+      return;
+    }
+    currentUser={ username, nombre:perfil.nombre||username, role:perfil.role, grupo:perfil.grupo||null };
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').classList.add('show');
+    initApp();
+  } else {
+    currentUser=null;
+    document.getElementById('app').classList.remove('show');
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('login-pass').value='';
+    switchAuthTab('login');
+  }
+});
+
+/* ══════════════════ INIT APP ══════════════════ */
+async function initApp(){
+  document.getElementById('user-label').textContent=currentUser.nombre;
+  const roleTag=document.getElementById('role-tag');
+  const roleLabel = currentUser.role==='admin' ? 'Administrador' : currentUser.role==='ingeniero' ? currentUser.grupo : 'Solicitante';
+  roleTag.textContent=roleLabel;
+  roleTag.className='role-tag'+(currentUser.role==='admin'?' admin':'');
+
+  document.getElementById('admin-users-btn').style.display = currentUser.role==='admin' ? 'inline-block' : 'none';
+  document.getElementById('filter-grupo').style.display = currentUser.role==='usuario' ? 'none' : 'inline-block';
+
+  const estadoSel=document.getElementById('filter-estado');
+  Object.entries(ESTADOS).forEach(([k,v])=>{
+    const o=document.createElement('option'); o.value=k; o.textContent=v.label; estadoSel.appendChild(o);
+  });
+  const grupoSel=document.getElementById('filter-grupo');
+  GROUPS.forEach(g=>{ const o=document.createElement('option'); o.value=g; o.textContent=g; grupoSel.appendChild(o); });
+
+  cargarTiendas();
+  cargarTickets();
+}
+
+async function cargarTiendas(){
+  try{
+    const snap=await db.collection(TIENDAS_COLLECTION).get();
+    tiendasCatalogo=snap.docs.map(d=>d.data()).filter(t=>String(t.activo)==='1' && t.cve_pdv);
+  }catch(err){ console.error('No se pudo cargar el catálogo de tiendas de Directorio', err); }
+}
+
+/* ══════════════════ TICKETS: carga y numeración ══════════════════ */
+async function cargarTickets(){
+  try{
+    const snap=await db.collection(TICKETS_COLLECTION).orderBy('createdAt','desc').limit(ticketLimit).get();
+    allTickets=snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderTickets();
+  }catch(err){
+    console.error(err);
+    toast('No se pudieron cargar los tickets.','error');
+  }
+}
+document.getElementById('refresh-btn').addEventListener('click', cargarTickets);
+document.getElementById('load-more-btn').addEventListener('click', ()=>{ ticketLimit+=300; cargarTickets(); });
+
+async function nextTicketNumber(){
+  const ref=db.collection(META_COLLECTION).doc('contador');
+  const numero=await db.runTransaction(async tx=>{
+    const doc=await tx.get(ref);
+    const actual=doc.exists ? (doc.data().valor||0) : 0;
+    const siguiente=actual+1;
+    tx.set(ref,{valor:siguiente},{merge:true});
+    return siguiente;
+  });
+  return 'PRM-'+String(numero).padStart(6,'0');
+}
+
+function pushHistory(ticket, accion, detalle){
+  return {
+    historial:[...(ticket.historial||[]), {ts:Date.now(), autor:currentUser.nombre, accion, detalle}],
+    updatedAt:Date.now(),
+  };
+}
+async function actualizarTicket(id, patch){
+  await db.collection(TICKETS_COLLECTION).doc(id).update(patch);
+  await cargarTickets();
+}
+
+async function crearTicket({titulo, descripcion, categoriaId, prioridad, areaTexto, areaCvePdv}){
+  const cat=CATEGORIES.find(c=>c.id===Number(categoriaId));
+  const numero=await nextTicketNumber();
+  const now=Date.now();
+  const t={
+    numero, titulo, descripcion:descripcion||'',
+    categoriaId:cat.id, categoriaLabel:categoryLabel(cat.path), grupo:cat.grupo,
+    prioridad, estado:'abierto', areaTexto:areaTexto||'', areaCvePdv:areaCvePdv||null,
+    solicitante:currentUser.username, solicitanteNombre:currentUser.nombre,
+    agente:null, agenteNombre:null,
+    createdAt:now, updatedAt:now,
+    historial:[{ts:now, autor:currentUser.nombre, accion:'Creación', detalle:`Ticket creado en ${cat.grupo}`}],
+  };
+  await db.collection(TICKETS_COLLECTION).add(t);
+  await cargarTickets();
+}
+
+async function tomarTicket(t){
+  await actualizarTicket(t.id, { agente:currentUser.username, agenteNombre:currentUser.nombre, estado:'en_progreso', ...pushHistory(t,'Tomado',`Asignado a ${currentUser.nombre}`) });
+}
+async function resolverTicket(t, solucion){
+  await actualizarTicket(t.id, { estado:'resuelto', ...pushHistory(t,'Resuelto', solucion||'Ticket marcado como resuelto') });
+}
+async function cerrarTicket(t){
+  await actualizarTicket(t.id, { estado:'cerrado', ...pushHistory(t,'Cerrado','Ticket cerrado') });
+}
+async function rechazarTicket(t, motivo){
+  await actualizarTicket(t.id, { estado:'rechazado', ...pushHistory(t,'Rechazado', motivo||'Sin motivo especificado') });
+}
+async function reasignarTicket(t, grupo, agente){
+  const nuevoEstado = (t.estado==='rechazado'||t.estado==='cerrado') ? 'abierto' : t.estado;
+  await actualizarTicket(t.id, {
+    grupo:grupo||t.grupo, agente: agente ? agente.username : null, agenteNombre: agente ? agente.nombre : null,
+    estado:nuevoEstado, ...pushHistory(t,'Reasignado', `Grupo: ${grupo||t.grupo}${agente?' · Agente: '+agente.nombre:' · Sin agente'}`)
+  });
+}
+async function recategorizarTicket(t, categoriaId){
+  const cat=CATEGORIES.find(c=>c.id===Number(categoriaId));
+  await actualizarTicket(t.id, { categoriaId:cat.id, categoriaLabel:categoryLabel(cat.path), grupo:cat.grupo, ...pushHistory(t,'Recategorizado', `Nueva categoría: ${categoryLabel(cat.path)} → ${cat.grupo}`) });
+}
+
+/* ══════════════════ Visibilidad por rol ══════════════════ */
+function ticketsVisibles(){
+  let base=allTickets;
+  if(currentUser.role==='usuario') base=base.filter(t=>t.solicitante===currentUser.username);
+  else if(currentUser.role==='ingeniero') base=base.filter(t=>t.grupo===currentUser.grupo || t.agente===currentUser.username);
+  const q=searchQuery.trim().toLowerCase();
+  return base
+    .filter(t=>estadoFilter==='todos' || t.estado===estadoFilter)
+    .filter(t=>grupoFilter==='todos' || t.grupo===grupoFilter)
+    .filter(t=>{
+      if(!q) return true;
+      return (t.titulo||'').toLowerCase().includes(q) || (t.numero||'').toLowerCase().includes(q) ||
+             (t.categoriaLabel||'').toLowerCase().includes(q) || (t.agenteNombre||'').toLowerCase().includes(q) ||
+             (t.solicitanteNombre||'').toLowerCase().includes(q);
+    })
+    .sort((a,b)=>b.createdAt-a.createdAt);
+}
+function poolPropio(){
+  if(currentUser.role==='usuario') return allTickets.filter(t=>t.solicitante===currentUser.username);
+  if(currentUser.role==='ingeniero') return allTickets.filter(t=>t.grupo===currentUser.grupo || t.agente===currentUser.username);
+  return allTickets;
+}
+function canAct(t){
+  return currentUser.role==='admin' || (currentUser.role==='ingeniero' && (t.grupo===currentUser.grupo || t.agente===currentUser.username));
+}
+
+/* ══════════════════ Render lista ══════════════════ */
+document.getElementById('search-input').addEventListener('input', e=>{ searchQuery=e.target.value; renderTickets(); });
+document.getElementById('filter-estado').addEventListener('change', e=>{ estadoFilter=e.target.value; renderTickets(); });
+document.getElementById('filter-grupo').addEventListener('change', e=>{ grupoFilter=e.target.value; renderTickets(); });
+
+function renderTickets(){
+  const pool=poolPropio();
+  const stats={
+    abiertos: pool.filter(t=>t.estado==='abierto').length,
+    progreso: pool.filter(t=>t.estado==='en_progreso').length,
+    urgentes: pool.filter(t=>t.prioridad==='urgente' && !['resuelto','cerrado','rechazado'].includes(t.estado)).length,
+    resueltos: pool.filter(t=>t.estado==='resuelto').length,
+  };
+  document.getElementById('stats-row').innerHTML = [
+    ['Abiertos',stats.abiertos,'#C6421B'],['En progreso',stats.progreso,'#B8791E'],['Urgentes',stats.urgentes,'#7A1F1A'],['Resueltos',stats.resueltos,'#1E8E5A']
+  ].map(([lbl,val,color])=>`<div class="stat-card"><div class="num" style="color:${color}">${val}</div><div class="lbl">${lbl}</div></div>`).join('');
+
+  const visibles=ticketsVisibles();
+  document.getElementById('result-count').textContent = `${visibles.length} ticket${visibles.length===1?'':'s'}`;
+  const grid=document.getElementById('ticket-grid');
+
+  if(visibles.length===0){
+    grid.innerHTML='<div class="empty-state"><div class="big">🗂️</div>No hay tickets que coincidan con tu búsqueda o filtros.</div>';
+  } else {
+    grid.innerHTML = visibles.map(t=>{
+      const st=ESTADOS[t.estado]||ESTADOS.abierto;
+      const pr=PRIORIDADES[t.prioridad]||PRIORIDADES.media;
+      return `<button class="ticket-card" data-id="${esc(t.id)}">
+        <div class="ticket-bar" style="background:${pr.color}"></div>
+        <div class="ticket-body">
+          <div class="ticket-top">
+            <span class="ticket-num">${esc(t.numero)}</span>
+            <span class="chip" style="background:${st.color}18;color:${st.color}">${esc(st.label)}</span>
+            <span class="chip" style="background:${pr.color}18;color:${pr.color}">${esc(pr.label)}</span>
+          </div>
+          <h3 class="ticket-title">${esc(t.titulo)}</h3>
+          <div class="ticket-meta">
+            <span>📁 ${esc(t.categoriaLabel)}</span>
+            ${t.areaTexto?`<span>📍 ${esc(t.areaTexto)}</span>`:''}
+            <span>👤 ${esc(t.agenteNombre||'Sin asignar')}</span>
+            <span>🕒 ${timeAgo(t.createdAt)}</span>
+          </div>
+        </div>
+      </button>`;
+    }).join('');
+  }
+  document.getElementById('load-more-row').style.display = allTickets.length>=ticketLimit ? 'flex' : 'none';
+
+  grid.querySelectorAll('.ticket-card').forEach(btn=>{
+    btn.addEventListener('click', ()=>openDetalle(btn.dataset.id));
+  });
+}
+
+/* ══════════════════ Picker genérico (categorías / tiendas) ══════════════════ */
+function attachPicker({btnId, panelId, inputId, listId, items, keyOf, renderRow, getSearchText, onSelect}){
+  const byKey={}; items.forEach(it=>byKey[String(keyOf(it))]=it);
+  const btn=document.getElementById(btnId), panel=document.getElementById(panelId);
+  const input=document.getElementById(inputId), list=document.getElementById(listId);
+  function renderList(q){
+    const query=(q||'').trim().toLowerCase();
+    const filtered = query ? items.filter(it=>getSearchText(it).toLowerCase().includes(query)) : items;
+    const shown=filtered.slice(0,40);
+    list.innerHTML = shown.length ? shown.map(it=>renderRow(it,keyOf(it))).join('') : '<div class="picker-empty">Sin resultados</div>';
+  }
+  btn.addEventListener('click', ()=>{
+    const willShow=!panel.classList.contains('show');
+    panel.classList.toggle('show', willShow);
+    if(willShow){ input.value=''; renderList(''); input.focus(); }
+  });
+  input.addEventListener('input', ()=>renderList(input.value));
+  list.addEventListener('click', e=>{
+    const row=e.target.closest('[data-key]'); if(!row) return;
+    onSelect(byKey[row.dataset.key]); panel.classList.remove('show');
+  });
+  document.addEventListener('click', e=>{
+    if(!panel.contains(e.target) && !btn.contains(e.target)) panel.classList.remove('show');
+  }, true);
+  renderList('');
+}
+
+/* ══════════════════ Modal: Nuevo ticket ══════════════════ */
+document.getElementById('new-ticket-btn').addEventListener('click', openNuevoTicket);
+function openNuevoTicket(){
+  document.getElementById('modal-content').innerHTML = `
+    <h2>Nuevo ticket</h2>
+    <p class="modal-sub">Se enruta automáticamente al grupo de soporte según la categoría.</p>
+    <div class="field"><label>Título</label><input type="text" id="nt-titulo" placeholder="Ej. La terminal POS no enciende"></div>
+    <div class="field">
+      <label>Categoría (catálogo InvGate)</label>
+      <div class="picker">
+        <button type="button" class="btn btn-ghost picker-btn" id="nt-cat-btn"><span class="placeholder" id="nt-cat-label">Selecciona una categoría del catálogo…</span><span>▾</span></button>
+        <div class="picker-panel" id="nt-cat-panel">
+          <div class="picker-search"><input type="text" id="nt-cat-search" placeholder="Buscar: laptop, VPN, POS…"></div>
+          <div class="picker-list" id="nt-cat-list"></div>
+        </div>
+      </div>
+      <div class="picker-route" id="nt-cat-route" style="display:none;"></div>
+    </div>
+    <div class="field"><label>Descripción</label><textarea id="nt-desc" placeholder="Detalla el problema…"></textarea></div>
+    <div class="modal-grid">
+      <div class="field"><label>Prioridad</label>
+        <select id="nt-prioridad">${Object.entries(PRIORIDADES).map(([k,v])=>`<option value="${k}" ${k==='media'?'selected':''}>${v.label}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>Área / Tienda</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="nt-area" placeholder="Ej. Tienda Polanco / Trade Marketing" style="flex:1;">
+          <button type="button" class="btn btn-ghost" id="nt-area-btn" title="Buscar tienda del catálogo">🔍</button>
+        </div>
+        <div class="picker" style="position:relative;">
+          <div class="picker-panel" id="nt-area-panel">
+            <div class="picker-search"><input type="text" id="nt-area-search" placeholder="Buscar por clave PDV o nombre…"></div>
+            <div class="picker-list" id="nt-area-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="nt-error" class="login-error"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="nt-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="nt-submit">Crear ticket</button>
+    </div>
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+  let categoriaId=null, areaCvePdv=null;
+
+  attachPicker({
+    btnId:'nt-cat-btn', panelId:'nt-cat-panel', inputId:'nt-cat-search', listId:'nt-cat-list',
+    items:CATEGORIES, keyOf:c=>c.id,
+    getSearchText:c=>categoryLabel(c.path),
+    renderRow:(c,key)=>`<button type="button" class="picker-row" data-key="${key}">${esc(categoryLabel(c.path))}<span class="grp">${esc(c.grupo)}</span></button>`,
+    onSelect:(c)=>{
+      categoriaId=c.id;
+      document.getElementById('nt-cat-label').textContent=categoryLabel(c.path);
+      document.getElementById('nt-cat-label').classList.remove('placeholder');
+      const route=document.getElementById('nt-cat-route');
+      route.style.display='flex'; route.innerHTML=`Se enruta a: <strong style="color:var(--signal-dark)">${esc(c.grupo)}</strong>`;
+    }
+  });
+
+  attachPicker({
+    btnId:'nt-area-btn', panelId:'nt-area-panel', inputId:'nt-area-search', listId:'nt-area-list',
+    items:tiendasCatalogo, keyOf:t=>t.cve_pdv,
+    getSearchText:t=>`${t.plaza||''} ${t.cve_pdv||''}`,
+    renderRow:(t,key)=>`<button type="button" class="picker-row" data-key="${esc(key)}">${esc(t.plaza||t.cve_pdv)}<span class="grp">${esc(t.cve_pdv)}</span></button>`,
+    onSelect:(t)=>{ areaCvePdv=t.cve_pdv; document.getElementById('nt-area').value = t.plaza || t.cve_pdv; }
+  });
+
+  document.getElementById('nt-cancel').addEventListener('click', closeModal);
+  document.getElementById('nt-submit').addEventListener('click', async ()=>{
+    const titulo=document.getElementById('nt-titulo').value.trim();
+    const errEl=document.getElementById('nt-error');
+    if(!titulo){ errEl.textContent='Escribe un título para el ticket.'; errEl.classList.add('show'); return; }
+    if(!categoriaId){ errEl.textContent='Selecciona una categoría del catálogo.'; errEl.classList.add('show'); return; }
+    const btn=document.getElementById('nt-submit'); btn.disabled=true;
+    try{
+      await crearTicket({
+        titulo, descripcion:document.getElementById('nt-desc').value.trim(),
+        categoriaId, prioridad:document.getElementById('nt-prioridad').value,
+        areaTexto:document.getElementById('nt-area').value.trim(), areaCvePdv
+      });
+      closeModal(); toast('Ticket creado correctamente.','ok');
+    }catch(err){ console.error(err); errEl.textContent='No se pudo crear el ticket.'; errEl.classList.add('show'); btn.disabled=false; }
+  });
+}
+
+/* ══════════════════ Modal: Detalle de ticket ══════════════════ */
+function openDetalle(id){
+  const t=allTickets.find(x=>x.id===id);
+  if(!t) return;
+  const st=ESTADOS[t.estado]||ESTADOS.abierto;
+  const activo=!['cerrado','rechazado'].includes(t.estado);
+  const puede=canAct(t);
+
+  let acciones='';
+  if(puede && activo){
+    acciones = `<div class="action-row">
+      ${(!t.agente || t.agente!==currentUser.username) ? `<button class="action-btn" data-act="tomar" style="border-color:#0C859940;color:var(--signal);background:#0C859912;">Tomar ticket</button>` : ''}
+      <button class="action-btn" data-act="resolver" style="border-color:#1E8E5A40;color:#1E8E5A;background:#1E8E5A12;">Resolver</button>
+      <button class="action-btn" data-act="cerrar" style="border-color:#6B728040;color:#6B7280;background:#6B728012;">Cerrar</button>
+      <button class="action-btn" data-act="rechazar" style="border-color:#C6421B40;color:#C6421B;background:#C6421B12;">Rechazar</button>
+      <button class="action-btn" data-act="reasignar" style="border-color:#B8791E40;color:#B8791E;background:#B8791E12;">Reasignar</button>
+      <button class="action-btn" data-act="recategorizar" style="border-color:#6E4C8A40;color:#6E4C8A;background:#6E4C8A12;">Recategorizar</button>
+    </div>`;
+  } else if(puede && !activo){
+    acciones = `<div class="action-row"><button class="action-btn" data-act="reasignar" style="border-color:#B8791E40;color:#B8791E;background:#B8791E12;">Reabrir y reasignar</button></div>`;
+  }
+
+  document.getElementById('modal-content').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <span class="ticket-num">${esc(t.numero)}</span>
+      <span class="chip" style="background:${st.color}18;color:${st.color}">${esc(st.label)}</span>
+    </div>
+    <h2>${esc(t.titulo)}</h2>
+    <p class="modal-sub" style="white-space:pre-wrap;">${esc(t.descripcion)||'Sin descripción.'}</p>
+    <div class="detail-info">
+      <div class="box"><div class="k">Categoría</div><div class="v">${esc(t.categoriaLabel)}</div></div>
+      <div class="box"><div class="k">Grupo asignado</div><div class="v">${esc(t.grupo)}</div></div>
+      <div class="box"><div class="k">Prioridad</div><div class="v">${esc((PRIORIDADES[t.prioridad]||{}).label)}</div></div>
+      <div class="box"><div class="k">Área / Tienda</div><div class="v">${esc(t.areaTexto)||'—'}</div></div>
+      <div class="box"><div class="k">Solicitante</div><div class="v">${esc(t.solicitanteNombre)}</div></div>
+      <div class="box"><div class="k">Agente asignado</div><div class="v">${esc(t.agenteNombre)||'Sin asignar'}</div></div>
+    </div>
+    ${acciones}
+    <div class="history-section">
+      <h3>Bitácora</h3>
+      ${(t.historial||[]).slice().reverse().map(h=>`
+        <div class="history-item">
+          <div class="history-dot"></div>
+          <div>
+            <div><span class="accion">${esc(h.accion)}</span> · ${esc(h.autor)}</div>
+            <div class="detalle">${esc(h.detalle)}</div>
+            <div class="ts">${fmtDateTime(h.ts)}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="detalle-cerrar">Cerrar</button></div>
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+  document.getElementById('detalle-cerrar').addEventListener('click', closeModal);
+
+  document.getElementById('modal-content').querySelectorAll('[data-act]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const act=btn.dataset.act;
+      const fresh=allTickets.find(x=>x.id===id)||t;
+      if(act==='tomar'){ await tomarTicket(fresh); openDetalle(id); toast('Ticket tomado.','ok'); }
+      else if(act==='cerrar'){ await cerrarTicket(fresh); openDetalle(id); toast('Ticket cerrado.','ok'); }
+      else if(act==='resolver') openTextAction(fresh, {titulo:'Resolver ticket', label:'Solución aplicada', placeholder:'Describe cómo se resolvió…', confirmLabel:'Marcar como resuelto', color:'#1E8E5A', onConfirm:async v=>{ await resolverTicket(fresh,v); openDetalle(id); toast('Ticket resuelto.','ok'); } });
+      else if(act==='rechazar') openTextAction(fresh, {titulo:'Rechazar ticket', label:'Motivo del rechazo', placeholder:'Explica por qué se rechaza…', confirmLabel:'Rechazar ticket', color:'#C6421B', required:true, onConfirm:async v=>{ await rechazarTicket(fresh,v); openDetalle(id); toast('Ticket rechazado.','ok'); } });
+      else if(act==='reasignar') openReasignar(fresh, id);
+      else if(act==='recategorizar') openRecategorizar(fresh, id);
+    });
+  });
+}
+
+function openTextAction(t, {titulo,label,placeholder,confirmLabel,color,required,onConfirm}){
+  document.getElementById('modal-content').innerHTML = `
+    <h2>${esc(titulo)}</h2>
+    <div class="field"><label>${esc(label)}</label><textarea id="ta-text" placeholder="${esc(placeholder)}"></textarea></div>
+    <div id="ta-error" class="login-error"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="ta-cancel">Cancelar</button>
+      <button class="btn" id="ta-confirm" style="background:${color};color:#fff;">${esc(confirmLabel)}</button>
+    </div>
+  `;
+  document.getElementById('ta-cancel').addEventListener('click', ()=>openDetalle(t.id));
+  document.getElementById('ta-confirm').addEventListener('click', async ()=>{
+    const v=document.getElementById('ta-text').value.trim();
+    if(required && !v){ const e=document.getElementById('ta-error'); e.textContent='Este campo es obligatorio.'; e.classList.add('show'); return; }
+    const btn=document.getElementById('ta-confirm'); btn.disabled=true;
+    await onConfirm(v);
+  });
+}
+
+function openReasignar(t, id){
+  document.getElementById('modal-content').innerHTML = `
+    <h2>Reasignar ticket</h2>
+    <div class="field"><label>Grupo</label><select id="ra-grupo">${GROUPS.map(g=>`<option value="${esc(g)}" ${g===t.grupo?'selected':''}>${esc(g)}</option>`).join('')}</select></div>
+    <div class="field"><label>Agente</label><div class="hint" style="margin-bottom:6px;">Déjalo vacío para dejarlo sin asignar dentro del grupo.</div><select id="ra-agente"><option value="">Sin asignar</option></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="ra-cancel">Cancelar</button>
+      <button class="btn" id="ra-confirm" style="background:#B8791E;color:#fff;">Reasignar</button>
+    </div>
+  `;
+  async function poblarAgentes(grupo){
+    const snap=await db.collection(PERFILES_COLLECTION).where('activo','!=',false).get().catch(()=>null);
+    const perfiles = snap ? snap.docs.map(d=>d.data()) : [];
+    const disponibles = perfiles.filter(p=>p.role==='admin' || (p.role==='ingeniero' && p.grupo===grupo));
+    const sel=document.getElementById('ra-agente');
+    sel.innerHTML='<option value="">Sin asignar</option>'+disponibles.map(p=>`<option value="${esc(p.username)}" ${p.username===t.agente?'selected':''}>${esc(p.nombre)}</option>`).join('');
+  }
+  poblarAgentes(t.grupo);
+  document.getElementById('ra-grupo').addEventListener('change', e=>poblarAgentes(e.target.value));
+  document.getElementById('ra-cancel').addEventListener('click', ()=>openDetalle(id));
+  document.getElementById('ra-confirm').addEventListener('click', async ()=>{
+    const grupo=document.getElementById('ra-grupo').value;
+    const agenteUsername=document.getElementById('ra-agente').value;
+    const btn=document.getElementById('ra-confirm'); btn.disabled=true;
+    let agente=null;
+    if(agenteUsername){
+      const doc=await db.collection(PERFILES_COLLECTION).doc(agenteUsername).get();
+      agente = doc.exists ? {username:agenteUsername, nombre:doc.data().nombre} : null;
+    }
+    await reasignarTicket(t, grupo, agente);
+    openDetalle(id); toast('Ticket reasignado.','ok');
+  });
+}
+
+function openRecategorizar(t, id){
+  document.getElementById('modal-content').innerHTML = `
+    <h2>Recategorizar ticket</h2>
+    <div class="field">
+      <label>Nueva categoría</label>
+      <div class="picker">
+        <button type="button" class="btn btn-ghost picker-btn" id="rc-cat-btn"><span id="rc-cat-label">${esc(t.categoriaLabel)}</span><span>▾</span></button>
+        <div class="picker-panel" id="rc-cat-panel">
+          <div class="picker-search"><input type="text" id="rc-cat-search" placeholder="Buscar categoría…"></div>
+          <div class="picker-list" id="rc-cat-list"></div>
+        </div>
+      </div>
+      <div class="hint">El grupo se actualiza automáticamente según la categoría elegida.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="rc-cancel">Cancelar</button>
+      <button class="btn" id="rc-confirm" style="background:#6E4C8A;color:#fff;">Guardar categoría</button>
+    </div>
+  `;
+  let categoriaId=t.categoriaId;
+  attachPicker({
+    btnId:'rc-cat-btn', panelId:'rc-cat-panel', inputId:'rc-cat-search', listId:'rc-cat-list',
+    items:CATEGORIES, keyOf:c=>c.id, getSearchText:c=>categoryLabel(c.path),
+    renderRow:(c,key)=>`<button type="button" class="picker-row" data-key="${key}">${esc(categoryLabel(c.path))}<span class="grp">${esc(c.grupo)}</span></button>`,
+    onSelect:(c)=>{ categoriaId=c.id; document.getElementById('rc-cat-label').textContent=categoryLabel(c.path); }
+  });
+  document.getElementById('rc-cancel').addEventListener('click', ()=>openDetalle(id));
+  document.getElementById('rc-confirm').addEventListener('click', async ()=>{
+    document.getElementById('rc-confirm').disabled=true;
+    await recategorizarTicket(t, categoriaId);
+    openDetalle(id); toast('Categoría actualizada.','ok');
+  });
+}
+
+/* ══════════════════ Admin: gestionar ingenieros ══════════════════ */
+document.getElementById('admin-users-btn').addEventListener('click', openAdminUsuarios);
+async function openAdminUsuarios(){
+  document.getElementById('modal-content').innerHTML = `
+    <h2>Gestionar ingenieros</h2>
+    <p class="modal-sub">Da de alta perfiles de ingeniero/administrador dentro de Mesa de Servicio.</p>
+    <table class="admin-table" id="admin-tabla"><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Grupo</th><th></th></tr></thead><tbody></tbody></table>
+    <div class="modal-grid">
+      <div class="field full"><label>Usuario</label><input type="text" id="au-user" placeholder="usuario ya existente o nuevo"></div>
+      <div class="field"><label>Nombre completo</label><input type="text" id="au-nombre"></div>
+      <div class="field"><label>Rol</label><select id="au-role"><option value="ingeniero">Ingeniero</option><option value="admin">Administrador</option></select></div>
+      <div class="field" id="au-grupo-field"><label>Grupo de soporte</label><select id="au-grupo">${GROUPS.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select></div>
+      <div class="field full"><label>Contraseña (solo si el usuario aún no tiene cuenta en ninguna app de PrimeMX)</label><input type="password" id="au-pass" placeholder="Dejar vacío si ya tiene cuenta"></div>
+    </div>
+    <div id="au-error" class="login-error"></div>
+    <div class="modal-actions split">
+      <button class="btn btn-ghost" id="au-cancel">Cerrar</button>
+      <button class="btn btn-primary" id="au-submit">Guardar perfil</button>
+    </div>
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+  document.getElementById('au-role').addEventListener('change', e=>{
+    document.getElementById('au-grupo-field').style.display = e.target.value==='ingeniero' ? 'block' : 'none';
+  });
+
+  async function cargarTabla(){
+    const snap=await db.collection(PERFILES_COLLECTION).where('role','in',['ingeniero','admin']).get();
+    const filas=snap.docs.map(d=>d.data());
+    document.querySelector('#admin-tabla tbody').innerHTML = filas.map(p=>`
+      <tr><td>${esc(p.username)}</td><td>${esc(p.nombre)}</td><td>${esc(p.role)}</td><td>${esc(p.grupo||'—')}</td>
+      <td><button class="btn btn-ghost" data-toggle="${esc(p.username)}" style="padding:4px 8px;font-size:11.5px;">${p.activo===false?'Reactivar':'Desactivar'}</button></td></tr>
+    `).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--ink-soft);">Sin ingenieros/administradores dados de alta todavía.</td></tr>';
+
+    document.querySelectorAll('[data-toggle]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const username=btn.dataset.toggle;
+        const doc=await db.collection(PERFILES_COLLECTION).doc(username).get();
+        const activo = doc.data().activo===false;
+        await db.collection(PERFILES_COLLECTION).doc(username).update({activo});
+        cargarTabla();
+      });
+    });
+  }
+  cargarTabla();
+
+  document.getElementById('au-cancel').addEventListener('click', closeModal);
+  document.getElementById('au-submit').addEventListener('click', async ()=>{
+    const username=document.getElementById('au-user').value.trim().toLowerCase();
+    const nombre=document.getElementById('au-nombre').value.trim();
+    const role=document.getElementById('au-role').value;
+    const grupo=role==='ingeniero' ? document.getElementById('au-grupo').value : null;
+    const pass=document.getElementById('au-pass').value;
+    const errEl=document.getElementById('au-error');
+    if(!/^[a-z0-9._-]{3,}$/.test(username)){ errEl.textContent='Usuario inválido.'; errEl.classList.add('show'); return; }
+    if(!nombre){ errEl.textContent='Escribe el nombre completo.'; errEl.classList.add('show'); return; }
+    const btn=document.getElementById('au-submit'); btn.disabled=true;
+    try{
+      if(pass){
+        // Cuenta nueva: se crea en una instancia secundaria de Firebase para no cerrar la sesión del admin actual.
+        const secondary = firebase.initializeApp(firebaseConfig, 'Secondary_'+Date.now());
+        await secondary.auth().createUserWithEmailAndPassword(username+'@'+AUTH_DOMAIN, pass);
+        await secondary.auth().signOut();
+        await secondary.delete();
+      }
+      await db.collection(PERFILES_COLLECTION).doc(username).set({ username, nombre, role, grupo, activo:true, createdAt:Date.now() }, {merge:true});
+      errEl.classList.remove('show');
+      toast('Perfil guardado.','ok');
+      document.getElementById('au-user').value=''; document.getElementById('au-nombre').value=''; document.getElementById('au-pass').value='';
+      cargarTabla();
+    }catch(err){
+      console.error(err);
+      errEl.textContent = err.code==='auth/email-already-in-use' ? 'Ese usuario ya tiene cuenta — deja la contraseña vacía para solo asignarle el perfil.' : 'No se pudo guardar el perfil.';
+      errEl.classList.add('show');
+    }
+    btn.disabled=false;
+  });
+}
+</script>
+</body>
+</html>
