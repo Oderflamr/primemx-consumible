@@ -52,9 +52,6 @@ input,select,textarea{font-family:inherit;}
 @keyframes pulseBar{0%,100%{opacity:.4;}50%{opacity:1;}}
 .login-card h1{font-size:20px;margin:0 0 2px;letter-spacing:-0.01em;}
 .login-card .sub{color:var(--ink-soft);font-size:13px;margin:0 0 20px;}
-.login-tabs{display:flex;background:var(--bg);border-radius:8px;padding:3px;margin-bottom:18px;font-size:13px;font-weight:600;}
-.login-tabs button{flex:1;border:none;background:transparent;border-radius:6px;padding:8px 0;color:var(--ink-soft);}
-.login-tabs button.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(18,32,49,0.12);}
 .field{margin-bottom:14px;}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;}
 .field input,.field select,.field textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#FAFBFB;color:var(--ink);}
@@ -199,25 +196,12 @@ main{flex:1;padding:20px;max-width:1200px;margin:0 auto;width:100%;}
     <h1>Mesa de Servicio</h1>
     <p class="sub">PrimeMX · Soporte IT interno</p>
 
-    <div class="login-tabs">
-      <button type="button" id="tab-login-btn" class="active">Iniciar sesión</button>
-      <button type="button" id="tab-register-btn">Crear cuenta</button>
-    </div>
-
     <div class="login-error" id="login-error"></div>
 
     <form id="login-form">
       <div class="field"><label>Usuario</label><input type="text" id="login-user" autocomplete="username" required></div>
       <div class="field"><label>Contraseña</label><input type="password" id="login-pass" autocomplete="current-password" required></div>
       <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
-    </form>
-
-    <form id="register-form" style="display:none;">
-      <div class="field"><label>Usuario</label><input type="text" id="reg-user" autocomplete="username" required></div>
-      <div class="field"><label>Nombre completo</label><input type="text" id="reg-nombre" required></div>
-      <div class="field"><label>Contraseña</label><input type="password" id="reg-pass" autocomplete="new-password" required></div>
-      <p class="field hint" style="margin:-8px 0 14px;">Se crea como cuenta de solicitante. Si eres ingeniero de soporte, pide a un administrador que te dé de alta con tu grupo asignado.</p>
-      <button type="submit" class="btn btn-primary btn-block">Crear cuenta</button>
     </form>
 
     <p class="login-hint">Acceso restringido al personal de PrimeMX. Contacta a IT si no tienes credenciales.</p>
@@ -332,6 +316,7 @@ main{flex:1;padding:20px;max-width:1200px;margin:0 auto;width:100%;}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 
 <script>
 /* ══════════════════ CONFIGURACIÓN FIREBASE (mismo proyecto que Dashboard IT / Directorio) ══════════════════ */
@@ -346,6 +331,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+const cloudFunctions = firebase.app().functions('us-central1');
+const ADMIN_MANAGE_TIENDA_URL = 'https://admin-manage-tienda-account-796822637748.us-central1.run.app';
+const adminManageTiendaAccount = cloudFunctions.httpsCallableFromURL(ADMIN_MANAGE_TIENDA_URL);
 const AUTH_DOMAIN = "primecommsmx.com";
 const PERFILES_COLLECTION = "helpdesk_perfiles";
 const TICKETS_COLLECTION = "helpdesk_tickets";
@@ -439,21 +427,13 @@ let searchQuery='';
 let estadoFilter='todos';
 let grupoFilter='todos';
 
-/* ══════════════════ LOGIN / REGISTRO ══════════════════ */
-document.getElementById('tab-login-btn').addEventListener('click',()=>switchAuthTab('login'));
-document.getElementById('tab-register-btn').addEventListener('click',()=>switchAuthTab('register'));
-function switchAuthTab(mode){
-  document.getElementById('tab-login-btn').classList.toggle('active',mode==='login');
-  document.getElementById('tab-register-btn').classList.toggle('active',mode==='register');
-  document.getElementById('login-form').style.display=mode==='login'?'block':'none';
-  document.getElementById('register-form').style.display=mode==='register'?'block':'none';
-  const errEl=document.getElementById('login-error');
-  errEl.classList.remove('show'); errEl.textContent='';
-}
-
+/* ══════════════════ LOGIN ══════════════════ */
 document.getElementById('login-form').addEventListener('submit', async function(e){
   e.preventDefault();
-  const u=document.getElementById('login-user').value.trim().toLowerCase();
+  const raw=document.getElementById('login-user').value.trim();
+  // Acepta que la tienda escriba su nombre tal cual (ej. "PRM CDMX Florencia") — internamente
+  // el usuario técnico usa puntos en vez de espacios porque un correo no puede tener espacios.
+  const u = raw.includes(' ') ? slugifyUsername(raw) : raw.toLowerCase();
   const p=document.getElementById('login-pass').value;
   const errEl=document.getElementById('login-error');
   const btn=e.target.querySelector('button[type="submit"]');
@@ -464,32 +444,6 @@ document.getElementById('login-form').addEventListener('submit', async function(
   }catch(err){
     console.error(err);
     errEl.textContent=authErrorMessage(err);
-    errEl.classList.add('show');
-  }
-  btn.disabled=false;
-});
-
-document.getElementById('register-form').addEventListener('submit', async function(e){
-  e.preventDefault();
-  const u=document.getElementById('reg-user').value.trim().toLowerCase();
-  const nombre=document.getElementById('reg-nombre').value.trim();
-  const p=document.getElementById('reg-pass').value;
-  const errEl=document.getElementById('login-error');
-  const btn=e.target.querySelector('button[type="submit"]');
-  if(!/^[a-z0-9._-]{3,}$/.test(u)){ errEl.textContent='Usuario inválido (solo letras, números, puntos y guiones, mínimo 3 caracteres).'; errEl.classList.add('show'); return; }
-  if(!nombre){ errEl.textContent='Escribe tu nombre completo.'; errEl.classList.add('show'); return; }
-  btn.disabled=true;
-  try{
-    const cred=await auth.createUserWithEmailAndPassword(u+'@'+AUTH_DOMAIN, p);
-    await db.collection(PERFILES_COLLECTION).doc(u).set({
-      username:u, nombre, role:'usuario', grupo:null, activo:true, createdAt:Date.now()
-    });
-    errEl.classList.remove('show');
-  }catch(err){
-    console.error(err);
-    if(err.code==='auth/email-already-in-use') errEl.textContent='Ese usuario ya existe.';
-    else if(err.code==='auth/weak-password') errEl.textContent='La contraseña debe tener al menos 6 caracteres.';
-    else errEl.textContent=authErrorMessage(err);
     errEl.classList.add('show');
   }
   btn.disabled=false;
@@ -534,7 +488,6 @@ auth.onAuthStateChanged(async function(user){
     document.getElementById('change-password-screen').style.display='none';
     document.getElementById('login-screen').style.display='flex';
     document.getElementById('login-pass').value='';
-    switchAuthTab('login');
   }
 });
 
@@ -1351,6 +1304,7 @@ async function openProvisionarTienda(){
   `;
   document.getElementById('modal-overlay').classList.add('show');
   let tiendaSeleccionada=null;
+  let editandoUsername=null;
 
   attachPicker({
     btnId:'pt-tienda-btn', panelId:'pt-tienda-panel', inputId:'pt-tienda-search', listId:'pt-tienda-list',
@@ -1361,7 +1315,7 @@ async function openProvisionarTienda(){
       tiendaSeleccionada=t;
       document.getElementById('pt-tienda-label').textContent=t.plaza||t.cve_pdv;
       document.getElementById('pt-tienda-label').classList.remove('placeholder');
-      document.getElementById('pt-user').value=slugifyUsername(t.plaza||t.cve_pdv);
+      if(!editandoUsername) document.getElementById('pt-user').value=slugifyUsername(t.plaza||t.cve_pdv);
       document.getElementById('pt-crear').disabled=false;
     }
   });
@@ -1371,7 +1325,12 @@ async function openProvisionarTienda(){
     const filas = snap ? snap.docs.map(d=>d.data()) : [];
     document.querySelector('#pt-tabla tbody').innerHTML = filas.map(p=>`
       <tr><td>${esc(p.username)}</td><td>${esc(p.nombre)}</td><td>${p.debeCambiarPassword?'Sí, pendiente':'Ya la cambió'}</td>
-      <td><button class="btn btn-ghost" data-toggle-t="${esc(p.username)}" style="padding:4px 8px;font-size:11.5px;">${p.activo===false?'Reactivar':'Desactivar'}</button></td></tr>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-ghost" data-editar-t="${esc(p.username)}" style="padding:4px 8px;font-size:11.5px;">Editar</button>
+        <button class="btn btn-ghost" data-toggle-t="${esc(p.username)}" style="padding:4px 8px;font-size:11.5px;">${p.activo===false?'Reactivar':'Desactivar'}</button>
+        <button class="btn btn-ghost" data-resetpw-t="${esc(p.username)}" style="padding:4px 8px;font-size:11.5px;">Cambiar contraseña</button>
+        <button class="btn btn-ghost" data-eliminar-t="${esc(p.username)}" style="padding:4px 8px;font-size:11.5px;color:var(--warn);">Eliminar</button>
+      </td></tr>
     `).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--ink-soft);">Todavía no se ha provisionado ninguna tienda.</td></tr>';
     document.querySelectorAll('[data-toggle-t]').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
@@ -1382,8 +1341,52 @@ async function openProvisionarTienda(){
         cargarTablaTiendas();
       });
     });
+    document.querySelectorAll('[data-resetpw-t]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const username=btn.dataset.resetpwT;
+        if(!confirm(`¿Restablecer la contraseña de "${username}" a la genérica (${DEFAULT_TIENDA_PASSWORD})? Se le exigirá cambiarla de nuevo en su próximo ingreso.`)) return;
+        btn.disabled=true;
+        try{
+          await adminManageTiendaAccount({action:'resetPassword', targetUsername:username});
+          toast(`Contraseña de ${username} restablecida.`,'ok');
+        }catch(err){ console.error(err); toast('No se pudo restablecer la contraseña: '+(err.message||err.code),'error'); }
+        btn.disabled=false;
+      });
+    });
+    document.querySelectorAll('[data-eliminar-t]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const username=btn.dataset.eliminarT;
+        if(!confirm(`¿Eliminar por completo la cuenta "${username}"? Esta acción NO se puede deshacer.`)) return;
+        btn.disabled=true;
+        try{
+          await adminManageTiendaAccount({action:'delete', targetUsername:username});
+          toast(`Cuenta ${username} eliminada.`,'ok');
+          cargarTablaTiendas();
+        }catch(err){ console.error(err); toast('No se pudo eliminar la cuenta: '+(err.message||err.code),'error'); btn.disabled=false; }
+      });
+    });
+    document.querySelectorAll('[data-editar-t]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        editandoUsername=btn.dataset.editarT;
+        document.getElementById('pt-user').value=editandoUsername;
+        document.getElementById('pt-tienda-label').textContent='Elige la nueva tienda para esta cuenta…';
+        document.getElementById('pt-tienda-label').classList.add('placeholder');
+        document.getElementById('pt-crear').textContent='Guardar cambios';
+        document.getElementById('pt-crear').disabled=true;
+        tiendaSeleccionada=null;
+        document.getElementById('pt-user').scrollIntoView({behavior:'smooth', block:'center'});
+      });
+    });
   }
   cargarTablaTiendas();
+
+  function resetFormularioProvision(){
+    tiendaSeleccionada=null; editandoUsername=null;
+    document.getElementById('pt-tienda-label').textContent='Busca una tienda del catálogo…';
+    document.getElementById('pt-tienda-label').classList.add('placeholder');
+    document.getElementById('pt-user').value='';
+    document.getElementById('pt-crear').textContent='Provisionar cuenta';
+  }
 
   document.getElementById('pt-cancel').addEventListener('click', closeModal);
   document.getElementById('pt-crear').addEventListener('click', async ()=>{
@@ -1392,20 +1395,25 @@ async function openProvisionarTienda(){
     const username=document.getElementById('pt-user').value;
     const btn=document.getElementById('pt-crear'); btn.disabled=true;
     try{
-      const secondary = firebase.initializeApp(firebaseConfig, 'Secondary_'+Date.now());
-      await secondary.auth().createUserWithEmailAndPassword(username+'@'+AUTH_DOMAIN, DEFAULT_TIENDA_PASSWORD);
-      await secondary.auth().signOut();
-      await secondary.delete();
-      await db.collection(PERFILES_COLLECTION).doc(username).set({
-        username, nombre:tiendaSeleccionada.plaza||tiendaSeleccionada.cve_pdv, role:'usuario', grupo:null,
-        cveTienda:tiendaSeleccionada.cve_pdv, activo:true, debeCambiarPassword:true, createdAt:Date.now()
-      });
+      if(editandoUsername){
+        // Solo reasigna la tienda de una cuenta ya existente — no toca la contraseña ni la cuenta de Auth.
+        await db.collection(PERFILES_COLLECTION).doc(editandoUsername).update({
+          nombre:tiendaSeleccionada.plaza||tiendaSeleccionada.cve_pdv, cveTienda:tiendaSeleccionada.cve_pdv
+        });
+        toast(`Cuenta ${editandoUsername} actualizada.`,'ok');
+      } else {
+        const secondary = firebase.initializeApp(firebaseConfig, 'Secondary_'+Date.now());
+        await secondary.auth().createUserWithEmailAndPassword(username+'@'+AUTH_DOMAIN, DEFAULT_TIENDA_PASSWORD);
+        await secondary.auth().signOut();
+        await secondary.delete();
+        await db.collection(PERFILES_COLLECTION).doc(username).set({
+          username, nombre:tiendaSeleccionada.plaza||tiendaSeleccionada.cve_pdv, role:'usuario', grupo:null,
+          cveTienda:tiendaSeleccionada.cve_pdv, activo:true, debeCambiarPassword:true, createdAt:Date.now()
+        });
+        toast(`Cuenta creada: ${username} — contraseña inicial ${DEFAULT_TIENDA_PASSWORD}`,'ok');
+      }
       errEl.classList.remove('show');
-      toast(`Cuenta creada: ${username} — contraseña inicial ${DEFAULT_TIENDA_PASSWORD}`,'ok');
-      tiendaSeleccionada=null;
-      document.getElementById('pt-tienda-label').textContent='Busca una tienda del catálogo…';
-      document.getElementById('pt-tienda-label').classList.add('placeholder');
-      document.getElementById('pt-user').value='';
+      resetFormularioProvision();
       cargarTablaTiendas();
     }catch(err){
       console.error(err);
