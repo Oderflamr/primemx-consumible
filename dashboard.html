@@ -2129,11 +2129,37 @@ auth.onAuthStateChanged(async function(user){
       });
     }
 
+    // Validación de tickets de impresión vs Consumibles (agosto 2026) — estas 4 categorías del Excel
+    // corresponden 1:1 a los "Tipo" que ya maneja la app de Consumibles (TONER, UNIDAD DE IMAGEN, KIT
+    // MANTENIMIENTO, FALLA IMPRESORA). Se guarda aparte en Firestore (validacion_consumibles/pendientes,
+    // ver aplicarDatosTickets) para que el botón "Ver pendientes" de Consumibles la lea y cruce contra
+    // su propia colección `tickets` por número de Ticket exacto (columna "ID" de este mismo archivo) —
+    // no hay otro campo en común entre los dos sistemas. Solo se guardan los que ya están Abiertos y a
+    // partir de julio 2026, a petición explícita del cliente.
+    const CATEGORIA_A_TIPO_CONSUMIBLE = {
+      'Hardware > Multifuncionales e Impresoras > Solicitud de toner': 'TONER',
+      'Hardware > Multifuncionales e Impresoras > Solicitud de unidad de imagen': 'UNIDAD DE IMAGEN',
+      'Hardware > Multifuncionales e Impresoras > Solicitud Kit de mantenimiento': 'KIT MANTENIMIENTO',
+      'Hardware > Multifuncionales e Impresoras > Fallas con la Impresora': 'FALLA IMPRESORA'
+    };
+    const FECHA_INICIO_VALIDACION_CONSUMIBLES = new Date(2026, 6, 1);
+    const pendientesConsumibles = [];
+
     rows.forEach(row=>{
       const fc = parseFechaTicket(row['Fecha de creación']);
       if(!fc) return;
       const mIdx = fc.getMonth();
       if(mIdx > maxMonthIdx) maxMonthIdx = mIdx;
+
+      const tipoConsumible = CATEGORIA_A_TIPO_CONSUMIBLE[String(row['Categoría']||'').trim()];
+      if(tipoConsumible && String(row['Estado']).trim()==='Abierto' && fc >= FECHA_INICIO_VALIDACION_CONSUMIBLES){
+        pendientesConsumibles.push({
+          ticket: String(row['ID']),
+          tienda: extraerNombreCanonico(row['Cliente']),
+          tipo: tipoConsumible,
+          fecha: fc.toISOString()
+        });
+      }
 
       // Tickets Soporte: UNA sola fuente de verdad — TODOS los tickets del archivo, sin importar
       // categoría ni mesa de ayuda, EXCEPTO las 4 categorías de Mesa de Control (arriba). La tabla
@@ -2312,6 +2338,7 @@ auth.onAuthStateChanged(async function(user){
     return {
       fileName,
       periodo_actual: MESES[hasta],
+      pendientes_consumibles: pendientesConsumibles,
       tendencia_data: { TotalPlay: monthCounts.TotalPlay, Telmex: monthCounts.Telmex, Metrocarrier: monthCounts.Metrocarrier },
       velocidad_data: { TotalPlay: velocidadCounts.TotalPlay, Telmex: velocidadCounts.Telmex, Metrocarrier: velocidadCounts.Metrocarrier },
       atencion,
@@ -2383,6 +2410,15 @@ auth.onAuthStateChanged(async function(user){
     cargaPendiente = null;
     descripcionActualizacion = `Carga de Excel — Tickets y Caídas (${datos.fileName})`;
     save();
+    // Validación de tickets de impresión vs Consumibles (agosto 2026) — documento aparte, fuera del
+    // `state` de este dashboard, para que el botón "Ver pendientes" de index.html (Consumibles) lo
+    // pueda leer directo (mismo proyecto de Firebase). Si falla, no debe tumbar la carga principal de
+    // arriba — por eso va en su propio try/catch, después de que save() ya se disparó.
+    db.collection('validacion_consumibles').doc('pendientes').set({
+      archivo: datos.fileName,
+      actualizado: new Date().toISOString(),
+      tickets: datos.pendientes_consumibles
+    }).catch(err=>console.error('No se pudo guardar la validación de Consumibles', err));
   }
 
   function handleFileUpload(e){
