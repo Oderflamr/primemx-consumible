@@ -6158,6 +6158,16 @@ auth.onAuthStateChanged(async function(user){
     const cerradas = tiendas.filter(t=>t.estatus==='Cerrada');
     const esteMes = abiertas.filter(t=>t.mes.startsWith(state.periodo_actual)).length;
 
+    // Orden de la tabla por "#" (agosto 2026) — antes se mostraba tal cual venía en el arreglo, sin
+    // ordenar. Las tiendas sin número (Prospecto, todavía sin Clave PDV) quedan al final. Se guarda
+    // el índice ORIGINAL de cada tienda en `tiendas` (no la posición ya ordenada), porque editar/
+    // guardar/eliminar sigue escribiendo sobre `tiendas[i]` por ese índice original.
+    const ordenExpansion = tiendas.map((t,i)=>({t,i})).sort((a,b)=>{
+      const na = (a.t.numero===null || a.t.numero===undefined || a.t.numero==='') ? Infinity : Number(a.t.numero);
+      const nb = (b.t.numero===null || b.t.numero===undefined || b.t.numero==='') ? Infinity : Number(b.t.numero);
+      return na - nb;
+    });
+
     c.innerHTML = `
       <div class="title">Plan de expansión · PrimeMX ${state.anio}</div>
 
@@ -6193,7 +6203,7 @@ auth.onAuthStateChanged(async function(user){
             <th>#</th><th>Clave PDV</th><th>Tienda</th><th>Región</th><th>Mes</th>
             <th>PC</th><th>Lap</th><th>Internet</th><th>ARQ</th><th>Impresora</th><th>Estatus</th><th style="text-align:left;">Nota</th>${editing?'<th></th>':''}
           </tr></thead>
-          <tbody>${tiendas.map((t,i)=> editing ? `
+          <tbody>${ordenExpansion.map(({t,i})=> editing ? `
             <tr data-exp-row="${i}">
               <td><input type="text" style="width:44px;" data-exp-field="numero" data-exp-row="${i}" value="${t.numero!==null && t.numero!==undefined ? t.numero : ''}"></td>
               <td><input type="text" style="width:110px;" data-exp-field="clave" data-exp-row="${i}" value="${t.clave||''}"></td>
