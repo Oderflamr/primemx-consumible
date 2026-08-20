@@ -5050,6 +5050,17 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- Plan de expansion ----------
+  // Acota un arreglo de 24 horas a la ventana continua entre la primera y la última hora con datos
+  // (agosto 2026) — para que "por hora del día" no muestre de más las horas de la madrugada sin
+  // ningún ticket. Si no hay ningún dato, regresa las 24 horas tal cual (no debería pintarse, ya que
+  // el caller solo entra aquí cuando el total es mayor a 0).
+  function acotarPorHora(etiquetas, valores){
+    const primero = valores.findIndex(v=>v>0);
+    if(primero === -1) return { labels: etiquetas, valores };
+    let ultimo = valores.length - 1;
+    while(ultimo > primero && valores[ultimo] === 0) ultimo--;
+    return { labels: etiquetas.slice(primero, ultimo+1), valores: valores.slice(primero, ultimo+1) };
+  }
   // ---------- Ingenieros IT ----------
   function renderIngenieros(c){
     const hasta = idxMes(state.periodo_actual);
@@ -5078,6 +5089,7 @@ auth.onAuthStateChanged(async function(user){
     const soportePorHoraDia = ing.por_hora_dia || new Array(24).fill(0);
     const totalSoportePorHora = soportePorHoraDia.reduce((a,b)=>a+Number(b||0),0);
     const idxHoraPicoSoporte = soportePorHoraDia.reduce((iMax,v,i,arr)=> v>arr[iMax] ? i : iMax, 0);
+    const horaAcotadaSoporte = acotarPorHora(HORAS_DIA, soportePorHoraDia);
 
     c.innerHTML = `
       <div class="title">Tickets Soporte</div>
@@ -5122,7 +5134,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel"><canvas id="chartIngenierosDia"></canvas></div>
       `}
 
-      <h3 style="margin-top:24px;">Tickets Soporte por hora del día</h3>
+      <h3 style="margin-top:24px;">Tickets Soporte por hora</h3>
       ${totalSoportePorHora===0 ? `
       <div class="placeholder">
         <h3>Todavía no hay datos</h3>
@@ -5158,11 +5170,11 @@ auth.onAuthStateChanged(async function(user){
     if(charts.ingenierosHora) charts.ingenierosHora.destroy();
     if(totalSoportePorHora>0){
       charts.ingenierosHora = new Chart(document.getElementById('chartIngenierosHora'), {
-        type:'bar',
-        data:{ labels: HORAS_DIA, datasets:[
-          { label:'Tickets Soporte', data: soportePorHoraDia, backgroundColor: COLOR_SOPORTE, borderRadius:4 }
+        data:{ labels: horaAcotadaSoporte.labels, datasets:[
+          { type:'bar', label:'Tickets Soporte', data: horaAcotadaSoporte.valores, backgroundColor: COLOR_SOPORTE, borderRadius:4, order:2 },
+          { type:'line', label:'Tendencia', data: horaAcotadaSoporte.valores, borderColor:'#F59E0B', backgroundColor:'#F59E0B', tension:0.3, pointRadius:3, borderWidth:2.5, order:1 }
         ]},
-        options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+        options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
       });
     }
   }
@@ -5195,6 +5207,7 @@ auth.onAuthStateChanged(async function(user){
     const porHoraDia = tmc.por_hora_dia || new Array(24).fill(0);
     const totalPorHora = porHoraDia.reduce((a,b)=>a+Number(b||0),0);
     const idxHoraPico = porHoraDia.reduce((iMax,v,i,arr)=> v>arr[iMax] ? i : iMax, 0);
+    const horaAcotadaMC = acotarPorHora(HORAS_DIA, porHoraDia);
 
     const categorias = (tmc.categorias || []).map(r=>({...r, total: r.meses.reduce((x,y)=>x+Number(y||0),0)}))
       .sort((a,b)=>b.total-a.total);
@@ -5247,7 +5260,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel"><canvas id="chartTicketsMCDia"></canvas></div>
       `}
 
-      <h3 style="margin-top:24px;">Tickets de Mesa de Control por hora del día</h3>
+      <h3 style="margin-top:24px;">Tickets de Mesa de Control por hora</h3>
       ${totalPorHora===0 ? `
       <div class="placeholder">
         <h3>Todavía no hay datos</h3>
@@ -5317,11 +5330,11 @@ auth.onAuthStateChanged(async function(user){
     if(charts.ticketsmcHora) charts.ticketsmcHora.destroy();
     if(totalPorHora>0){
       charts.ticketsmcHora = new Chart(document.getElementById('chartTicketsMCHora'), {
-        type:'bar',
-        data:{ labels: HORAS_DIA, datasets:[
-          { label:'Tickets Mesa de Control', data: porHoraDia, backgroundColor: COLOR_MESA, borderRadius:4 }
+        data:{ labels: horaAcotadaMC.labels, datasets:[
+          { type:'bar', label:'Tickets Mesa de Control', data: horaAcotadaMC.valores, backgroundColor: COLOR_MESA, borderRadius:4, order:2 },
+          { type:'line', label:'Tendencia', data: horaAcotadaMC.valores, borderColor:'#F59E0B', backgroundColor:'#F59E0B', tension:0.3, pointRadius:3, borderWidth:2.5, order:1 }
         ]},
-        options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+        options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
       });
     }
   }
