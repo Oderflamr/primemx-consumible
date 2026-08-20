@@ -1201,7 +1201,7 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'PRM TDA TEHUACAN', carrier:'TELMEX', tecnologia:'MICROONDA', meses:[0,0,0,0,0,0,1,0]},
       {nombre:'PRM TDA MONUMENTO REVOLUCION CDMX', carrier:'TELMEX', tecnologia:'FIBRA', meses:[0,0,0,0,0,0,1,0]}
     ],
-    ingenieros: { mesa_soporte_it: [5389,4374,5590,4083,4136,3924,3733,550,0,0,0,0], por_dia_semana: [0,0,0,0,0,0,0], agentes: [
+    ingenieros: { mesa_soporte_it: [5389,4374,5590,4083,4136,3924,3733,550,0,0,0,0], por_dia_semana: [0,0,0,0,0,0,0], por_hora_dia: new Array(24).fill(0), agentes: [
       {nombre:'Angel Antonio Pérez González', meses:[657,457,614,361,430,300,261,69], promedio:1.3},
       {nombre:'Soporte Prime', meses:[465,423,451,346,429,365,347,50], promedio:406.9},
       {nombre:'Luis Fernando Herrera Leyva', meses:[694,685,767,484,496,450,587,80], promedio:1.8},
@@ -1212,7 +1212,7 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'Leon Gustavo Rivera Arriaga', meses:[125,436,568,353,387,422,300,52], promedio:1.4},
       {nombre:'Josafath setzafel Pacheco Zamorano', meses:[660,349,357,455,334,427,285,32], promedio:2.9}
     ], yoy_2025: [5101,4400,4202,3382,3413,4215,3675,4045,4155,3800,5536,4100] },
-    ticketsmc: { mesa_control: [956,887,1042,777,886,973,829,94,0,0,0,0], por_dia_semana: [0,0,0,0,0,0,0], agentes: [
+    ticketsmc: { mesa_control: [956,887,1042,777,886,973,829,94,0,0,0,0], por_dia_semana: [0,0,0,0,0,0,0], por_hora_dia: new Array(24).fill(0), agentes: [
       {nombre:'MC PPM', meses:[593,390,387,302,337,357,299,21], promedio:2.3},
       {nombre:'MESA CONTROL', meses:[305,144,59,24,19,31,39,0], promedio:5.4},
       {nombre:'MC EGF', meses:[0,233,441,336,378,465,347,48], promedio:1.3}
@@ -1837,6 +1837,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.ingenieros) state.ingenieros = clone(DEFAULTS.ingenieros);
       if(!state.ingenieros.yoy_2025) state.ingenieros.yoy_2025 = clone(DEFAULTS.ingenieros.yoy_2025);
       if(!Array.isArray(state.ingenieros.por_dia_semana)) state.ingenieros.por_dia_semana = clone(DEFAULTS.ingenieros.por_dia_semana);
+      if(!Array.isArray(state.ingenieros.por_hora_dia)) state.ingenieros.por_hora_dia = clone(DEFAULTS.ingenieros.por_hora_dia);
       if(!state.ticketsmc) state.ticketsmc = clone(DEFAULTS.ticketsmc);
       if(!state.inventario) state.inventario = clone(DEFAULTS.inventario);
       if(!state.inventario_historial) state.inventario_historial = clone(DEFAULTS.inventario_historial);
@@ -1854,6 +1855,7 @@ auth.onAuthStateChanged(async function(user){
       if(!state.ticketsmc.categoria_agente) state.ticketsmc.categoria_agente = clone(DEFAULTS.ticketsmc.categoria_agente);
       if(state.ticketsmc.rechazado_cancelado === undefined) state.ticketsmc.rechazado_cancelado = DEFAULTS.ticketsmc.rechazado_cancelado;
       if(!Array.isArray(state.ticketsmc.por_dia_semana)) state.ticketsmc.por_dia_semana = clone(DEFAULTS.ticketsmc.por_dia_semana);
+      if(!Array.isArray(state.ticketsmc.por_hora_dia)) state.ticketsmc.por_hora_dia = clone(DEFAULTS.ticketsmc.por_hora_dia);
       if(!state.yoy_notas) state.yoy_notas = clone(DEFAULTS.yoy_notas);
       if(state.expansion.notas_generales === undefined) state.expansion.notas_generales = '';
       if(!state.cierre_tiendas) state.cierre_tiendas = clone(DEFAULTS.cierre_tiendas);
@@ -2063,6 +2065,11 @@ auth.onAuthStateChanged(async function(user){
     // siempre cuadren entre la gráfica por mes y la gráfica por día de la semana de cada pestaña.
     const mesaControlDia = new Array(7).fill(0);
     const mesaSoporteDia = new Array(7).fill(0);
+    // Tickets por hora del día de creación (agosto 2026) — 0..23, mismo universo que su gráfica
+    // hermana de día de la semana (mesaControlDia / mesaSoporteDia), para saber a qué hora se
+    // concentra más la carga de tickets.
+    const mesaControlHora = new Array(24).fill(0);
+    const mesaSoporteHora = new Array(24).fill(0);
     const agenteMonth = {};
     const agenteDuraciones = {};
     const agenteMonthMC = {};
@@ -2140,6 +2147,7 @@ auth.onAuthStateChanged(async function(user){
       if(!CATEGORIAS_EXCLUIR_SOPORTE.includes(categoriaTicket)){
         mesaSoporteIT[mIdx]++;
         mesaSoporteDia[(fc.getDay()+6)%7]++;
+        mesaSoporteHora[fc.getHours()]++;
         const agenteSoporte = (!agente || AGENTES_EXCLUIDOS.includes(agente)) ? 'Soporte Prime' : agente;
         if(!agenteMonth[agenteSoporte]) agenteMonth[agenteSoporte] = new Array(12).fill(0);
         agenteMonth[agenteSoporte][mIdx]++;
@@ -2161,6 +2169,7 @@ auth.onAuthStateChanged(async function(user){
       if(MESAS_CONTROL.includes(mesaAyuda)){
         mesaControl[mIdx]++;
         mesaControlDia[(fc.getDay()+6)%7]++;
+        mesaControlHora[fc.getHours()]++;
         const estadoMC = String(row['Estado']).trim();
         const idTicket = Number(row['ID']);
         const forzarRechazado = IDS_FORZAR_RECHAZADO.includes(idTicket);
@@ -2312,8 +2321,10 @@ auth.onAuthStateChanged(async function(user){
       top_velocidad_telmex: topsVelocidad.Telmex,
       mesa_soporte_it: mesaSoporteIT,
       mesa_soporte_por_dia_semana: mesaSoporteDia,
+      mesa_soporte_por_hora_dia: mesaSoporteHora,
       mesa_control: mesaControl,
       mesa_control_por_dia_semana: mesaControlDia,
+      mesa_control_por_hora_dia: mesaControlHora,
       mesa_control_rechazado_cancelado: rechazoCancelMC,
       ingenieros,
       agentes_mc: agentesMC,
@@ -2358,10 +2369,12 @@ auth.onAuthStateChanged(async function(user){
     if(!state.ingenieros) state.ingenieros = {};
     state.ingenieros.mesa_soporte_it = datos.mesa_soporte_it;
     state.ingenieros.por_dia_semana = datos.mesa_soporte_por_dia_semana;
+    state.ingenieros.por_hora_dia = datos.mesa_soporte_por_hora_dia;
     state.ingenieros.agentes = datos.ingenieros;
     if(!state.ticketsmc) state.ticketsmc = {};
     state.ticketsmc.mesa_control = datos.mesa_control;
     state.ticketsmc.por_dia_semana = datos.mesa_control_por_dia_semana;
+    state.ticketsmc.por_hora_dia = datos.mesa_control_por_hora_dia;
     state.ticketsmc.rechazado_cancelado = datos.mesa_control_rechazado_cancelado;
     state.ticketsmc.agentes = datos.agentes_mc;
     state.ticketsmc.categorias = datos.mc_categorias;
@@ -5059,6 +5072,13 @@ auth.onAuthStateChanged(async function(user){
     const totalSoportePorDia = soportePorDiaSemana.reduce((a,b)=>a+Number(b||0),0);
     const idxDiaPicoSoporte = soportePorDiaSemana.reduce((iMax,v,i,arr)=> v>arr[iMax] ? i : iMax, 0);
 
+    // Tickets Soporte por hora del día (agosto 2026) — mismo universo que soportePorDiaSemana de
+    // arriba, agrupado por la hora de creación (0-23) en vez del día de la semana.
+    const HORAS_DIA = Array.from({length:24}, (_,i)=> i+'h');
+    const soportePorHoraDia = ing.por_hora_dia || new Array(24).fill(0);
+    const totalSoportePorHora = soportePorHoraDia.reduce((a,b)=>a+Number(b||0),0);
+    const idxHoraPicoSoporte = soportePorHoraDia.reduce((iMax,v,i,arr)=> v>arr[iMax] ? i : iMax, 0);
+
     c.innerHTML = `
       <div class="title">Tickets Soporte</div>
 
@@ -5101,6 +5121,17 @@ auth.onAuthStateChanged(async function(user){
       </div>
       <div class="panel"><canvas id="chartIngenierosDia"></canvas></div>
       `}
+
+      <h3 style="margin-top:24px;">Tickets Soporte por hora del día</h3>
+      ${totalSoportePorHora===0 ? `
+      <div class="placeholder">
+        <h3>Todavía no hay datos</h3>
+        <p>Se calcula solo al cargar un archivo de tickets desde "Resumen 2026".</p>
+      </div>` : `
+      <div class="card" style="max-width:260px; margin-bottom:16px;"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Hora con más tickets</div>
+        <div class="body"><div class="big">${idxHoraPicoSoporte}:00</div><div class="lbl">${soportePorHoraDia[idxHoraPicoSoporte].toLocaleString('es-MX')} tickets creados</div></div></div>
+      <div class="panel"><canvas id="chartIngenierosHora"></canvas></div>
+      `}
     `;
 
     if(charts.ingenierosYoy) charts.ingenierosYoy.destroy();
@@ -5119,6 +5150,17 @@ auth.onAuthStateChanged(async function(user){
         type:'bar',
         data:{ labels: DIAS_SEMANA, datasets:[
           { label:'Tickets Soporte', data: soportePorDiaSemana, backgroundColor: COLOR_SOPORTE, borderRadius:4 }
+        ]},
+        options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+      });
+    }
+
+    if(charts.ingenierosHora) charts.ingenierosHora.destroy();
+    if(totalSoportePorHora>0){
+      charts.ingenierosHora = new Chart(document.getElementById('chartIngenierosHora'), {
+        type:'bar',
+        data:{ labels: HORAS_DIA, datasets:[
+          { label:'Tickets Soporte', data: soportePorHoraDia, backgroundColor: COLOR_SOPORTE, borderRadius:4 }
         ]},
         options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
       });
@@ -5146,6 +5188,13 @@ auth.onAuthStateChanged(async function(user){
     const porDiaSemana = tmc.por_dia_semana || new Array(7).fill(0);
     const totalPorDia = porDiaSemana.reduce((a,b)=>a+Number(b||0),0);
     const idxDiaPico = porDiaSemana.reduce((iMax,v,i,arr)=> v>arr[iMax] ? i : iMax, 0);
+
+    // Tickets de Mesa de Control por hora del día (agosto 2026) — mismo universo que porDiaSemana
+    // de arriba, agrupado por la hora de creación (0-23) en vez del día de la semana.
+    const HORAS_DIA = Array.from({length:24}, (_,i)=> i+'h');
+    const porHoraDia = tmc.por_hora_dia || new Array(24).fill(0);
+    const totalPorHora = porHoraDia.reduce((a,b)=>a+Number(b||0),0);
+    const idxHoraPico = porHoraDia.reduce((iMax,v,i,arr)=> v>arr[iMax] ? i : iMax, 0);
 
     const categorias = (tmc.categorias || []).map(r=>({...r, total: r.meses.reduce((x,y)=>x+Number(y||0),0)}))
       .sort((a,b)=>b.total-a.total);
@@ -5196,6 +5245,17 @@ auth.onAuthStateChanged(async function(user){
           <div class="body"><div class="big">${Math.round(totalPorDia/7).toLocaleString('es-MX')}</div><div class="lbl">tickets · los 7 días</div></div></div>
       </div>
       <div class="panel"><canvas id="chartTicketsMCDia"></canvas></div>
+      `}
+
+      <h3 style="margin-top:24px;">Tickets de Mesa de Control por hora del día</h3>
+      ${totalPorHora===0 ? `
+      <div class="placeholder">
+        <h3>Todavía no hay datos</h3>
+        <p>Se calcula solo al cargar un archivo de tickets desde "Resumen 2026".</p>
+      </div>` : `
+      <div class="card" style="max-width:260px; margin-bottom:16px;"><div class="head" style="background:${cardGrad(COLOR_MESA)}">Hora con más tickets</div>
+        <div class="body"><div class="big">${idxHoraPico}:00</div><div class="lbl">${porHoraDia[idxHoraPico].toLocaleString('es-MX')} tickets creados</div></div></div>
+      <div class="panel"><canvas id="chartTicketsMCHora"></canvas></div>
       `}
 
       <h3 style="margin-top:24px;">Detalle de tickets Mesa de Control por categoría</h3>
@@ -5249,6 +5309,17 @@ auth.onAuthStateChanged(async function(user){
         type:'bar',
         data:{ labels: DIAS_SEMANA, datasets:[
           { label:'Tickets Mesa de Control', data: porDiaSemana, backgroundColor: COLOR_MESA, borderRadius:4 }
+        ]},
+        options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+      });
+    }
+
+    if(charts.ticketsmcHora) charts.ticketsmcHora.destroy();
+    if(totalPorHora>0){
+      charts.ticketsmcHora = new Chart(document.getElementById('chartTicketsMCHora'), {
+        type:'bar',
+        data:{ labels: HORAS_DIA, datasets:[
+          { label:'Tickets Mesa de Control', data: porHoraDia, backgroundColor: COLOR_MESA, borderRadius:4 }
         ]},
         options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
       });
