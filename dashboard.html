@@ -5086,16 +5086,32 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- Plan de expansion ----------
-  // Acota un arreglo de 24 horas a la ventana continua entre la primera y la última hora con datos
-  // (agosto 2026) — para que "por hora del día" no muestre de más las horas de la madrugada sin
-  // ningún ticket. Si no hay ningún dato, regresa las 24 horas tal cual (no debería pintarse, ya que
-  // el caller solo entra aquí cuando el total es mayor a 0).
+  // Acota un arreglo de 24 horas a la ventana continua entre la primera y la última hora "relevante"
+  // (agosto 2026, segunda vuelta) — antes cortaba solo en cero exacto, pero una hora con muy pocos
+  // tickets (ej. 1 de 4,917 en la hora pico) se veía plana e igual de inútil en la gráfica. Ahora
+  // corta cualquier hora de arranque/cierre por debajo del 1% del pico de esa misma serie. Si no hay
+  // ningún dato, regresa las 24 horas tal cual (no debería pintarse, ya que el caller solo entra aquí
+  // cuando el total es mayor a 0).
+  const UMBRAL_HORA_RELEVANTE = 0.01;
   function acotarPorHora(etiquetas, valores){
-    const primero = valores.findIndex(v=>v>0);
-    if(primero === -1) return { labels: etiquetas, valores };
-    let ultimo = valores.length - 1;
-    while(ultimo > primero && valores[ultimo] === 0) ultimo--;
+    const pico = Math.max(...valores);
+    if(pico <= 0) return { labels: etiquetas, valores };
+    const minimo = pico * UMBRAL_HORA_RELEVANTE;
+    let primero = 0, ultimo = valores.length - 1;
+    while(primero < ultimo && valores[primero] < minimo) primero++;
+    while(ultimo > primero && valores[ultimo] < minimo) ultimo--;
     return { labels: etiquetas.slice(primero, ultimo+1), valores: valores.slice(primero, ultimo+1) };
+  }
+  // Línea de tendencia como promedio móvil centrado (agosto 2026) — antes la "Tendencia" repetía
+  // exactamente los mismos valores de la barra, sin aportar nada. Ahora suaviza cada punto con el
+  // promedio de sí mismo + los vecinos dentro de la ventana (recortada en los bordes, sin envolver).
+  function promedioMovil(valores, ventana){
+    return valores.map((_,i)=>{
+      const desde = Math.max(0, i - Math.floor(ventana/2));
+      const hasta = Math.min(valores.length, i + Math.ceil(ventana/2));
+      const trozo = valores.slice(desde, hasta);
+      return Math.round(trozo.reduce((a,b)=>a+b,0) / trozo.length);
+    });
   }
   // ---------- Ingenieros IT ----------
   function renderIngenieros(c){
@@ -5208,7 +5224,7 @@ auth.onAuthStateChanged(async function(user){
       charts.ingenierosHora = new Chart(document.getElementById('chartIngenierosHora'), {
         data:{ labels: horaAcotadaSoporte.labels, datasets:[
           { type:'bar', label:'Tickets Soporte', data: horaAcotadaSoporte.valores, backgroundColor: COLOR_SOPORTE, borderRadius:4, order:2 },
-          { type:'line', label:'Tendencia', data: horaAcotadaSoporte.valores, borderColor:'#F59E0B', backgroundColor:'#F59E0B', tension:0.3, pointRadius:3, borderWidth:2.5, order:1 }
+          { type:'line', label:'Tendencia (promedio móvil)', data: promedioMovil(horaAcotadaSoporte.valores, 3), borderColor:'#F59E0B', backgroundColor:'#F59E0B', tension:0.3, pointRadius:3, borderWidth:2.5, order:1 }
         ]},
         options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
       });
@@ -5368,7 +5384,7 @@ auth.onAuthStateChanged(async function(user){
       charts.ticketsmcHora = new Chart(document.getElementById('chartTicketsMCHora'), {
         data:{ labels: horaAcotadaMC.labels, datasets:[
           { type:'bar', label:'Tickets Mesa de Control', data: horaAcotadaMC.valores, backgroundColor: COLOR_MESA, borderRadius:4, order:2 },
-          { type:'line', label:'Tendencia', data: horaAcotadaMC.valores, borderColor:'#F59E0B', backgroundColor:'#F59E0B', tension:0.3, pointRadius:3, borderWidth:2.5, order:1 }
+          { type:'line', label:'Tendencia (promedio móvil)', data: promedioMovil(horaAcotadaMC.valores, 3), borderColor:'#F59E0B', backgroundColor:'#F59E0B', tension:0.3, pointRadius:3, borderWidth:2.5, order:1 }
         ]},
         options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
       });
