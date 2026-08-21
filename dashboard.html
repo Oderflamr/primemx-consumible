@@ -1238,28 +1238,18 @@ auth.onAuthStateChanged(async function(user){
     win11_observaciones: {},
     win11_equipos: WIN11_EQUIPOS_DEFAULT,
     equipos_pdv_region: {
+      // HeadCount/Vacantes (agosto 2026) — se agregan directo a cada una de estas 9 regiones de
+      // equipo (no hay un agrupamiento aparte); arrancan en 0 y se capturan a mano con "Editar".
       regiones: [
-        {nombre:'Bajío', pdv_laptop:89, cambaceo:10, desktop:439},
-        {nombre:'Centro I', pdv_laptop:61, cambaceo:8, desktop:345},
-        {nombre:'Centro II', pdv_laptop:64, cambaceo:7, desktop:346},
-        {nombre:'Noroeste I', pdv_laptop:52, cambaceo:2, desktop:271},
-        {nombre:'Noroeste II', pdv_laptop:65, cambaceo:4, desktop:331},
-        {nombre:'Norte I', pdv_laptop:95, cambaceo:11, desktop:462},
-        {nombre:'Norte II', pdv_laptop:62, cambaceo:13, desktop:336},
-        {nombre:'Pacífico', pdv_laptop:74, cambaceo:8, desktop:384},
-        {nombre:'Sur Península', pdv_laptop:63, cambaceo:9, desktop:298}
-      ],
-      // Head Count por Región (agosto 2026) — panel aparte, a propósito NO va dentro de `regiones`
-      // (arriba): esas 9 regiones son las de equipo (PDV laptop/Cambaceo/Desktop); estas 6 agrupan
-      // distinto (ej. "Bajío-Norte 2" junta 2 regiones de equipo, "Centro" junta Centro I+II) — mezclar
-      // los dos hubiera atribuido mal el dato. Editable desde el mismo botón "Editar" de esta pestaña.
-      headcount_regiones: [
-        {nombre:'Sur Península', headcount:299, vacantes:5},
-        {nombre:'Pacífico', headcount:508, vacantes:11},
-        {nombre:'Centro', headcount:606, vacantes:14},
-        {nombre:'Noroeste', headcount:397, vacantes:10},
-        {nombre:'Norte 1', headcount:444, vacantes:12},
-        {nombre:'Bajío-Norte 2', headcount:733, vacantes:20}
+        {nombre:'Bajío', pdv_laptop:89, cambaceo:10, desktop:439, headcount:0, vacantes:0},
+        {nombre:'Centro I', pdv_laptop:61, cambaceo:8, desktop:345, headcount:0, vacantes:0},
+        {nombre:'Centro II', pdv_laptop:64, cambaceo:7, desktop:346, headcount:0, vacantes:0},
+        {nombre:'Noroeste I', pdv_laptop:52, cambaceo:2, desktop:271, headcount:0, vacantes:0},
+        {nombre:'Noroeste II', pdv_laptop:65, cambaceo:4, desktop:331, headcount:0, vacantes:0},
+        {nombre:'Norte I', pdv_laptop:95, cambaceo:11, desktop:462, headcount:0, vacantes:0},
+        {nombre:'Norte II', pdv_laptop:62, cambaceo:13, desktop:336, headcount:0, vacantes:0},
+        {nombre:'Pacífico', pdv_laptop:74, cambaceo:8, desktop:384, headcount:0, vacantes:0},
+        {nombre:'Sur Península', pdv_laptop:63, cambaceo:9, desktop:298, headcount:0, vacantes:0}
       ],
       // Laptops de tiendas ya cerradas, pendientes de reasignar/recoger — se resta de "PDV con laptop".
       // Es un solo número global (no por región). A propósito, cualquier usuario puede editarlo excepto
@@ -1856,7 +1846,12 @@ auth.onAuthStateChanged(async function(user){
       if(!state.equipos_pdv_region) state.equipos_pdv_region = clone(DEFAULTS.equipos_pdv_region);
       if(!state.equipos_pdv_region_historial) state.equipos_pdv_region_historial = clone(DEFAULTS.equipos_pdv_region_historial);
       if(state.equipos_pdv_region.laptop_pdv_cerrado===undefined) state.equipos_pdv_region.laptop_pdv_cerrado = DEFAULTS.equipos_pdv_region.laptop_pdv_cerrado;
-      if(!Array.isArray(state.equipos_pdv_region.headcount_regiones)) state.equipos_pdv_region.headcount_regiones = clone(DEFAULTS.equipos_pdv_region.headcount_regiones);
+      // HeadCount/Vacantes por región (agosto 2026, segunda vuelta) — relleno para tiendas que ya
+      // estaban guardadas en Firestore antes de agregar estos 2 campos nuevos.
+      state.equipos_pdv_region.regiones.forEach(r=>{
+        if(r.headcount===undefined) r.headcount = 0;
+        if(r.vacantes===undefined) r.vacantes = 0;
+      });
       if(!state.win11_equipos) state.win11_equipos = clone(DEFAULTS.win11_equipos);
       if(!state.win11_pendientes_historial) state.win11_pendientes_historial = clone(DEFAULTS.win11_pendientes_historial);
       if(!state.win11_observaciones) state.win11_observaciones = clone(DEFAULTS.win11_observaciones);
@@ -5694,27 +5689,12 @@ auth.onAuthStateChanged(async function(user){
             <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
               <span>Desktop</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.desktop" value="${r.desktop}" style="width:60px; text-align:right;">` : `<b>${r.desktop}</b>`}
             </div>
+            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
+              <span>HeadCount</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.headcount" value="${r.headcount}" style="width:60px; text-align:right;">` : `<b>${r.headcount}</b>`}
             </div>
-          </div>
-        `).join('')}
-      </div>
-
-      <h3 style="margin-top:24px;">Head Count por Región</h3>
-      <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px;">
-        ${data.headcount_regiones.map((r,i)=>`
-          <div style="border:1px solid var(--line); border-radius:10px; overflow:hidden;">
-            <div style="background:${cardGrad('#0C8599')}; color:#fff; font-weight:700; font-size:14px; padding:10px 16px;">
-              ${editing && puedeEditar
-                ? `<input type="text" data-hc-nombre="${i}" value="${r.nombre}" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,.5); color:#fff; padding:2px 6px;">`
-                : `<span>${r.nombre}</span>`}
+            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
+              <span>Vacantes</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.vacantes" value="${r.vacantes}" style="width:60px; text-align:right;">` : `<b>${r.vacantes}</b>`}
             </div>
-            <div style="padding:14px 16px;">
-              <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
-                <span>Head Count</span>${editing && puedeEditar ? `<input type="number" data-hc-campo="${i}.headcount" value="${r.headcount}" style="width:60px; text-align:right;">` : `<b>${r.headcount}</b>`}
-              </div>
-              <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
-                <span>Vacantes</span>${editing && puedeEditar ? `<input type="number" data-hc-campo="${i}.vacantes" value="${r.vacantes}" style="width:60px; text-align:right;">` : `<b>${r.vacantes}</b>`}
-              </div>
             </div>
           </div>
         `).join('')}
@@ -5730,13 +5710,6 @@ auth.onAuthStateChanged(async function(user){
         document.querySelectorAll('[data-pdv-campo]').forEach(inp=>{
           const [idx,campo] = inp.dataset.pdvCampo.split('.');
           data.regiones[Number(idx)][campo] = Number(inp.value||0);
-        });
-        document.querySelectorAll('[data-hc-nombre]').forEach(inp=>{
-          data.headcount_regiones[Number(inp.dataset.hcNombre)].nombre = inp.value;
-        });
-        document.querySelectorAll('[data-hc-campo]').forEach(inp=>{
-          const [idx,campo] = inp.dataset.hcCampo.split('.');
-          data.headcount_regiones[Number(idx)][campo] = Number(inp.value||0);
         });
         if(!state.equipos_pdv_region_historial) state.equipos_pdv_region_historial = [];
         state.equipos_pdv_region_historial.unshift({
