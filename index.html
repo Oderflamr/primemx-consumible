@@ -1687,7 +1687,7 @@ function enviarCorreo(id) {
   const t = tickets.find(x => x.id === id);
   if(!t) { toast("Ticket no encontrado", true); return; }
   const asunto = `${t.tipo} / ${t.tienda} / Ticket# ${t.id}`;
-  const direccion = DIRECCIONES[t.ceco] || "(favor de completar dirección del PDV)";
+  const direccion = direccionParaCorreo(t.tienda, t.ceco);
   let cuerpo;
   if(t.tipo === "FALLA IMPRESORA") {
     cuerpo = `Equipo me ayudan con esta falla del equipo, por favor.\n\nUbicación: ${direccion}`;
@@ -1705,7 +1705,7 @@ async function doSaveAndEmail() {
   const ceco     = document.getElementById("m-ceco")?.value.trim()||"";
   const id_      = document.getElementById("m-id")?.value.trim()||"";
   const asunto   = `${tipo} / ${tienda} / Ticket# ${id_}`;
-  const direccion = DIRECCIONES[ceco] || "(favor de completar dirección del PDV)";
+  const direccion = direccionParaCorreo(tienda, ceco);
   if(tipo === "FALLA IMPRESORA") {
     cuerpo = `Equipo me ayudan con esta falla del equipo, por favor.\n\nUbicación: ${direccion}`;
   } else {
@@ -1820,6 +1820,14 @@ function autoMes(fechaStr) {
 
 /* ══════════════ CATÁLOGO TIENDAS ════════════════ */
 let CATALOGO = [];
+// Direcciones en vivo desde Directorio (agosto 2026) — por nombre de tienda (normalizado en
+// mayúsculas), a partir de TODAS las tiendas (activas E inactivas: una tienda inactiva puede
+// seguir teniendo tickets de consumibles abiertos ya reportados). Reemplaza la dependencia del
+// objeto DIRECCIONES fijo (por CECO, cargado a mano y desincronizado — ver enviarCorreo()/
+// doSaveAndEmail()) — ese se deja solo como respaldo si Directorio no trae dirección para esa
+// tienda. Mismo tipo de arreglo que ya se hizo en Dashboard IT con "catalogoVivo" (ver el
+// documento de referencia del proyecto, sección 3.13).
+let DIRECCIONES_VIVO = {};
 // Catálogo de tiendas — ya no es una lista fija: se lee en vivo de la colección `tiendas`
 // del Directorio (mismo Firebase), igual que ya hace Dashboard. Así, dar de alta una tienda
 // nueva en Directorio se refleja aquí sin tener que editar el código.
@@ -1827,15 +1835,26 @@ async function cargarCatalogoTiendasVivo() {
   if(!db) return;
   try{
     const snap = await db.collection('tiendas').get();
-    CATALOGO = snap.docs
-      .map(d => d.data())
+    const todas = snap.docs.map(d => d.data());
+    CATALOGO = todas
       .filter(t => String(t.activo) === '1')
       .map(t => ({ ceco: String(t.cc || ''), nombre: t.plaza || '' }))
       .filter(t => t.ceco && t.nombre);
+    DIRECCIONES_VIVO = {};
+    todas.forEach(t=>{
+      if(t.plaza && t.direccion) DIRECCIONES_VIVO[String(t.plaza).trim().toUpperCase()] = t.direccion;
+    });
     initTiendaAC();
   }catch(err){
     console.error('No se pudo cargar el catálogo de tiendas desde Directorio', err);
   }
+}
+// Dirección para el correo al proveedor — primero busca en vivo por nombre de tienda (Directorio,
+// siempre actualizado); si esa tienda no tiene dirección capturada ahí, cae al mapa fijo DIRECCIONES
+// por CECO (ver arriba); si tampoco, deja el texto de "favor de completar".
+function direccionParaCorreo(tienda, ceco){
+  const viva = tienda ? DIRECCIONES_VIVO[String(tienda).trim().toUpperCase()] : null;
+  return viva || DIRECCIONES[ceco] || "(favor de completar dirección del PDV)";
 }
 
 function initTiendaAC() {

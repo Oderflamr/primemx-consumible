@@ -3949,6 +3949,18 @@ auth.onAuthStateChanged(async function(user){
   // arranca vacío igual que Reemplazo Disco Duro. "Pendientes por reemplazo" = Daños acumulados menos
   // Reemplazados acumulados (backlog) — el cliente no tuvo preferencia sobre la fórmula, se dejó así
   // por ser consistente con que todo lo demás de esta pestaña se calcula solo; avisar si prefiere otra.
+  // Acota una serie mensual (Biométricos/Pin Pad, agosto 2026) a los meses con actividad real —
+  // recorta del inicio y del final los meses donde TODAS las series dadas son 0 (sin dañados ni
+  // reemplazados). No toca huecos en medio de la serie, solo el arranque/cierre — mismo criterio que
+  // ya se usa en "por hora del día", solo que aquí no hace falta umbral: los conteos de esta pestaña
+  // son chicos, así que 0 exacto ya es buena señal de "sin actividad ese mes".
+  function acotarSerieMensual(etiquetas, series){
+    const esVacio = i => series.every(serie => !serie[i]);
+    let primero = 0, ultimo = etiquetas.length - 1;
+    while(primero < ultimo && esVacio(primero)) primero++;
+    while(ultimo > primero && esVacio(ultimo)) ultimo--;
+    return { labels: etiquetas.slice(primero, ultimo+1), series: series.map(s=>s.slice(primero, ultimo+1)) };
+  }
   function renderBiometricos(c){
     const bio = state.biometricos;
     const registros = bio.registros || [];
@@ -3957,6 +3969,7 @@ auth.onAuthStateChanged(async function(user){
     const promedioMes = registros.length ? Math.round(totalReemplazados/registros.length) : 0;
     const pendientes = Math.max(0, totalDanos - totalReemplazados);
     const COL_BAR='#0B2E4F', COL_LINE='#E4536B';
+    const acotadoBio = acotarSerieMensual(registros.map(r=>r.mes), [registros.map(r=>r.danos), registros.map(r=>r.reemplazados)]);
     renderBarLineApartado(c, {
       titulo:'Biométricos',
       uploadBarHtml: canEditInventario() ? `
@@ -3976,10 +3989,10 @@ auth.onAuthStateChanged(async function(user){
       sinDatos: registros.length===0,
       mensajeVacio: 'Sube el Excel con las columnas Mes, Daños y Reemplazos para llenar esta gráfica.',
       chartTitle:'Biométricos dañados/reemplazados por mes', canvasId:'chartBiometricos',
-      labels: registros.map(r=>r.mes),
+      labels: acotadoBio.labels,
       datasets:[
-        {type:'bar', label:'Dañados', data:registros.map(r=>r.danos), backgroundColor:COL_BAR, borderRadius:4},
-        {type:'line', label:'Reemplazados', data:registros.map(r=>r.reemplazados), borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5}
+        {type:'bar', label:'Dañados', data:acotadoBio.series[0], backgroundColor:COL_BAR, borderRadius:4, order:2},
+        {type:'line', label:'Reemplazados', data:acotadoBio.series[1], borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5, order:1}
       ]
     });
     wireBiometricosUpload();
@@ -3995,6 +4008,7 @@ auth.onAuthStateChanged(async function(user){
     const promedioMes = registros.length ? Math.round(totalReemplazados/registros.length) : 0;
     const pendientes = Math.max(0, totalDanos - totalReemplazados);
     const COL_BAR='#0369A1', COL_LINE='#E4536B';
+    const acotadoPinPad = acotarSerieMensual(registros.map(r=>r.mes), [registros.map(r=>r.danos), registros.map(r=>r.reemplazados)]);
     renderBarLineApartado(c, {
       titulo:'Pin Pad',
       uploadBarHtml: canEditInventario() ? `
@@ -4014,10 +4028,10 @@ auth.onAuthStateChanged(async function(user){
       sinDatos: registros.length===0,
       mensajeVacio: 'Sube el Excel con las columnas Mes, Daños y Reemplazos para llenar esta gráfica.',
       chartTitle:'Pin Pad dañados/reemplazados por mes', canvasId:'chartPinPad',
-      labels: registros.map(r=>r.mes),
+      labels: acotadoPinPad.labels,
       datasets:[
-        {type:'bar', label:'Dañados', data:registros.map(r=>r.danos), backgroundColor:COL_BAR, borderRadius:4},
-        {type:'line', label:'Reemplazados', data:registros.map(r=>r.reemplazados), borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5}
+        {type:'bar', label:'Dañados', data:acotadoPinPad.series[0], backgroundColor:COL_BAR, borderRadius:4, order:2},
+        {type:'line', label:'Reemplazados', data:acotadoPinPad.series[1], borderColor:COL_LINE, backgroundColor:COL_LINE, tension:.3, pointRadius:4, borderWidth:2.5, order:1}
       ]
     });
     wirePinPadUpload();
