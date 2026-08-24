@@ -4361,11 +4361,14 @@ auth.onAuthStateChanged(async function(user){
         }catch(e){ /* no bloquear el render de la gráfica por un error de dibujo */ }
       }
     };
+    // Acotado al mes actual (agosto 2026, regla general del dashboard): no se dibujan meses futuros
+    // ni del año en curso ni del año de referencia, para no dejar barras "colgadas" después del mes real.
+    const mesesAcotadosYoy = MESES.slice(0, hasta+1);
     charts.yoy = new Chart(document.getElementById('chartYoy'), {
       type:'bar',
-      data:{ labels:MESES, datasets:[
-        {label:String(state.anio-1), data:serie2025, backgroundColor:COLOR_2025[prov]||'#CBB6E8'},
-        {label:String(state.anio), data:MESES.map((m,i)=> i<=hasta ? serie2026[i] : 0), backgroundColor:CARD_COLOR[prov]}
+      data:{ labels:mesesAcotadosYoy, datasets:[
+        {label:String(state.anio-1), data:serie2025.slice(0, hasta+1), backgroundColor:COLOR_2025[prov]||'#CBB6E8'},
+        {label:String(state.anio), data:serie2026.slice(0, hasta+1), backgroundColor:CARD_COLOR[prov]}
       ]},
       options:{responsive:true, plugins:{legend:{position:'bottom'}, tooltip:{ callbacks:{
         afterLabel(ctx){
