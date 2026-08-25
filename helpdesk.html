@@ -377,6 +377,7 @@ const ESTADOS = {
   cerrado:{label:"Cerrado",color:"#6B7280"},
   rechazado:{label:"Rechazado",color:"#7A1F1A"},
 };
+const SLA_HOURS = { urgente:4, alta:8, media:24, baja:72 }; // horas límite de referencia por prioridad
 
 /* ══════════════════ Utilidades ══════════════════ */
 function esc(v){ return (v===undefined||v===null) ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -681,6 +682,7 @@ function renderTickets(){
     grid.innerHTML = visibles.map(t=>{
       const st=ESTADOS[t.estado]||ESTADOS.abierto;
       const pr=PRIORIDADES[t.prioridad]||PRIORIDADES.media;
+      const sla=slaInfo(t);
       return `<button class="ticket-card" data-id="${esc(t.id)}">
         <div class="ticket-bar" style="background:${pr.color}"></div>
         <div class="ticket-body">
@@ -688,6 +690,7 @@ function renderTickets(){
             <span class="ticket-num">${esc(t.numero)}</span>
             <span class="chip" style="background:${st.color}18;color:${st.color}">${esc(st.label)}</span>
             <span class="chip" style="background:${pr.color}18;color:${pr.color}">${esc(pr.label)}</span>
+            ${sla?`<span class="chip" style="background:${sla.vencido?'#C6421B18':'#F0F2F1'};color:${sla.vencido?'#C6421B':'var(--ink-soft)'}">${esc(sla.label)}</span>`:''}
           </div>
           <h3 class="ticket-title">${esc(t.titulo)}</h3>
           <div class="ticket-meta">
@@ -744,8 +747,14 @@ function slugifyUsername(nombreTienda){
   return normalizeText(nombreTienda).trim().replace(/\s+/g,'.');
 }
 const SPANISH_STOPWORDS = new Set(['con','de','del','la','el','los','las','y','o','en','a','al','un','una','unos','unas','no','su','sus','es','se','que','para','por','mi','tu','le','lo','ya','me','te','esta','este','estos','estas']);
+function stemWord(w){
+  // Singular/plural muy simple en español — para que "biométrico" calce con "Biometricos" del catálogo, etc.
+  if(w.length>5 && w.endsWith('es')) return w.slice(0,-2);
+  if(w.length>4 && w.endsWith('s')) return w.slice(0,-1);
+  return w;
+}
 function wordsWithBigrams(text){
-  const words = normalizeText(text).split(/\s+/).filter(w=>w && !SPANISH_STOPWORDS.has(w));
+  const words = normalizeText(text).split(/\s+/).filter(w=>w && !SPANISH_STOPWORDS.has(w)).map(stemWord);
   const tokens = new Set(words);
   for(let i=0;i<words.length-1;i++){
     // Solo se combinan palabras cortas (ej. "pin"+"pad" -> "pinpad"), para calzar términos técnicos
@@ -777,6 +786,87 @@ function suggestCategories(descripcion, limit=5){
     return {cat, score, matches};
   }).filter(s=>s.matches>0).sort((a,b)=>b.score-a.score);
   return scored.slice(0,limit).map(s=>s.cat);
+}
+
+// Encuentra el mejor nodo del árbol de categorías (rama o categoría final) para arrancar el flujo
+// de preguntas guiadas — igual de peso por palabra que suggestCategories, pero mirando TODO el árbol
+// (no solo las hojas), y en empate prefiere el nodo más general (menos niveles) para disparar la
+// pregunta de "¿cuál de estas opciones?" en vez de adivinar una hoja específica sin evidencia de sobra.
+function findBestCategoryNode(descripcion){
+  const queryTerms = [...wordsWithBigrams(descripcion)].filter(w=>w.length>2);
+  if(!queryTerms.length) return null;
+  const candidatos=[];
+  function walk(node){
+    const tokens = wordsWithBigrams(node.segments.join(' '));
+    let score=0, matches=0;
+    queryTerms.forEach(w=>{
+      if(tokens.has(w)){
+        const df = CATEGORY_WORD_DOCFREQ[w] || CATEGORIES.length;
+        score += 1/df;
+        matches++;
+      }
+    });
+    if(matches>0) candidatos.push({node, score, matches, esRama:!!node.children});
+    if(node.children) Object.values(node.children).forEach(walk);
+  }
+  Object.values(CATEGORY_TREE.children).forEach(walk);
+  if(!candidatos.length) return null;
+
+  function mejorDe(lista){
+    if(!lista.length) return null;
+    return lista.reduce((best,c)=>{
+      if(!best) return c;
+      if(c.score>best.score) return c;
+      if(c.score===best.score && c.node.segments.length<best.node.segments.length) return c;
+      return best;
+    }, null);
+  }
+
+  // 1) Con 2+ palabras coincidentes hay evidencia suficiente para ir directo, sea rama u hoja.
+  const fuertes = candidatos.filter(c=>c.matches>=2);
+  if(fuertes.length) return mejorDe(fuertes).node;
+  // 2) Con solo 1 palabra, es más confiable aterrizar en una RAMA (para preguntar) que adivinar
+  //    una hoja específica — evita que una palabra rara pero incidental (ej. "venta" en una
+  //    categoría de Mesa de Control) gane sobre la señal real (ej. "biométrico").
+  const ramas = candidatos.filter(c=>c.esRama);
+  if(ramas.length) return mejorDe(ramas).node;
+  // 3) Último recurso: la mejor hoja suelta que haya, aunque sea con 1 sola palabra.
+  return mejorDe(candidatos).node;
+}
+function autoDescendNode(node){
+  while(node.children){
+    const kids=Object.values(node.children);
+    if(kids.length===1) node=kids[0]; else break;
+  }
+  return node;
+}
+
+// Prioridad sugerida por categoría — reglas explicables por palabra clave/grupo, no IA (placeholder documentado,
+// igual que suggestCategories — la primera regla que calce gana, de más a menos específica).
+function priorityForCategory(cat){
+  const text = normalizeText(categoryLabel(cat.path));
+  if(cat.grupo==='Eventos masivos Nivel 1') return 'urgente';
+  if(text.includes('sin servicio')) return 'urgente';
+  if(text.includes('no prende')) return 'urgente';
+  if(text.includes('pantallazo azul')) return 'urgente';
+  if(text.includes('falla')) return 'alta';
+  if(cat.grupo==='Mesa de Control') return 'alta';
+  if(text.includes('contrasena')) return 'alta';
+  if(text.includes('solicitud') || text.includes('instalacion') || text.includes('configuracion')) return 'baja';
+  return 'media';
+}
+const CATEGORY_PRIORITY = {};
+CATEGORIES.forEach(c=>{ CATEGORY_PRIORITY[c.id]=priorityForCategory(c); });
+
+function slaInfo(t){
+  if(['resuelto','cerrado','rechazado'].includes(t.estado)) return null;
+  const horas = SLA_HOURS[t.prioridad] || 24;
+  const limite = t.createdAt + horas*3600000;
+  const diff = limite - Date.now();
+  const vencido = diff < 0;
+  const abs = Math.abs(diff);
+  const h = Math.floor(abs/3600000), m = Math.floor((abs%3600000)/60000);
+  return { vencido, label: vencido ? `SLA vencido hace ${h}h ${m}min` : `Vence en ${h}h ${m}min` };
 }
 
 let solCategoriaId=null, solAreaCvePdv=null, solCatPickerReady=false;
@@ -816,13 +906,46 @@ function cerrarSolicitudPanel(){
 document.getElementById('sol-cancelar-btn').addEventListener('click', cerrarSolicitudPanel);
 document.getElementById('sol-cancelar2-btn').addEventListener('click', cerrarSolicitudPanel);
 
-function pintarSugerenciaSeleccionada(cat){
-  solCategoriaId=cat.id;
-  document.getElementById('sol-cat-label').textContent=categoryLabel(cat.path);
+function seleccionarCategoriaFinal(entry){
+  solCategoriaId=entry.id;
+  document.getElementById('sol-cat-label').textContent=categoryLabel(entry.path);
   document.getElementById('sol-cat-label').classList.remove('placeholder');
-  document.querySelectorAll('#sol-sugerencias-lista [data-key]').forEach(btn=>{
-    btn.style.background = Number(btn.dataset.key)===cat.id ? 'var(--signal-soft)' : '';
+  const sugText=document.getElementById('sol-sugerencia-texto');
+  sugText.innerHTML=`Categoría: <strong>${esc(categoryLabel(entry.path))}</strong> → se asignaría a <strong>${esc(entry.grupo)}</strong>.`
+    + (solDrillHistory.length ? ` <button type="button" id="sol-cambiar-cat-btn" class="btn btn-ghost" style="padding:3px 9px;font-size:11px;margin-left:6px;">Elegir otra opción</button>` : '');
+  document.getElementById('sol-sugerencias-lista').innerHTML='';
+  const cambiarBtn=document.getElementById('sol-cambiar-cat-btn');
+  if(cambiarBtn) cambiarBtn.addEventListener('click', ()=>{ solDrillHistory=[]; mostrarNodoDrill(solDrillRaiz); });
+}
+
+let solDrillRaiz=null, solDrillHistory=[];
+
+function mostrarNodoDrill(node){
+  node=autoDescendNode(node);
+  if(!node.children){ seleccionarCategoriaFinal(node.entry); return; }
+  const sugText=document.getElementById('sol-sugerencia-texto');
+  const lista=document.getElementById('sol-sugerencias-lista');
+  solCategoriaId=null;
+  document.getElementById('sol-cat-label').textContent='Selecciona una categoría del catálogo…';
+  document.getElementById('sol-cat-label').classList.add('placeholder');
+  sugText.textContent = solDrillHistory.length
+    ? '¿Cuál de estas describe mejor tu problema?'
+    : 'Según lo que describiste, podría ser de este tipo — elige la opción exacta:';
+  const kids=Object.entries(node.children).sort((a,b)=>a[0].localeCompare(b[0],'es'));
+  const otraOpcion = node.entry ? `<button type="button" class="picker-row" data-final="1">Otro problema de ${esc(node.segments[node.segments.length-1])}<span class="grp">${esc(node.entry.grupo)}</span></button>` : '';
+  lista.innerHTML = (solDrillHistory.length ? `<button type="button" class="picker-row" data-back="1">← Regresar</button>` : '')
+    + kids.map(([nombre,hijo])=>`<button type="button" class="picker-row" data-drill="${esc(nombre)}">${esc(nombre)}${hijo.entry?`<span class="grp">${esc(hijo.entry.grupo)}</span>`:''}</button>`).join('')
+    + otraOpcion;
+  lista.querySelectorAll('[data-drill]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      solDrillHistory.push(node);
+      mostrarNodoDrill(node.children[btn.dataset.drill]);
+    });
   });
+  const finalBtn=lista.querySelector('[data-final]');
+  if(finalBtn) finalBtn.addEventListener('click', ()=>seleccionarCategoriaFinal(node.entry));
+  const backBtn=lista.querySelector('[data-back]');
+  if(backBtn) backBtn.addEventListener('click', ()=>{ mostrarNodoDrill(solDrillHistory.pop()); });
 }
 
 let solDebounceTimer=null;
@@ -834,26 +957,17 @@ document.getElementById('sol-descripcion').addEventListener('input', ()=>{
 function actualizarSugerencias(){
   const desc=document.getElementById('sol-descripcion').value.trim();
   if(!desc){ document.getElementById('sol-sugerencia').style.display='none'; return; }
-  const sugeridas=suggestCategories(desc, 5);
-  const sugText=document.getElementById('sol-sugerencia-texto');
-  const lista=document.getElementById('sol-sugerencias-lista');
-  solCategoriaId=null;
+  solCategoriaId=null; solDrillHistory=[];
   document.getElementById('sol-cat-label').textContent='Selecciona una categoría del catálogo…';
   document.getElementById('sol-cat-label').classList.add('placeholder');
 
-  if(sugeridas.length){
-    sugText.textContent='Según lo que describiste, podría ser alguna de estas — dale clic a la que aplique:';
-    lista.innerHTML = sugeridas.map(c=>`<button type="button" class="picker-row" data-key="${c.id}">${esc(categoryLabel(c.path))}<span class="grp">${esc(c.grupo)}</span></button>`).join('');
-    lista.querySelectorAll('[data-key]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const cat=CATEGORIES.find(c=>c.id===Number(btn.dataset.key));
-        pintarSugerenciaSeleccionada(cat);
-      });
-    });
-    pintarSugerenciaSeleccionada(sugeridas[0]);
+  const nodo=findBestCategoryNode(desc);
+  solDrillRaiz=nodo;
+  if(nodo){
+    mostrarNodoDrill(nodo);
   } else {
-    sugText.textContent='No encontramos sugerencias automáticas para esta descripción — búscala manualmente abajo.';
-    lista.innerHTML='';
+    document.getElementById('sol-sugerencia-texto').textContent='No encontramos sugerencias automáticas para esta descripción — búscala manualmente abajo.';
+    document.getElementById('sol-sugerencias-lista').innerHTML='';
   }
   if(!solTituloTocado){
     document.getElementById('sol-titulo').value = desc.length>60 ? desc.slice(0,57).trim()+'…' : desc;
@@ -894,7 +1008,7 @@ document.getElementById('sol-crear-btn').addEventListener('click', async ()=>{
     const tienda = tiendaFija || tiendaPorCve(areaCvePdvFinal);
     await crearTicket({
       titulo, descripcion:document.getElementById('sol-descripcion').value.trim(),
-      categoriaId:solCategoriaId, prioridad:'alta',
+      categoriaId:solCategoriaId, prioridad:CATEGORY_PRIORITY[solCategoriaId]||'media',
       areaTexto: tiendaFija ? (tiendaFija.plaza||tiendaFija.cve_pdv) : document.getElementById('sol-area').value.trim(),
       areaCvePdv: areaCvePdvFinal,
       gerenteTienda: tienda ? tienda.gerente_tienda : null,
@@ -962,6 +1076,7 @@ function openNuevoTicket(){
       document.getElementById('nt-cat-label').classList.remove('placeholder');
       const route=document.getElementById('nt-cat-route');
       route.style.display='flex'; route.innerHTML=`Se enruta a: <strong style="color:var(--signal-dark)">${esc(c.grupo)}</strong>`;
+      document.getElementById('nt-prioridad').value = CATEGORY_PRIORITY[c.id]||'media';
     }
   });
 
@@ -999,6 +1114,7 @@ function openDetalle(id){
   const activo=!['cerrado','rechazado'].includes(t.estado);
   const puede=canAct(t);
 
+  const sla=slaInfo(t);
   let acciones='';
   if(puede && activo){
     acciones = `<div class="action-row">
@@ -1024,6 +1140,7 @@ function openDetalle(id){
       <div class="box"><div class="k">Categoría</div><div class="v">${esc(t.categoriaLabel)}</div></div>
       <div class="box"><div class="k">Grupo asignado</div><div class="v">${esc(t.grupo)}</div></div>
       <div class="box"><div class="k">Prioridad</div><div class="v">${esc((PRIORIDADES[t.prioridad]||{}).label)}</div></div>
+      ${sla ? `<div class="box"><div class="k">SLA</div><div class="v" style="${sla.vencido?'color:#C6421B;font-weight:600;':''}">${esc(sla.label)}</div></div>` : ''}
       <div class="box"><div class="k">Área / Tienda</div><div class="v">${esc(t.areaTexto)||'—'}</div></div>
       <div class="box"><div class="k">Solicitante</div><div class="v">${esc(t.solicitanteNombre)}</div></div>
       <div class="box"><div class="k">Agente asignado</div><div class="v">${esc(t.agenteNombre)||'Sin asignar'}</div></div>
