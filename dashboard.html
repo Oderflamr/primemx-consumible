@@ -1495,6 +1495,24 @@ auth.onAuthStateChanged(async function(user){
   // capturado en el Directorio en ese momento, sin duplicar datos.
   let estatusServicio = { cargado:false, cargando:false, error:null, tiendas:[], fallasPorTienda:new Map(), actualizado:null };
   let esvModalTienda = null; // id de la tienda mostrada en el detalle al hacer clic en una tarjeta (o null)
+  // Total de caídas del año en curso por tienda, para el detalle del modal — se calcula bajo demanda
+  // (no viene en la carga inicial) porque implica contar TODAS las fallas históricas de esa tienda,
+  // no solo la abierta. Cache por storeId: undefined = sin pedir, null = cargando, number = listo.
+  let esvConteoFallasAnio = {};
+  async function cargarConteoFallasAnio(storeId){
+    esvConteoFallasAnio[storeId] = null;
+    try{
+      const desde = `${state.anio}-01-01T00:00:00.000Z`;
+      const hasta = `${state.anio+1}-01-01T00:00:00.000Z`;
+      const snap = await db.collection('tiendas').doc(storeId).collection('fallas')
+        .where('fecha_captura','>=',desde).where('fecha_captura','<',hasta).get();
+      esvConteoFallasAnio[storeId] = snap.size;
+    }catch(err){
+      console.error('No se pudo contar las fallas del año para', storeId, err);
+      esvConteoFallasAnio[storeId] = '—';
+    }
+    if(esvModalTienda === storeId) renderEsvModal();
+  }
   // Rotativo de "en línea": se muestran hasta 40 tiendas a la vez; las caídas siempre van TODAS y
   // fijas al inicio (nunca rotan). esvPagina avanza cada 15 segundos (ver iniciarAutoRefreshEstatusServicio)
   // y persiste entre recargas de datos para que la rotación no se reinicie sola.
@@ -1741,6 +1759,9 @@ auth.onAuthStateChanged(async function(user){
     const diasCaidaModal = esvDiasCaida(falla);
     const diasSinServicioTxt = diasCaidaModal === null ? null
       : (diasCaidaModal === 0 ? 'Menos de 1 día' : `${diasCaidaModal} día${diasCaidaModal===1?'':'s'}`);
+    if(esvConteoFallasAnio[t.id] === undefined) cargarConteoFallasAnio(t.id);
+    const conteoAnio = esvConteoFallasAnio[t.id];
+    const conteoAnioTxt = conteoAnio === null || conteoAnio === undefined ? 'Cargando…' : conteoAnio;
     root.innerHTML = `
       <div class="noc-overlay" id="esvOverlay">
         <div class="noc-modal">
@@ -1752,13 +1773,19 @@ auth.onAuthStateChanged(async function(user){
           </div>
           ${falla ? `
             <div class="noc-modal-row"><span>Tipo de falla</span><b>${escEsv(falla.tipo||'-')}</b></div>
+            <div class="noc-modal-row"><span>Tecnología</span><b>${escEsv(t.tecnologia||'—')}</b></div>
             <div class="noc-modal-row"><span>Ticket</span><b>${escEsv(falla.ticket||'-')}</b></div>
             <div class="noc-modal-row"><span>Folio proveedor</span><b>${escEsv(falla.folio_proveedor||'-')}</b></div>
             <div class="noc-modal-row"><span>Fecha reportada</span><b>${fmtFecha(falla.fecha_captura)}</b></div>
             ${diasSinServicioTxt ? `<div class="noc-modal-row"><span>Días sin servicio</span><b style="color:#DC2626">${diasSinServicioTxt}</b></div>` : ''}
+            <div class="noc-modal-row"><span>Total de caídas año</span><b>${conteoAnioTxt}</b></div>
+            <div class="noc-modal-row"><span>Vigencia del servicio</span><b>${escEsv(t.vigencia_servicio||'—')}</b></div>
           ` : `
             <div class="noc-modal-row"><span>Estatus</span><b>Sin incidentes abiertos</b></div>
             <div class="noc-modal-row"><span>Clave PDV</span><b>${escEsv(t.cve_pdv||'—')}</b></div>
+            <div class="noc-modal-row"><span>Tecnología</span><b>${escEsv(t.tecnologia||'—')}</b></div>
+            <div class="noc-modal-row"><span>Total de caídas año</span><b>${conteoAnioTxt}</b></div>
+            <div class="noc-modal-row"><span>Vigencia del servicio</span><b>${escEsv(t.vigencia_servicio||'—')}</b></div>
           `}
           <button class="noc-modal-close" id="esvModalCloseBtn">Cerrar</button>
         </div>
