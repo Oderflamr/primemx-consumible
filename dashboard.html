@@ -1518,6 +1518,59 @@ auth.onAuthStateChanged(async function(user){
   // y persiste entre recargas de datos para que la rotación no se reinicie sola.
   const ESV_VISIBLE_TOTAL = 40;
   let esvPagina = 0;
+  let esvTotalPaginasActual = 1; // ultimo totalPaginas calculado en renderEstatusServicio, lo usa el carrusel
+
+  // ===== Carrusel "Modo pantalla" (agosto 2026) — para poner el dashboard en una TV/pantalla: arranca
+  // en Estatus de Servicio, espera a que termine su propio ciclo de rotacion de tiendas, y luego va
+  // pasando por Tendencia mensual / Tickets Soporte / Tickets Mesa de control / Plan de expansion, en
+  // bucle infinito. Esc lo detiene desde cualquier pestaña (para poder revisar algo en particular).
+  const CARRUSEL_SECUENCIA = [
+    { tab: 'tendencia', segundos: 25 },
+    { tab: 'ingenieros', segundos: 25 },
+    { tab: 'ticketsmc', segundos: 25 },
+    { tab: 'expansion', segundos: 30 }
+  ];
+  let carruselActivo = false;
+  let carruselFaseIdx = -1; // -1 = Estatus de Servicio (NOC)
+  let carruselNocPaginasObjetivo = 1;
+  let carruselNocPaginasVistas = 0;
+  let carruselFaseTimeout = null;
+  function iniciarCarrusel(){
+    carruselActivo = true;
+    carruselFaseIdx = -1;
+    carruselNocPaginasVistas = 0;
+    tab = 'estatus_servicio';
+    render();
+    carruselNocPaginasObjetivo = Math.max(1, esvTotalPaginasActual || 1);
+  }
+  function detenerCarrusel(){
+    if(!carruselActivo) return;
+    carruselActivo = false;
+    carruselFaseIdx = -1;
+    if(carruselFaseTimeout){ clearTimeout(carruselFaseTimeout); carruselFaseTimeout = null; }
+    render();
+  }
+  function toggleCarrusel(){ carruselActivo ? detenerCarrusel() : iniciarCarrusel(); }
+  function avanzarCarrusel(){
+    if(!carruselActivo) return;
+    carruselFaseIdx++;
+    if(carruselFaseIdx >= CARRUSEL_SECUENCIA.length){
+      carruselFaseIdx = -1;
+      carruselNocPaginasVistas = 0;
+      tab = 'estatus_servicio';
+      render();
+      carruselNocPaginasObjetivo = Math.max(1, esvTotalPaginasActual || 1);
+      return; // el ciclo de 15s del NOC (mas abajo) avisa cuando termine de rotar todas las tiendas
+    }
+    const fase = CARRUSEL_SECUENCIA[carruselFaseIdx];
+    tab = fase.tab;
+    render();
+    if(carruselFaseTimeout) clearTimeout(carruselFaseTimeout);
+    carruselFaseTimeout = setTimeout(avanzarCarrusel, fase.segundos * 1000);
+  }
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape' && carruselActivo) detenerCarrusel();
+  });
   document.addEventListener('click', ()=>{
     if(internetMenuAbierto || soporteMenuAbierto){ internetMenuAbierto = false; soporteMenuAbierto = false; render(); }
   });
@@ -1741,6 +1794,10 @@ auth.onAuthStateChanged(async function(user){
       if(tab === 'estatus_servicio' && estatusServicio.cargado && !estatusServicio.cargando){
         esvPagina++;
         cargarEstatusServicio({ silencioso:true });
+        if(carruselActivo && carruselFaseIdx === -1){
+          carruselNocPaginasVistas++;
+          if(carruselNocPaginasVistas >= carruselNocPaginasObjetivo) avanzarCarrusel();
+        }
       }
     }, 15 * 1000);
   }
@@ -1827,6 +1884,7 @@ auth.onAuthStateChanged(async function(user){
     const enLinea = todas.filter(t=>!caidasMap.has(t.id));
     const pageSize = Math.max(0, ESV_VISIBLE_TOTAL - caidas.length);
     const totalPaginas = pageSize > 0 ? Math.max(1, Math.ceil(enLinea.length / pageSize)) : 1;
+    esvTotalPaginasActual = totalPaginas;
     const idxPagina = ((esvPagina % totalPaginas) + totalPaginas) % totalPaginas; // seguro aunque totalPaginas cambie entre recargas
     const enLineaPagina = pageSize > 0 ? enLinea.slice(idxPagina * pageSize, idxPagina * pageSize + pageSize) : [];
     const ordenadas = [...caidas, ...enLineaPagina];
@@ -1851,6 +1909,7 @@ auth.onAuthStateChanged(async function(user){
             <span><span class="noc-dot off"></span> Caída</span>
           </div>
           <div style="font-size:11px; color:#52514e;">Clic en una tienda para ver el detalle</div>
+          <button id="btnModoPantalla" style="${carruselActivo ? 'background:var(--tp); color:#fff; border-color:var(--tp);' : ''}">${carruselActivo ? '● Modo pantalla activo' : 'Modo pantalla'}</button>
         </div>
 
         <div class="noc-grid" id="esvGrid">
@@ -1882,6 +1941,7 @@ auth.onAuthStateChanged(async function(user){
       esvModalTienda = card.dataset.esvId;
       renderEsvModal();
     });
+    document.getElementById('btnModoPantalla').onclick = toggleCarrusel;
     renderEsvModal();
   }
   // toast(msg, type) se reutiliza del portal (definida en el shell de login/Firebase)
@@ -2686,6 +2746,7 @@ auth.onAuthStateChanged(async function(user){
     app.className = canEdit ? 'is-admin' : '';
     app.innerHTML = `
       <div class="sticky-subnav">
+        ${carruselActivo ? `<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:12px; color:var(--tp); font-weight:600;"><span style="width:7px;height:7px;border-radius:50%;background:var(--tp);display:inline-block;"></span> Modo pantalla activo — presiona Esc o <button id="btnDetenerCarrusel" style="padding:3px 10px; font-size:11px;">Detener</button></div>` : ''}
         <div class="status-line" style="margin-bottom:14px;"><span class="dot"></span> Última actualización: ${fmtFecha(state.updated_at)}</div>
         <div class="tabs-wrap" style="position:relative;">
           <div class="tabs">
@@ -2705,6 +2766,8 @@ auth.onAuthStateChanged(async function(user){
     `;
     const headerEl = document.querySelector('header.topbar');
     if(headerEl) document.documentElement.style.setProperty('--header-h', headerEl.offsetHeight + 'px');
+    const btnDetenerCarrusel = document.getElementById('btnDetenerCarrusel');
+    if(btnDetenerCarrusel) btnDetenerCarrusel.onclick = detenerCarrusel;
     document.getElementById('tabInternetBtn').onclick = (e) => {
       e.stopPropagation();
       internetMenuAbierto = !internetMenuAbierto;
