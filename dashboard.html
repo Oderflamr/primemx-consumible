@@ -546,6 +546,9 @@ document.getElementById('login-form').addEventListener('submit', async function(
   try{
     await auth.signInWithEmailAndPassword(u + '@' + AUTH_DOMAIN, p);
     errEl.classList.remove('show');
+    localStorage.setItem('primemx_sesion_inicio', String(Date.now()));
+    db.collection('accesos_dashboard').add({ usuario: u, fecha: new Date().toISOString() })
+      .catch(err2=>console.error('No se pudo registrar el acceso', err2));
   }catch(err){
     console.error(err);
     errEl.textContent = 'No se pudo entrar (' + (err.code || err.message || 'error desconocido') + ').';
@@ -555,11 +558,26 @@ document.getElementById('login-form').addEventListener('submit', async function(
 });
 
 document.getElementById('logout-btn').addEventListener('click', function(){
+  localStorage.removeItem('primemx_sesion_inicio');
   auth.signOut();
 });
 
-// Nota: el cierre de sesión automático por inactividad se quitó a petición del cliente
-// (agosto 2026) — la sesión ahora se queda abierta hasta que el usuario le da a "Salir".
+// Caducidad de sesión (agosto 2026, pedido explícito del cliente — reemplaza la nota anterior de que
+// esto se había quitado): 10 horas desde que se inició sesión, sin importar actividad. El timestamp de
+// inicio (primemx_sesion_inicio) es compartido entre las 3 apps (mismo origen/localStorage), para que
+// el reloj de 10h sea uno solo aunque se navegue entre Dashboard/Directorio/Consumibles.
+const SESION_DURACION_MS = 10 * 60 * 60 * 1000;
+function sesionExpirada(){
+  const inicio = Number(localStorage.getItem('primemx_sesion_inicio') || 0);
+  return !inicio || (Date.now() - inicio) > SESION_DURACION_MS;
+}
+setInterval(()=>{
+  if(currentUser && sesionExpirada()){
+    localStorage.removeItem('primemx_sesion_inicio');
+    auth.signOut();
+    toast('Tu sesión expiró después de 10 horas. Vuelve a iniciar sesión.', 'error');
+  }
+}, 5 * 60 * 1000);
 
 document.getElementById('link-olvide-pass').addEventListener('click', function(e){
   e.preventDefault();
@@ -602,6 +620,11 @@ document.getElementById('btn-reset-pass').addEventListener('click', async functi
 });
 
 auth.onAuthStateChanged(async function(user){
+  if(user && sesionExpirada()){
+    localStorage.removeItem('primemx_sesion_inicio');
+    auth.signOut();
+    return;
+  }
   if(user){
     const username = (user.email || '').split('@')[0];
     let roleInfo = { role: 'consulta', label: username };
@@ -1446,11 +1469,13 @@ auth.onAuthStateChanged(async function(user){
     {id:'migracion_win11', label:'Migración Win11'},
     {id:'expansion', label:'Plan de expansión'},
     {id:'budget_it', label:'Budget IT 2026'},
-    {id:'actualizaciones', label:'Actualizaciones'}
+    {id:'actualizaciones', label:'Actualizaciones'},
+    {id:'log_accesos', label:'Accesos'}
   ];
-  // Estas dos pestañas están restringidas: no aparecen en la barra ni se pueden abrir si el usuario
-  // no está en USUARIOS_BUDGET_EDITAR/USUARIOS_BUDGET_LECTURA (ver puedeVerBudgetIT()).
-  const TABS_RESTRINGIDOS_BUDGET = ['budget_it','actualizaciones'];
+  // Estas pestañas están restringidas: no aparecen en la barra ni se pueden abrir si el usuario
+  // no está en USUARIOS_BUDGET_EDITAR/USUARIOS_BUDGET_LECTURA (ver puedeVerBudgetIT()). "Accesos" (log
+  // de quién inicia sesión) se agregó a este mismo grupo porque son exactamente los mismos 3 usuarios.
+  const TABS_RESTRINGIDOS_BUDGET = ['budget_it','actualizaciones','log_accesos'];
   // Apartados nuevos de agosto 2026 (envios_recolecciones...pin_pad): nacieron como indicadores
   // recreados a mano (tarjetas + gráfica Chart.js) a partir de 7 láminas de un PowerPoint que envió el
   // cliente. Desde entonces, uno por uno, se fueron convirtiendo a carga de Excel real conforme el
@@ -1525,6 +1550,7 @@ auth.onAuthStateChanged(async function(user){
   // pasando por Tendencia mensual / Tickets Soporte / Tickets Mesa de control / Plan de expansion, en
   // bucle infinito. Esc lo detiene desde cualquier pestaña (para poder revisar algo en particular).
   const CARRUSEL_SECUENCIA = [
+    { tab: 'resumen', segundos: 30 },
     { tab: 'tendencia', segundos: 25 },
     { tab: 'ingenieros', segundos: 25 },
     { tab: 'ticketsmc', segundos: 25 },
@@ -1535,12 +1561,26 @@ auth.onAuthStateChanged(async function(user){
   let carruselNocPaginasObjetivo = 1;
   let carruselNocPaginasVistas = 0;
   let carruselFaseTimeout = null;
+  // Mismo reset de banderas de edicion que usa el clic manual de pestaña, para que un modo de edicion
+  // que haya quedado activo en otra pestaña no rompa el render al saltar de tab por el carrusel.
+  function irATabCarrusel(tabId){
+    tab = tabId;
+    editing = false;
+    editingCierre = false;
+    editingResumenReemplazos = false;
+    internetMenuAbierto = false;
+    soporteMenuAbierto = false;
+    try{
+      render();
+    }catch(err){
+      console.error('Carrusel: error al renderizar la pestaña', tabId, err);
+    }
+  }
   function iniciarCarrusel(){
     carruselActivo = true;
     carruselFaseIdx = -1;
     carruselNocPaginasVistas = 0;
-    tab = 'estatus_servicio';
-    render();
+    irATabCarrusel('estatus_servicio');
     carruselNocPaginasObjetivo = Math.max(1, esvTotalPaginasActual || 1);
   }
   function detenerCarrusel(){
@@ -1557,14 +1597,12 @@ auth.onAuthStateChanged(async function(user){
     if(carruselFaseIdx >= CARRUSEL_SECUENCIA.length){
       carruselFaseIdx = -1;
       carruselNocPaginasVistas = 0;
-      tab = 'estatus_servicio';
-      render();
+      irATabCarrusel('estatus_servicio');
       carruselNocPaginasObjetivo = Math.max(1, esvTotalPaginasActual || 1);
       return; // el ciclo de 15s del NOC (mas abajo) avisa cuando termine de rotar todas las tiendas
     }
     const fase = CARRUSEL_SECUENCIA[carruselFaseIdx];
-    tab = fase.tab;
-    render();
+    irATabCarrusel(fase.tab);
     if(carruselFaseTimeout) clearTimeout(carruselFaseTimeout);
     carruselFaseTimeout = setTimeout(avanzarCarrusel, fase.segundos * 1000);
   }
@@ -2834,6 +2872,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='expansion') return renderExpansion(c);
     if(tab==='budget_it') return renderBudgetIT(c);
     if(tab==='actualizaciones') return renderActualizaciones(c);
+    if(tab==='log_accesos') return renderLogAccesos(c);
   }
 
   // ---------- Apartados nuevos (agosto 2026) — indicadores reales a partir del PowerPoint ----------
@@ -6303,6 +6342,58 @@ auth.onAuthStateChanged(async function(user){
               <td style="text-align:left;">${h.tipo}</td>
               <td>${fmtFechaSolo(h.fecha)}</td>
               <td>${fmtHora(h.fecha)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>`}
+    `;
+  }
+
+  // ---------- Accesos (agosto 2026) — log de quién inicia sesión en el Dashboard, para mgiron/lalzaga/
+  // amartinez. Vive en su propia colección de Firestore (accesos_dashboard), no en `state`, porque cada
+  // login escribe su propio registro (.add) sin necesidad de leer/modificar el documento compartido.
+  let logAccesos = { cargado:false, cargando:false, error:null, registros:[] };
+  async function cargarLogAccesos(){
+    logAccesos.cargando = true;
+    render();
+    try{
+      const snap = await db.collection('accesos_dashboard').orderBy('fecha','desc').limit(300).get();
+      logAccesos = { cargado:true, cargando:false, error:null, registros: snap.docs.map(d=>d.data()) };
+    }catch(err){
+      console.error('No se pudo cargar el log de accesos', err);
+      logAccesos = { cargado:false, cargando:false, error:'No se pudo cargar el log de accesos. Intenta de nuevo.', registros:[] };
+    }
+    render();
+  }
+  function renderLogAccesos(c){
+    if(!logAccesos.cargado && !logAccesos.cargando && !logAccesos.error){
+      cargarLogAccesos();
+    }
+    if(logAccesos.cargando){
+      c.innerHTML = `<div class="title">Accesos</div><div class="panel">Cargando…</div>`;
+      return;
+    }
+    if(logAccesos.error){
+      c.innerHTML = `<div class="title">Accesos</div><div class="panel">${logAccesos.error}</div>`;
+      return;
+    }
+    const registros = logAccesos.registros;
+    c.innerHTML = `
+      <div class="title">Accesos</div>
+      <div class="subtitle">Quién inició sesión en el Dashboard y cuándo — últimos ${registros.length} registros.</div>
+      ${registros.length===0 ? `
+      <div class="placeholder">
+        <h3>Todavía no hay accesos registrados</h3>
+        <p>Aquí va a aparecer cada vez que alguien inicie sesión en el Dashboard, con usuario y fecha/hora.</p>
+      </div>` : `
+      <div class="panel">
+        <div style="overflow-x:auto;"><table>
+          <thead><tr><th style="text-align:left;">Usuario</th><th>Fecha</th><th>Hora</th></tr></thead>
+          <tbody>${registros.map(r=>`
+            <tr>
+              <td style="text-align:left;">${r.usuario}</td>
+              <td>${fmtFechaSolo(r.fecha)}</td>
+              <td>${fmtHora(r.fecha)}</td>
             </tr>`).join('')}
           </tbody>
         </table></div>
