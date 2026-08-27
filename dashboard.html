@@ -216,6 +216,14 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
      poder cambiar de pestaña sin tener que subir hasta arriba). top usa la altura real del header
      principal (--header-h, medida por JS) para no taparlo ni dejar hueco. */
   .sticky-subnav{position:sticky; top:var(--header-h,64px); z-index:15; background:var(--bg); padding-top:12px; margin-top:-12px;}
+  /* Modo pantalla (carrusel, agosto 2026): nadie hace scroll frente a una TV, así que se achica todo
+     el contenido para que quepa completo en la pantalla mientras el carrusel está activo. */
+  main.carrusel-zoom{ zoom: 0.68; }
+  /* .noc-grid usa auto-fill (columnas que se ajustan solas al ancho disponible) — con zoom eso mete
+     más columnas de las que debería y las tarjetas de tienda salen más chicas que el resto de las
+     pestañas (que usan un número fijo de columnas). Fijamos columnas solo en modo pantalla para que
+     el achicado sea parejo con todo lo demás. */
+  main.carrusel-zoom .noc-grid{ grid-template-columns: repeat(8, minmax(0,1fr)); }
   .status-line{font-size:12px; color:var(--sub); display:flex; gap:8px; align-items:center;}
   .dot{width:7px; height:7px; border-radius:50%; background:var(--good); display:inline-block;}
 
@@ -2802,6 +2810,8 @@ auth.onAuthStateChanged(async function(user){
       </div>
       <div id="tabContent"></div>
     `;
+    const mainEl = document.querySelector('main');
+    if(mainEl) mainEl.classList.toggle('carrusel-zoom', carruselActivo);
     const headerEl = document.querySelector('header.topbar');
     if(headerEl) document.documentElement.style.setProperty('--header-h', headerEl.offsetHeight + 'px');
     const btnDetenerCarrusel = document.getElementById('btnDetenerCarrusel');
