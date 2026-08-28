@@ -533,7 +533,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 const ROLES_COLLECTION = "usuarios";
-const AUTH_DOMAIN = "primecommsmx.com";
+const AUTH_DOMAIN = "primecomms.mx";
 let currentUser = null;
 
 function toast(msg, type=""){
@@ -602,6 +602,10 @@ document.getElementById('link-cancelar-reset').addEventListener('click', functio
   document.getElementById('reset-msg').style.display = 'none';
 });
 
+// Vuelve a funcionar de verdad (agosto 2026): AUTH_DOMAIN ya es primecomms.mx, el dominio real de la
+// empresa, después de migrar las 10 cuentas de Firebase Authentication de @primecommsmx.com. Solo
+// llegará el correo si esa cuenta específica tiene buzón real en Office 365 (algunas genéricas como
+// admin/admincaidas/tienda podrían no tenerlo).
 document.getElementById('btn-reset-pass').addEventListener('click', async function(){
   const u = document.getElementById('reset-user').value.trim().toLowerCase();
   const msg = document.getElementById('reset-msg');
