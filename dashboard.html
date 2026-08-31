@@ -4652,16 +4652,19 @@ auth.onAuthStateChanged(async function(user){
           <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
         </div>
         <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px;">${celdas}</div>
-        ${detalleDia ? `
-        <div style="margin-top:14px; border-top:1px solid var(--line); padding-top:12px;">
-          <h4 style="margin:0 0 8px;">Detalle — ${diaCalendarioExpandido} de ${MESES_CAL[mesIdx]}</h4>
-          ${detalleDia.length ? `<table>
+      </div>
+      ${detalleDia ? `
+      <div class="noc-overlay" id="calendarioDiaOverlay">
+        <div class="noc-modal" style="max-width:640px;">
+          <h3 style="margin:0 0 4px;">Detalle — ${diaCalendarioExpandido} de ${MESES_CAL[mesIdx]}</h3>
+          <div class="noc-modal-sub">Reporte de fallas · Directorio de Tiendas</div>
+          ${detalleDia.length ? `<div style="overflow-x:auto;"><table>
             <thead><tr><th style="text-align:left;">Tienda</th><th>Carrier</th><th>Hora de alta</th><th>Hora de cierre</th><th>Tardó en cerrarse</th><th>Estatus</th></tr></thead>
             <tbody>${detalleDia.map(x=>`<tr><td style="text-align:left;">${x.tienda}</td><td>${x.carrier}</td><td>${x.horaAlta}</td><td>${x.horaCierre || '—'}</td><td>${x.tardoHoras!=null ? x.tardoHoras+' h' : '—'}</td><td>${x.estatus}</td></tr>`).join('')}</tbody>
-          </table>` : `<div class="foot">Sin detalle capturado para este día.</div>`}
-          <button id="btnCerrarDetalleDia" style="margin-top:10px;">Cerrar</button>
-        </div>` : ''}
-      </div>
+          </table></div>` : `<div class="foot">Sin detalle capturado para este día.</div>`}
+          <button class="noc-modal-close" id="btnCerrarDetalleDia">Cerrar</button>
+        </div>
+      </div>` : ''}
     `;
   }
 
@@ -4764,6 +4767,8 @@ auth.onAuthStateChanged(async function(user){
     });
     const btnCerrarDia = document.getElementById('btnCerrarDetalleDia');
     if(btnCerrarDia) btnCerrarDia.onclick = ()=>{ diaCalendarioExpandido = null; render(); };
+    const overlayDia = document.getElementById('calendarioDiaOverlay');
+    if(overlayDia) overlayDia.onclick = (e)=>{ if(e.target.id==='calendarioDiaOverlay'){ diaCalendarioExpandido = null; render(); } };
   }
 
   // ---------- Atencion ----------
