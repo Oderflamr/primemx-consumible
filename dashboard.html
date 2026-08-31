@@ -3028,11 +3028,13 @@ auth.onAuthStateChanged(async function(user){
     const totalEnvios = registros.reduce((s,r)=>s+r.envios,0);
     const totalRecoleccion = registros.reduce((s,r)=>s+r.recoleccion,0);
     const pctRecuperacion = fmtPct(totalRecoleccion, totalEnvios);
-    const promedioMensual = registros.length ? Math.round(totalEnvios/registros.length) : 0;
     // La gráfica solo muestra hasta el mes actual: si el Excel trae filas de meses futuros (por ejemplo
     // una plantilla con los 12 meses ya listados aunque todavía no haya información real de ellos), no
     // se dibujan barras "en cero" adelantadas. Si el mes no se reconoce en MESES12, se muestra por si acaso.
     const idxMesActual = new Date().getMonth(); // 0=Enero ... 11=Diciembre
+    // Promedio = total / meses transcurridos (agosto 2026: corregido — antes dividía entre
+    // registros.length, que puede ser 12 si el Excel ya trae meses futuros con 0, dando un promedio mal).
+    const promedioMensual = Math.round(totalEnvios/(idxMesActual+1));
     const registrosGrafica = registros.filter(r=>{
       const idx = MESES12.indexOf(r.mes);
       return idx < 0 || idx <= idxMesActual;
@@ -3349,7 +3351,6 @@ auth.onAuthStateChanged(async function(user){
     const rc = state.reemplazo_cpu;
     const registros = rc.registros || [];
     const totalGeneral = registros.reduce((s,r)=>s+r.total,0);
-    const promedioMes = registros.length ? Math.round(totalGeneral/registros.length) : 0;
     const porMes = {};
     registros.forEach(r=>{ porMes[normalizarTextoEnvios(r.mes)] = r.total; });
     const line2026 = MESES12.map(m => {
@@ -3362,6 +3363,10 @@ auth.onAuthStateChanged(async function(user){
     const hoy = new Date();
     const mesActualIdxCpu = (hoy.getFullYear() < 2026) ? 0
       : (hoy.getFullYear() === 2026 ? hoy.getMonth() : 11);
+    // Promedio = total / meses transcurridos del año (agosto 2026: corregido — antes dividía entre
+    // registros.length, que no siempre coincide con los meses reales ya pasados, dando un promedio mal).
+    const mesesTranscurridosCpu = mesActualIdxCpu + 1;
+    const promedioMes = mesesTranscurridosCpu ? Math.round(totalGeneral/mesesTranscurridosCpu) : 0;
     const COL_BAR='#0B3D5C', COL_LINE='#F08A24';
     renderBarLineApartado(c, {
       titulo:'Reemplazo de CPU',
@@ -4084,7 +4089,12 @@ auth.onAuthStateChanged(async function(user){
     const registros = rd.registros || [];
     const COL_BASE='#0B5E86', COL_MAX='#F0722A', COL_MIN='#29ABE2';
     const totalUnidades = registros.reduce((s,r)=>s+r.total,0);
-    const promedioMes = registros.length ? Math.round(totalUnidades/registros.length) : 0;
+    // Promedio = total / meses transcurridos del año (agosto 2026: mismo ajuste que Reemplazo de CPU —
+    // si el Excel trae meses futuros ya listados, no se deben contar como si ya hubieran pasado).
+    const hoyDisco = new Date();
+    const mesesTranscurridosDisco = (hoyDisco.getFullYear() < 2026) ? 1
+      : (hoyDisco.getFullYear() === 2026 ? hoyDisco.getMonth()+1 : 12);
+    const promedioMes = Math.round(totalUnidades/mesesTranscurridosDisco);
     let maxReg = null, minReg = null;
     registros.forEach(r=>{
       if(!maxReg || r.total > maxReg.total) maxReg = r;
@@ -4157,7 +4167,11 @@ auth.onAuthStateChanged(async function(user){
     const registros = bio.registros || [];
     const totalDanos = registros.reduce((s,r)=>s+r.danos,0);
     const totalReemplazados = registros.reduce((s,r)=>s+r.reemplazados,0);
-    const promedioMes = registros.length ? Math.round(totalReemplazados/registros.length) : 0;
+    // Promedio = total / meses transcurridos del año (agosto 2026: mismo ajuste que Reemplazo de CPU).
+    const hoyBio = new Date();
+    const mesesTranscurridosBio = (hoyBio.getFullYear() < 2026) ? 1
+      : (hoyBio.getFullYear() === 2026 ? hoyBio.getMonth()+1 : 12);
+    const promedioMes = Math.round(totalReemplazados/mesesTranscurridosBio);
     const pendientes = Math.max(0, totalDanos - totalReemplazados);
     const COL_BAR='#0B2E4F', COL_LINE='#E4536B';
     const acotadoBio = acotarSerieMensual(registros.map(r=>r.mes), [registros.map(r=>r.danos), registros.map(r=>r.reemplazados)]);
@@ -4196,7 +4210,11 @@ auth.onAuthStateChanged(async function(user){
     const registros = pp.registros || [];
     const totalDanos = registros.reduce((s,r)=>s+r.danos,0);
     const totalReemplazados = registros.reduce((s,r)=>s+r.reemplazados,0);
-    const promedioMes = registros.length ? Math.round(totalReemplazados/registros.length) : 0;
+    // Promedio = total / meses transcurridos del año (agosto 2026: mismo ajuste que Reemplazo de CPU).
+    const hoyPinPad = new Date();
+    const mesesTranscurridosPinPad = (hoyPinPad.getFullYear() < 2026) ? 1
+      : (hoyPinPad.getFullYear() === 2026 ? hoyPinPad.getMonth()+1 : 12);
+    const promedioMes = Math.round(totalReemplazados/mesesTranscurridosPinPad);
     const pendientes = Math.max(0, totalDanos - totalReemplazados);
     const COL_BAR='#0369A1', COL_LINE='#E4536B';
     const acotadoPinPad = acotarSerieMensual(registros.map(r=>r.mes), [registros.map(r=>r.danos), registros.map(r=>r.reemplazados)]);
