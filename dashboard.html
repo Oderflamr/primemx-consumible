@@ -4637,8 +4637,6 @@ auth.onAuthStateChanged(async function(user){
       </div>`;
     }
 
-    const detalleDia = diaCalendarioExpandido ? (datosMes.detalle_por_dia[diaCalendarioExpandido] || []) : null;
-
     return `
       <div class="panel">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -4653,7 +4651,21 @@ auth.onAuthStateChanged(async function(user){
         </div>
         <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px;">${celdas}</div>
       </div>
-      ${detalleDia ? `
+      <div id="calendarioDiaModalRoot"></div>
+    `;
+  }
+  // Vive en su propio contenedor (#calendarioDiaModalRoot), igual que renderEsvModal — así abrir/cerrar
+  // el detalle de un día no reconstruye toda la pestaña y no se pierde la posición del scroll.
+  function renderCalendarioDiaModal(){
+    const root = document.getElementById('calendarioDiaModalRoot');
+    if(!root) return;
+    if(!diaCalendarioExpandido){ root.innerHTML = ''; return; }
+    const MESES_CAL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const hoy = new Date();
+    const mesIdx = mesCalendarioSeleccionado !== null ? mesCalendarioSeleccionado : hoy.getMonth();
+    const datosMes = calendarioFallas.porMes[mesIdx] || { detalle_por_dia:{} };
+    const detalleDia = datosMes.detalle_por_dia[diaCalendarioExpandido] || [];
+    root.innerHTML = `
       <div class="noc-overlay" id="calendarioDiaOverlay">
         <div class="noc-modal" style="max-width:640px;">
           <h3 style="margin:0 0 4px;">Detalle — ${diaCalendarioExpandido} de ${MESES_CAL[mesIdx]}</h3>
@@ -4664,8 +4676,10 @@ auth.onAuthStateChanged(async function(user){
           </table></div>` : `<div class="foot">Sin detalle capturado para este día.</div>`}
           <button class="noc-modal-close" id="btnCerrarDetalleDia">Cerrar</button>
         </div>
-      </div>` : ''}
+      </div>
     `;
+    document.getElementById('calendarioDiaOverlay').onclick = (e)=>{ if(e.target.id==='calendarioDiaOverlay'){ diaCalendarioExpandido=null; renderCalendarioDiaModal(); } };
+    document.getElementById('btnCerrarDetalleDia').onclick = ()=>{ diaCalendarioExpandido=null; renderCalendarioDiaModal(); };
   }
 
   function renderResumen(c){
@@ -4762,13 +4776,10 @@ auth.onAuthStateChanged(async function(user){
       celda.onclick = ()=>{
         const dia = Number(celda.dataset.diaCalendario);
         diaCalendarioExpandido = diaCalendarioExpandido===dia ? null : dia;
-        render();
+        renderCalendarioDiaModal();
       };
     });
-    const btnCerrarDia = document.getElementById('btnCerrarDetalleDia');
-    if(btnCerrarDia) btnCerrarDia.onclick = ()=>{ diaCalendarioExpandido = null; render(); };
-    const overlayDia = document.getElementById('calendarioDiaOverlay');
-    if(overlayDia) overlayDia.onclick = (e)=>{ if(e.target.id==='calendarioDiaOverlay'){ diaCalendarioExpandido = null; render(); } };
+    renderCalendarioDiaModal();
   }
 
   // ---------- Atencion ----------
