@@ -242,7 +242,12 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .tab.active{color:var(--tp); border-color:var(--tp);}
   .tab:hover{color:var(--ink);}
 
-  .title{font-size:19px; font-weight:700; margin-bottom:2px;}
+  /* El título grande de cada apartado repetía el nombre que ya se ve resaltado en la barra de
+     pestañas de arriba — a petición del cliente (sept. 2026) se quita en todos lados y solo quedan
+     los subtítulos (h3) de cada sección. .siempre-visible es la excepción para los 2 casos donde el
+     texto no es el nombre del apartado sino una etiqueta real (Total de caídas, Cierre de tiendas). */
+  .title{font-size:19px; font-weight:700; margin-bottom:2px; display:none;}
+  .title.siempre-visible{display:block;}
   .subtitle{color:var(--sub); font-size:13px; margin-bottom:18px;}
 
   .cards{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:24px;}
@@ -711,6 +716,32 @@ auth.onAuthStateChanged(async function(user){
         chart.ctx.shadowOffsetY = 3;
       },
       afterDatasetsDraw(chart){
+        chart.ctx.restore();
+      }
+    });
+    // Modo pantalla (sept. 2026): desde la TV los números de los ejes no se alcanzan a leer de lejos,
+    // así que mientras carruselActivo está prendido se dibuja el total directo arriba de cada barra.
+    // Plugin global (mismo patrón que profundidadDashboard, no toca cada gráfica una por una) — en uso
+    // normal del dashboard (carruselActivo=false) no dibuja nada, se ve exactamente igual que antes.
+    Chart.register({
+      id: 'totalesEnBarrasCarrusel',
+      afterDatasetsDraw(chart){
+        if(!carruselActivo) return;
+        chart.ctx.save();
+        chart.ctx.font = '700 12px system-ui, sans-serif';
+        chart.ctx.fillStyle = '#1A1A1F';
+        chart.ctx.textAlign = 'center';
+        chart.data.datasets.forEach((dataset, i)=>{
+          if(dataset.type === 'line') return; // la línea de tendencia no lleva etiqueta, sería ruido
+          const meta = chart.getDatasetMeta(i);
+          if(meta.hidden) return;
+          meta.data.forEach((elemento, j)=>{
+            const valor = dataset.data[j];
+            if(valor === null || valor === undefined || valor === 0) return;
+            const pos = elemento.tooltipPosition();
+            chart.ctx.fillText(String(valor), pos.x, pos.y - 6);
+          });
+        });
         chart.ctx.restore();
       }
     });
@@ -1580,7 +1611,8 @@ auth.onAuthStateChanged(async function(user){
     { tab: 'tendencia', segundos: 25 },
     { tab: 'ingenieros', slides: 4, segundosPorSlide: 8 },
     { tab: 'ticketsmc', slides: 6, segundosPorSlide: 8 },
-    { tab: 'expansion', segundos: 30 }
+    { tab: 'migracion_win11', slides: 4, segundosPorSlide: 8 },
+    { tab: 'expansion', slides: 2, segundosPorSlide: 15 }
   ];
   let carruselActivo = false;
   let carruselFaseIdx = -1; // -1 = Estatus de Servicio (NOC)
@@ -1618,15 +1650,26 @@ auth.onAuthStateChanged(async function(user){
     carruselNocPaginasVistas = 0;
     irATabCarrusel('estatus_servicio');
     carruselNocPaginasObjetivo = Math.max(1, esvTotalPaginasActual || 1);
+    if(document.documentElement.requestFullscreen){
+      document.documentElement.requestFullscreen().catch(()=>{});
+    }
   }
   function detenerCarrusel(){
     if(!carruselActivo) return;
     carruselActivo = false;
     carruselFaseIdx = -1;
     if(carruselFaseTimeout){ clearTimeout(carruselFaseTimeout); carruselFaseTimeout = null; }
+    if(document.fullscreenElement && document.exitFullscreen){
+      document.exitFullscreen().catch(()=>{});
+    }
     render();
   }
   function toggleCarrusel(){ carruselActivo ? detenerCarrusel() : iniciarCarrusel(); }
+  // Si alguien sale de pantalla completa con F11/Esc del navegador (en vez del botón "Detener"), el
+  // modo pantalla se detiene también para no quedar a medias (carrusel activo pero ya no en fullscreen).
+  document.addEventListener('fullscreenchange', ()=>{
+    if(!document.fullscreenElement && carruselActivo) detenerCarrusel();
+  });
   function avanzarCarrusel(){
     if(!carruselActivo) return;
     carruselFaseIdx++;
@@ -2865,7 +2908,7 @@ auth.onAuthStateChanged(async function(user){
       // Zoom por pestaña (agosto/sept. 2026, pensado para TV 4K de 50") — cada apartado tiene distinto
       // tanto de contenido, así que un mismo porcentaje deja unos con espacio de sobra y otros muy
       // apretados. Valores de partida, sin poder probarlos en una pantalla real — ajustar si hace falta.
-      const ZOOM_CARRUSEL_POR_TAB = { estatus_servicio:1, resumen:1.15, tendencia:1.3, ingenieros:1.2, ticketsmc:1.2, expansion:0.9 };
+      const ZOOM_CARRUSEL_POR_TAB = { estatus_servicio:1, resumen:1.15, tendencia:1.3, ingenieros:1.2, ticketsmc:1.2, migracion_win11:1.1, expansion:0.9 };
       if(carruselActivo) mainEl.style.setProperty('--carrusel-zoom', ZOOM_CARRUSEL_POR_TAB[tab] || 1);
     }
     const headerEl = document.querySelector('header.topbar');
@@ -4795,7 +4838,7 @@ auth.onAuthStateChanged(async function(user){
       </div>` : ''}
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
         <div>
-          <div class="title" style="margin-bottom:2px;">Total de caídas ${state.anio}</div>
+          <div class="title siempre-visible" style="margin-bottom:2px;">Total de caídas ${state.anio}</div>
         </div>
         <div class="panel" style="text-align:center; padding:14px 26px; margin:0;">
           <div style="font-size:24px; font-weight:800;">${total}</div>
@@ -5210,6 +5253,7 @@ auth.onAuthStateChanged(async function(user){
         <input type="file" id="fileWin11" accept=".xlsx,.xls" style="display:none">
         <button class="upload" id="btnUploadWin11">Cargar archivo</button>
       </div>` : ''}
+      <div class="carrusel-slide activo">
       <div class="cards">
         ${kpi(COLOR_WIN11,'Avance global', pct(d.avanceGlobal)+'%', 'Equipos en Windows 11')}
         ${kpi('#1D4ED8','Total de equipos', d.totalEquipos.toLocaleString('es-MX'), 'Activos, todas las regiones')}
@@ -5220,7 +5264,9 @@ auth.onAuthStateChanged(async function(user){
         ${kpi('#1D4ED8','Desktops', pct(d.avanceDesktop)+'%', d.desktops.toLocaleString('es-MX')+' equipos')}
         ${kpi('#7C3AED','Laptops', pct(d.avanceLaptop)+'%', d.laptops.toLocaleString('es-MX')+' equipos')}
       </div>
+      </div>
 
+      <div class="carrusel-slide">
       <div class="panel">
         <h3>Avance global</h3>
         <div style="display:grid; grid-template-columns:220px minmax(0,1fr); gap:24px; align-items:center;">
@@ -5235,7 +5281,9 @@ auth.onAuthStateChanged(async function(user){
           </div>
         </div>
       </div>
+      </div>
 
+      <div class="carrusel-slide">
       <div class="panel">
         <h3>Distribución de parque: desktop vs laptop</h3>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:center;">
@@ -5250,7 +5298,9 @@ auth.onAuthStateChanged(async function(user){
           </div>
         </div>
       </div>
+      </div>
 
+      <div class="carrusel-slide">
       <div class="panel">
         <h3>Detalle por región</h3>
         <table>
@@ -5269,6 +5319,7 @@ auth.onAuthStateChanged(async function(user){
         <div id="win11RegionCard" style="margin-top:12px;">${renderWin11RegionCard()}</div>
       </div>
       ${canEdit ? renderHistorialWin11() : ''}
+      </div>
     `;
 
     if(puedeEditarW11){
@@ -6579,6 +6630,7 @@ auth.onAuthStateChanged(async function(user){
     if(tiendas.length===0){
       c.innerHTML = `
         <div class="title">Plan de expansión · PrimeMX ${state.anio}</div>
+        <div class="carrusel-slide activo">
         ${canEdit ? `
         <div class="uploadbar">
           <div class="txt">
@@ -6593,7 +6645,8 @@ auth.onAuthStateChanged(async function(user){
           <h3>Todavía no hay tiendas cargadas</h3>
           <p>Sube el Excel de expansión (el mismo formato de "NVO_EXPANSION") para llenar esta pestaña: acumulado de aperturas, tiendas en proceso, y la tabla completa con notas manuales por tienda.</p>
         </div>`}
-        ${seccionCierreTiendas()}
+        </div>
+        <div class="carrusel-slide">${seccionCierreTiendas()}</div>
       `;
       wireExpansionUpload();
       wireCierreTiendas();
@@ -6619,6 +6672,7 @@ auth.onAuthStateChanged(async function(user){
     c.innerHTML = `
       <div class="title">Plan de expansión · PrimeMX ${state.anio}</div>
 
+      <div class="carrusel-slide activo">
       ${canEdit ? `
       <div class="uploadbar">
         <div class="txt">
@@ -6692,7 +6746,8 @@ auth.onAuthStateChanged(async function(user){
           ? `<textarea id="notasGenerales" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: Tienda CITY SHOP — cierre de tienda para el 03 de agosto">${exp.notas_generales||''}</textarea>`
           : `<div style="font-size:13px; white-space:pre-wrap; color:${exp.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${exp.notas_generales || 'Sin notas capturadas todavía. Da clic en "Editar todo" arriba para agregar.'}</div>`}
       </div>
-      ${seccionCierreTiendas()}
+      </div>
+      <div class="carrusel-slide">${seccionCierreTiendas()}</div>
     `;
     if(editing){
       document.getElementById('btnCancel').onclick=()=>{editing=false;render();};
@@ -6807,7 +6862,7 @@ auth.onAuthStateChanged(async function(user){
     const cerradas = tiendas.filter(t=>t.estatus==='Cerrada').length;
 
     return `
-      <div class="title" style="font-size:18px; margin-top:18px;">Cierre de tiendas</div>
+      <div class="title siempre-visible" style="font-size:18px; margin-top:18px;">Cierre de tiendas</div>
 
       ${canEdit && candidatas.length>0 ? `
       <div class="uploadbar">
