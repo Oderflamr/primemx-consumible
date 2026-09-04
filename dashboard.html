@@ -216,13 +216,16 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
      poder cambiar de pestaña sin tener que subir hasta arriba). top usa la altura real del header
      principal (--header-h, medida por JS) para no taparlo ni dejar hueco. */
   .sticky-subnav{position:sticky; top:var(--header-h,64px); z-index:15; background:var(--bg); padding-top:12px; margin-top:-12px;}
-  /* Modo pantalla (carrusel, agosto 2026): nadie hace scroll frente a una TV, así que se achica todo
-     el contenido para que quepa completo en la pantalla mientras el carrusel está activo. */
-  main.carrusel-zoom{ zoom: 0.68; }
+  /* Modo pantalla (carrusel, agosto/sept. 2026 — pensado para una TV 4K de 50", vista de lejos):
+     --carrusel-zoom lo pone JS por pestaña (ver render()), porque cada apartado tiene distinto tanto
+     de contenido y un mismo porcentaje deja unos con espacio de sobra y otros muy apretados. Mientras
+     está activo también se oculta la barra de "Última actualización" + pestañas (nadie la necesita
+     frente a una TV) — el encabezado de arriba (logo/usuario/Salir) se queda igual, eso no se toca. */
+  main.carrusel-zoom{ zoom: var(--carrusel-zoom, 1); }
+  main.carrusel-zoom .sticky-subnav{ display:none; }
   /* .noc-grid usa auto-fill (columnas que se ajustan solas al ancho disponible) — con zoom eso mete
-     más columnas de las que debería y las tarjetas de tienda salen más chicas que el resto de las
-     pestañas (que usan un número fijo de columnas). Fijamos columnas solo en modo pantalla para que
-     el achicado sea parejo con todo lo demás. */
+     más o menos columnas de las que debería. Fijamos columnas solo en modo pantalla para que el
+     tamaño de las tarjetas de tienda sea predecible sin importar el nivel de zoom de esa pestaña. */
   main.carrusel-zoom .noc-grid{ grid-template-columns: repeat(8, minmax(0,1fr)); }
   .status-line{font-size:12px; color:var(--sub); display:flex; gap:8px; align-items:center;}
   .dot{width:7px; height:7px; border-radius:50%; background:var(--good); display:inline-block;}
@@ -2796,7 +2799,6 @@ auth.onAuthStateChanged(async function(user){
     app.className = canEdit ? 'is-admin' : '';
     app.innerHTML = `
       <div class="sticky-subnav">
-        ${carruselActivo ? `<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:12px; color:var(--tp); font-weight:600;"><span style="width:7px;height:7px;border-radius:50%;background:var(--tp);display:inline-block;"></span> Modo pantalla activo — presiona Esc o <button id="btnDetenerCarrusel" style="padding:3px 10px; font-size:11px;">Detener</button></div>` : ''}
         <div class="status-line" style="margin-bottom:14px;"><span class="dot"></span> Última actualización: ${fmtFecha(state.updated_at)}</div>
         <div class="tabs-wrap" style="position:relative;">
           <div class="tabs">
@@ -2812,10 +2814,18 @@ auth.onAuthStateChanged(async function(user){
           </div>` : ''}
         </div>
       </div>
+      ${carruselActivo ? `<div style="position:fixed; bottom:14px; right:14px; z-index:30; display:flex; align-items:center; gap:8px; font-size:11px; color:var(--tp); font-weight:600; background:#fff; padding:6px 10px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.12); opacity:.55; transition:opacity .15s;" onmouseover="this.style.opacity=1;" onmouseout="this.style.opacity=.55;"><span style="width:6px;height:6px;border-radius:50%;background:var(--tp);display:inline-block;"></span>Modo pantalla · Esc o <button id="btnDetenerCarrusel" style="padding:2px 8px; font-size:10.5px;">Detener</button></div>` : ''}
       <div id="tabContent"></div>
     `;
     const mainEl = document.querySelector('main');
-    if(mainEl) mainEl.classList.toggle('carrusel-zoom', carruselActivo);
+    if(mainEl){
+      mainEl.classList.toggle('carrusel-zoom', carruselActivo);
+      // Zoom por pestaña (agosto/sept. 2026, pensado para TV 4K de 50") — cada apartado tiene distinto
+      // tanto de contenido, así que un mismo porcentaje deja unos con espacio de sobra y otros muy
+      // apretados. Valores de partida, sin poder probarlos en una pantalla real — ajustar si hace falta.
+      const ZOOM_CARRUSEL_POR_TAB = { estatus_servicio:1, resumen:1.15, tendencia:1.3, ingenieros:1.2, ticketsmc:1.2, expansion:0.9 };
+      if(carruselActivo) mainEl.style.setProperty('--carrusel-zoom', ZOOM_CARRUSEL_POR_TAB[tab] || 1);
+    }
     const headerEl = document.querySelector('header.topbar');
     if(headerEl) document.documentElement.style.setProperty('--header-h', headerEl.offsetHeight + 'px');
     const btnDetenerCarrusel = document.getElementById('btnDetenerCarrusel');
