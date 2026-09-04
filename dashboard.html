@@ -227,6 +227,13 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
      más o menos columnas de las que debería. Fijamos columnas solo en modo pantalla para que el
      tamaño de las tarjetas de tienda sea predecible sin importar el nivel de zoom de esa pestaña. */
   main.carrusel-zoom .noc-grid{ grid-template-columns: repeat(8, minmax(0,1fr)); }
+  /* Apartados largos (Tickets Soporte, Tickets Mesa de control) tienen varias gráficas/tablas
+     apiladas — en modo pantalla no hay scroll, así que solo se alcanzaba a ver la primera. Cada
+     sección va envuelta en .carrusel-slide y JS (actualizarSlideCarrusel) va mostrando una a la
+     vez cada pocos segundos. Fuera de modo pantalla esta regla no aplica: se ven todas seguidas,
+     como una página normal. */
+  main.carrusel-zoom .carrusel-slide{ display:none; }
+  main.carrusel-zoom .carrusel-slide.activo{ display:block; }
   .status-line{font-size:12px; color:var(--sub); display:flex; gap:8px; align-items:center;}
   .dot{width:7px; height:7px; border-radius:50%; background:var(--good); display:inline-block;}
 
@@ -1564,11 +1571,15 @@ auth.onAuthStateChanged(async function(user){
   // en Estatus de Servicio, espera a que termine su propio ciclo de rotacion de tiendas, y luego va
   // pasando por Tendencia mensual / Tickets Soporte / Tickets Mesa de control / Plan de expansion, en
   // bucle infinito. Esc lo detiene desde cualquier pestaña (para poder revisar algo en particular).
+  // 'ingenieros' y 'ticketsmc' traen varias gráficas/tablas apiladas (sin scroll no se ven todas), así
+  // que en vez de un tiempo fijo para todo el apartado usan "slides": cada sección (envuelta en
+  // .carrusel-slide, ver renderIngenieros/renderTicketsMC) se muestra segundosPorSlide y luego pasa a
+  // la siguiente; al llegar a la última, avanzarCarrusel sigue con el siguiente apartado normalmente.
   const CARRUSEL_SECUENCIA = [
     { tab: 'resumen', segundos: 30 },
     { tab: 'tendencia', segundos: 25 },
-    { tab: 'ingenieros', segundos: 25 },
-    { tab: 'ticketsmc', segundos: 25 },
+    { tab: 'ingenieros', slides: 4, segundosPorSlide: 8 },
+    { tab: 'ticketsmc', slides: 6, segundosPorSlide: 8 },
     { tab: 'expansion', segundos: 30 }
   ];
   let carruselActivo = false;
@@ -1576,6 +1587,16 @@ auth.onAuthStateChanged(async function(user){
   let carruselNocPaginasObjetivo = 1;
   let carruselNocPaginasVistas = 0;
   let carruselFaseTimeout = null;
+  let carruselSlideIdx = 0; // sección activa dentro del apartado actual, solo aplica si tiene "slides"
+  // Muestra solo la sección .carrusel-slide número carruselSlideIdx (las demás quedan display:none por
+  // CSS) y le pide a Chart.js que recalcule tamaño — las gráficas de secciones ocultas se crean con
+  // ancho 0 porque su contenedor estaba en display:none, así que hay que forzar el resize al mostrarlas.
+  function actualizarSlideCarrusel(){
+    document.querySelectorAll('#tabContent .carrusel-slide').forEach((el,i)=>{
+      el.classList.toggle('activo', i === carruselSlideIdx);
+    });
+    Object.values(charts).forEach(ch=>{ if(ch) ch.resize(); });
+  }
   // Mismo reset de banderas de edicion que usa el clic manual de pestaña, para que un modo de edicion
   // que haya quedado activo en otra pestaña no rompa el render al saltar de tab por el carrusel.
   function irATabCarrusel(tabId){
@@ -1619,7 +1640,24 @@ auth.onAuthStateChanged(async function(user){
     const fase = CARRUSEL_SECUENCIA[carruselFaseIdx];
     irATabCarrusel(fase.tab);
     if(carruselFaseTimeout) clearTimeout(carruselFaseTimeout);
-    carruselFaseTimeout = setTimeout(avanzarCarrusel, fase.segundos * 1000);
+    if(fase.slides){
+      carruselSlideIdx = 0;
+      actualizarSlideCarrusel();
+      avanzarSlideCarrusel(fase);
+    } else {
+      carruselFaseTimeout = setTimeout(avanzarCarrusel, fase.segundos * 1000);
+    }
+  }
+  function avanzarSlideCarrusel(fase){
+    carruselFaseTimeout = setTimeout(()=>{
+      carruselSlideIdx++;
+      if(carruselSlideIdx >= fase.slides){
+        avanzarCarrusel();
+      } else {
+        actualizarSlideCarrusel();
+        avanzarSlideCarrusel(fase);
+      }
+    }, fase.segundosPorSlide * 1000);
   }
   document.addEventListener('keydown', (e)=>{
     if(e.key === 'Escape' && carruselActivo) detenerCarrusel();
@@ -1830,7 +1868,11 @@ auth.onAuthStateChanged(async function(user){
         estatusServicio.error = 'No se pudo cargar el estatus de servicio desde el Directorio de Tiendas. Intenta de nuevo.';
       }
     }
+    // Se guarda y restaura el scroll porque render() reconstruye todo #tabContent — sin esto,
+    // cada refresco de 15s (o en modo pantalla, cada rotación) regresaba la pantalla al inicio.
+    const scrollY = window.scrollY;
     render();
+    window.scrollTo(0, scrollY);
   }
 
   // Refresco + rotación automática cada 15 segundos mientras la pestaña "Estatus de Servicio" esté
@@ -5458,6 +5500,7 @@ auth.onAuthStateChanged(async function(user){
     c.innerHTML = `
       <div class="title">Tickets Soporte</div>
 
+      <div class="carrusel-slide activo">
       <h3>Tickets de Soporte IT — ${state.anio-1} vs ${state.anio}</h3>
       <div class="cards cards-3" style="margin-bottom:16px;">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE_CLARO)}">Año ${state.anio-1} (Ene-${state.periodo_actual})</div>
@@ -5468,7 +5511,9 @@ auth.onAuthStateChanged(async function(user){
           <div class="body"><div class="big">${promedioMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets por mes</div></div></div>
       </div>
       <div class="panel"><canvas id="chartIngenierosYoy"></canvas></div>
+      </div>
 
+      <div class="carrusel-slide">
       <h3 style="margin-top:24px;">Tickets atendidos por ingeniero, por mes</h3>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Ingeniero</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
@@ -5482,7 +5527,9 @@ auth.onAuthStateChanged(async function(user){
         </tbody>
       </table></div>
       </div>
+      </div>
 
+      <div class="carrusel-slide">
       <h3 style="margin-top:24px;">Tickets Soporte por día de la semana</h3>
       ${totalSoportePorDia===0 ? `
       <div class="placeholder">
@@ -5497,7 +5544,9 @@ auth.onAuthStateChanged(async function(user){
       </div>
       <div class="panel"><canvas id="chartIngenierosDia"></canvas></div>
       `}
+      </div>
 
+      <div class="carrusel-slide">
       <h3 style="margin-top:24px;">Tickets Soporte por hora</h3>
       ${totalSoportePorHora===0 ? `
       <div class="placeholder">
@@ -5508,6 +5557,7 @@ auth.onAuthStateChanged(async function(user){
         <div class="body"><div class="big">${idxHoraPicoSoporte}:00</div><div class="lbl">${soportePorHoraDia[idxHoraPicoSoporte].toLocaleString('es-MX')} tickets creados</div></div></div>
       <div class="panel"><canvas id="chartIngenierosHora"></canvas></div>
       `}
+      </div>
     `;
 
     if(charts.ingenierosYoy) charts.ingenierosYoy.destroy();
@@ -5582,6 +5632,7 @@ auth.onAuthStateChanged(async function(user){
     c.innerHTML = `
       <div class="title">Tickets Mesa de control</div>
 
+      <div class="carrusel-slide activo">
       <h3>Tickets de Mesa de Control por mes</h3>
       <div class="cards" style="margin-bottom:16px;">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_MESA)}">Total Ene-${state.periodo_actual}</div>
@@ -5594,7 +5645,9 @@ auth.onAuthStateChanged(async function(user){
           <div class="body"><div class="big">${promedioMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets por mes</div></div></div>
       </div>
       <div class="panel"><canvas id="chartTicketsMC"></canvas></div>
+      </div>
 
+      <div class="carrusel-slide">
       <h3 style="margin-top:24px;">Tickets atendidos por Mesa de Control, por mes</h3>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Mesa de Control</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
@@ -5608,7 +5661,9 @@ auth.onAuthStateChanged(async function(user){
         </tbody>
       </table></div>
       </div>
+      </div>
 
+      <div class="carrusel-slide">
       <h3 style="margin-top:24px;">Tickets de Mesa de Control por día de la semana</h3>
       ${totalPorDia===0 ? `
       <div class="placeholder">
@@ -5623,7 +5678,9 @@ auth.onAuthStateChanged(async function(user){
       </div>
       <div class="panel"><canvas id="chartTicketsMCDia"></canvas></div>
       `}
+      </div>
 
+      <div class="carrusel-slide">
       <h3 style="margin-top:24px;">Tickets de Mesa de Control por hora</h3>
       ${totalPorHora===0 ? `
       <div class="placeholder">
@@ -5634,7 +5691,9 @@ auth.onAuthStateChanged(async function(user){
         <div class="body"><div class="big">${idxHoraPico}:00</div><div class="lbl">${porHoraDia[idxHoraPico].toLocaleString('es-MX')} tickets creados</div></div></div>
       <div class="panel"><canvas id="chartTicketsMCHora"></canvas></div>
       `}
+      </div>
 
+      <div class="carrusel-slide">
       <h3 style="margin-top:24px;">Detalle de tickets Mesa de Control por categoría</h3>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Categoría</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th></tr></thead>
@@ -5647,7 +5706,9 @@ auth.onAuthStateChanged(async function(user){
         </tbody>
       </table></div>
       </div>
+      </div>
 
+      <div class="carrusel-slide">
       <h3 style="margin-top:24px;">Categoría × Agente de Mesa de Control</h3>
       <div class="panel"><div style="overflow-x:auto;"><table>
         <thead><tr><th style="text-align:left;">Categoría</th>${agentesCols.map(a=>`<th>${a}</th>`).join('')}</tr></thead>
@@ -5668,6 +5729,7 @@ auth.onAuthStateChanged(async function(user){
           </tr>
         </tbody>
       </table></div>
+      </div>
       </div>
     `;
 
