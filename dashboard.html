@@ -234,6 +234,9 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
      como una página normal. */
   main.carrusel-zoom .carrusel-slide{ display:none; }
   main.carrusel-zoom .carrusel-slide.activo{ display:block; }
+  /* Utilidad genérica para ocultar una sección completa solo durante Modo pantalla (ej. HUB: en el
+     carrusel solo se pidió mostrar el Directorio de HUBs, no la parte de tickets/KPIs de arriba). */
+  main.carrusel-zoom .oculto-en-carrusel{ display:none; }
   .status-line{font-size:12px; color:var(--sub); display:flex; gap:8px; align-items:center;}
   .dot{width:7px; height:7px; border-radius:50%; background:var(--good); display:inline-block;}
 
@@ -1612,6 +1615,12 @@ auth.onAuthStateChanged(async function(user){
     { tab: 'ingenieros', slides: 4, segundosPorSlide: 8 },
     { tab: 'ticketsmc', slides: 6, segundosPorSlide: 8 },
     { tab: 'migracion_win11', slides: 2, segundosPorSlide: 15 },
+    { tab: 'reemplazo_laptop', segundos: 15 },
+    { tab: 'reemplazo_cpu', segundos: 15 },
+    { tab: 'reemplazo_disco', segundos: 15 },
+    { tab: 'biometricos', segundos: 15 },
+    { tab: 'pin_pad', segundos: 15 },
+    { tab: 'hub', segundos: 25 },
     { tab: 'expansion', slides: 2, segundosPorSlide: 15 }
   ];
   let carruselActivo = false;
@@ -2908,7 +2917,7 @@ auth.onAuthStateChanged(async function(user){
       // Zoom por pestaña (agosto/sept. 2026, pensado para TV 4K de 50") — cada apartado tiene distinto
       // tanto de contenido, así que un mismo porcentaje deja unos con espacio de sobra y otros muy
       // apretados. Valores de partida, sin poder probarlos en una pantalla real — ajustar si hace falta.
-      const ZOOM_CARRUSEL_POR_TAB = { estatus_servicio:1, resumen:1.15, tendencia:1.3, ingenieros:1.2, ticketsmc:1.2, migracion_win11:0.8, expansion:0.9 };
+      const ZOOM_CARRUSEL_POR_TAB = { estatus_servicio:1, resumen:1.15, tendencia:1.3, ingenieros:1.2, ticketsmc:1.2, migracion_win11:0.8, reemplazo_laptop:1.1, reemplazo_cpu:1.1, reemplazo_disco:1.1, biometricos:1.1, pin_pad:1.1, hub:1, expansion:0.9 };
       if(carruselActivo) mainEl.style.setProperty('--carrusel-zoom', ZOOM_CARRUSEL_POR_TAB[tab] || 1);
     }
     const headerEl = document.querySelector('header.topbar');
@@ -3321,7 +3330,7 @@ auth.onAuthStateChanged(async function(user){
       </div>` : `
       <div class="panel">
         <h3>${opts.chartTitle}</h3>
-        <canvas id="${opts.canvasId}"></canvas>
+        <div style="height:280px; position:relative;"><canvas id="${opts.canvasId}"></canvas></div>
       </div>`}
     `;
     if(!sinDatos){
@@ -3335,7 +3344,7 @@ auth.onAuthStateChanged(async function(user){
       });
       charts[opts.canvasId] = new Chart(canvasEl, {
         data:{ labels: opts.labels, datasets: datasetsConDegradado },
-        options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
+        options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
       });
     }
   }
@@ -4023,6 +4032,7 @@ auth.onAuthStateChanged(async function(user){
     c.innerHTML = `
       <div class="title">HUB</div>
 
+      <div class="oculto-en-carrusel">
       ${canEditHub() ? `
       <div class="uploadbar">
         <div class="txt">
@@ -4064,6 +4074,7 @@ auth.onAuthStateChanged(async function(user){
         </div>
       </div>
       `}
+      </div>
 
       ${renderDirectorioHubs()}
     `;
