@@ -1620,7 +1620,6 @@ auth.onAuthStateChanged(async function(user){
     { tab: 'reemplazo_disco', segundos: 15 },
     { tab: 'biometricos', segundos: 15 },
     { tab: 'pin_pad', segundos: 15 },
-    { tab: 'hub', segundos: 25 },
     { tab: 'expansion', slides: 2, segundosPorSlide: 15 }
   ];
   let carruselActivo = false;
@@ -1779,6 +1778,13 @@ auth.onAuthStateChanged(async function(user){
   // el botón de carga (columnas TICKET, PROCESO, PDV, DISPOSITIVO, STATUS, REGION), ni el admin general.
   function canEditHub(){
     return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'asanchez');
+  }
+  // Plan de expansión (y su sección de Cierre de tiendas): además del admin, mgiron puede editar
+  // esta pestaña aunque su rol general sea "consulta" (sept. 2026, pedido explícito).
+  const USUARIOS_EXPANSION = ['mgiron'];
+  function canEditExpansion(){
+    if(canEdit) return true;
+    return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_EXPANSION.includes(currentUser.username));
   }
   // Resumen de Reemplazos: igual que Envíos y Recolecciones, es exclusivo — solo amartinez y
   // asanchez ven el botón de editar y el historial de cambios, sin importar si son admin o no.
@@ -2172,7 +2178,7 @@ auth.onAuthStateChanged(async function(user){
     render();
   }
   async function save(){
-    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT() && !canEditLaptopCerrado() && !canEditEnviosRec() && !canEditResumenReemplazos() && !canEditReemplazoDisco() && !canEditHub()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
+    if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT() && !canEditLaptopCerrado() && !canEditEnviosRec() && !canEditResumenReemplazos() && !canEditReemplazoDisco() && !canEditHub() && !canEditExpansion()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
     // Log global de "Actualizaciones" (usuario, archivo o tipo de actualización, fecha, hora) — cada
     // punto del dashboard que llama a save() fija descripcionActualizacion justo antes de llamarlo.
     if(!Array.isArray(state.actualizaciones)) state.actualizaciones = [];
@@ -2917,7 +2923,7 @@ auth.onAuthStateChanged(async function(user){
       // Zoom por pestaña (agosto/sept. 2026, pensado para TV 4K de 50") — cada apartado tiene distinto
       // tanto de contenido, así que un mismo porcentaje deja unos con espacio de sobra y otros muy
       // apretados. Valores de partida, sin poder probarlos en una pantalla real — ajustar si hace falta.
-      const ZOOM_CARRUSEL_POR_TAB = { estatus_servicio:1, resumen:1.15, tendencia:1.3, ingenieros:1.2, ticketsmc:1.2, migracion_win11:0.8, reemplazo_laptop:1.1, reemplazo_cpu:1.1, reemplazo_disco:1.1, biometricos:1.1, pin_pad:1.1, hub:1, expansion:0.9 };
+      const ZOOM_CARRUSEL_POR_TAB = { estatus_servicio:1, resumen:1.15, tendencia:1.3, ingenieros:1.2, ticketsmc:1.2, migracion_win11:0.8, reemplazo_laptop:1.1, reemplazo_cpu:1.1, reemplazo_disco:1.1, biometricos:1.1, pin_pad:1.1, expansion:0.9 };
       if(carruselActivo) mainEl.style.setProperty('--carrusel-zoom', ZOOM_CARRUSEL_POR_TAB[tab] || 1);
     }
     const headerEl = document.querySelector('header.topbar');
@@ -6637,7 +6643,7 @@ auth.onAuthStateChanged(async function(user){
       c.innerHTML = `
         <div class="title">Plan de expansión · PrimeMX ${state.anio}</div>
         <div class="carrusel-slide activo">
-        ${canEdit ? `
+        ${canEditExpansion() ? `
         <div class="uploadbar">
           <div class="txt">
             <b>Cargar archivo de expansión (.xlsx)</b> — agrega o actualiza tiendas (por Clave PDV); no borra lo que ya tenías cargado.
@@ -6679,7 +6685,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="title">Plan de expansión · PrimeMX ${state.anio}</div>
 
       <div class="carrusel-slide activo">
-      ${canEdit ? `
+      ${canEditExpansion() ? `
       <div class="uploadbar">
         <div class="txt">
           <b>Cargar archivo de la semana (.xlsx)</b> — solo necesitas subir los registros nuevos: se agregan a lo que ya tienes o actualizan la tienda que coincida por Clave PDV. Nada se borra. Las notas se conservan.
@@ -6704,7 +6710,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel">
         <div class="editbar">${editing
           ? `<button id="btnCancel">Cancelar</button><button id="btnAddTienda">Agregar tienda</button><button class="primary" id="btnSave">Guardar cambios</button>`
-          : (canEdit ? `<button id="btnEdit">Editar todo</button>` : '')}</div>
+          : (canEditExpansion() ? `<button id="btnEdit">Editar todo</button>` : '')}</div>
         <h3>Tiendas — mes, hardware, internet y estatus</h3>
         <div style="overflow-x:auto;"><table>
           <thead><tr>
@@ -6778,7 +6784,7 @@ auth.onAuthStateChanged(async function(user){
         btn.onclick = ()=>{ tiendas.splice(Number(btn.dataset.expRemove),1); render(); };
       });
     } else {
-      if(canEdit) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
+      if(canEditExpansion()) document.getElementById('btnEdit').onclick=()=>{editing=true;render();};
     }
     wireExpansionUpload();
     wireCierreTiendas();
@@ -6818,7 +6824,7 @@ auth.onAuthStateChanged(async function(user){
   // "Plan de expansión" (pedido explícito del cliente). Antes las tiendas cerradas vivían mezcladas
   // en la tabla de arriba con estatus:'Cerrada' y todo el detalle (fechas de entrega/recolección/
   // vigencia) embarrado en el campo "nota". Aquí quedan en su propia tabla, con un campo nuevo
-  // "Observaciones" separado del detalle. Solo admin puede editar/mover (ver canEdit). Tiene su
+  // "Observaciones" separado del detalle. Admin y mgiron pueden editar/mover (ver canEditExpansion). Tiene su
   // propio interruptor de edición (editingCierre) para no forzar a editar las dos tablas juntas.
   // Candidatas a migrar: cualquier fila de Plan de expansión ya marcada 'Cerrada' que siga ahí.
   function candidatosMigracionCierre(){
@@ -6870,7 +6876,7 @@ auth.onAuthStateChanged(async function(user){
     return `
       <div class="title siempre-visible" style="font-size:18px; margin-top:18px;">Cierre de tiendas</div>
 
-      ${canEdit && candidatas.length>0 ? `
+      ${canEditExpansion() && candidatas.length>0 ? `
       <div class="uploadbar">
         <div class="txt">
           <b>${candidatas.length} tienda(s) marcada(s) "Cerrada" siguen arriba, en la tabla de Expansión.</b> Muévelas aquí abajo para llevar el seguimiento de cierre en un solo lugar.
@@ -6889,9 +6895,9 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel">
         <div class="editbar">${editingCierre
           ? `<button id="btnCancelCierre">Cancelar</button><button id="btnAddCierre">Agregar tienda</button><button class="primary" id="btnSaveCierre">Guardar cambios</button>`
-          : (canEdit ? `<button id="btnEditCierre">Editar todo</button>` : '')}</div>
+          : (canEditExpansion() ? `<button id="btnEditCierre">Editar todo</button>` : '')}</div>
         <h3>Tiendas — mes, hardware, internet, estatus y observaciones</h3>
-        ${tiendas.length===0 ? `<div class="placeholder"><h3>Todavía no hay tiendas aquí</h3><p>${canEdit ? 'Da clic en "Editar todo" para agregar una tienda manualmente, o usa "Mover tiendas cerradas de arriba" si ya hay alguna marcada como Cerrada en la tabla de Expansión.' : 'Todavía no hay tiendas capturadas en este apartado.'}</p></div>` : `
+        ${tiendas.length===0 ? `<div class="placeholder"><h3>Todavía no hay tiendas aquí</h3><p>${canEditExpansion() ? 'Da clic en "Editar todo" para agregar una tienda manualmente, o usa "Mover tiendas cerradas de arriba" si ya hay alguna marcada como Cerrada en la tabla de Expansión.' : 'Todavía no hay tiendas capturadas en este apartado.'}</p></div>` : `
         <div style="overflow-x:auto;"><table>
           <thead><tr>
             <th>#</th><th>Clave PDV</th><th>Tienda</th><th>Región</th><th>Mes</th>
@@ -6949,7 +6955,7 @@ auth.onAuthStateChanged(async function(user){
   function wireCierreTiendas(){
     const cz = state.cierre_tiendas;
     const tiendas = cz.tiendas || [];
-    if(canEdit){
+    if(canEditExpansion()){
       const btnMig = document.getElementById('btnAbrirMigrarCierre');
       if(btnMig) btnMig.onclick = ()=>{ modalMigrarCierre = true; render(); };
       const btnCancelMig = document.getElementById('btnCancelMigrarCierre');
