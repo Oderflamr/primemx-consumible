@@ -6895,7 +6895,7 @@ auth.onAuthStateChanged(async function(user){
         <div style="overflow-x:auto;"><table>
           <thead><tr>
             <th>#</th><th>Clave PDV</th><th>Tienda</th><th>Región</th><th>Mes</th>
-            <th>PC</th><th>Lap</th><th>Internet</th><th>ARQ</th><th>Impresora</th><th>Estatus</th><th style="text-align:left;">Nota</th><th style="text-align:left;">Observaciones</th>${editingCierre?'<th></th>':''}
+            <th>PC</th><th>Lap</th><th>Internet</th><th>ARQ</th><th>Impresora</th><th>Estatus</th><th style="text-align:left;">Nota</th><th style="text-align:left;">Observaciones</th><th>Correo Office</th>${editingCierre?'<th></th>':''}
           </tr></thead>
           <tbody>${tiendas.map((t,i)=> editingCierre ? `
             <tr data-cz-row="${i}">
@@ -6914,6 +6914,7 @@ auth.onAuthStateChanged(async function(user){
               </select></td>
               <td><input type="text" style="width:220px; text-align:left;" data-cz-field="nota" data-cz-row="${i}" value="${(t.nota||'').replace(/"/g,'&quot;')}"></td>
               <td><input type="text" style="width:220px; text-align:left;" data-cz-field="observaciones" data-cz-row="${i}" value="${(t.observaciones||'').replace(/"/g,'&quot;')}"></td>
+              <td style="text-align:center;"><input type="checkbox" data-cz-field="correo_borrado" data-cz-row="${i}" ${t.correo_borrado?'checked':''}></td>
               <td><button data-cz-remove="${i}" style="padding:3px 8px;">✕</button></td>
             </tr>` : `
             <tr data-cz-row="${i}">
@@ -6930,6 +6931,9 @@ auth.onAuthStateChanged(async function(user){
               <td><span class="status-badge ${estatusExpClass(t.estatus)}">${t.estatus}</span></td>
               <td style="text-align:left;">${t.nota||'<span style="color:var(--sub)">—</span>'}</td>
               <td style="text-align:left;">${t.observaciones||'<span style="color:var(--sub)">—</span>'}</td>
+              <td>${t.correo_borrado
+                ? `<span class="status-badge" style="background:#E7F7EC; color:#1E7A3D;">✓ Borrado</span>`
+                : `<span class="status-badge" style="background:#FFF9DB; color:#8A6D00;">Pendiente</span>`}</td>
             </tr>`).join('')}
           </tbody>
         </table></div>`}
@@ -6957,14 +6961,14 @@ auth.onAuthStateChanged(async function(user){
     if(editingCierre){
       document.getElementById('btnCancelCierre').onclick=()=>{editingCierre=false;render();};
       document.getElementById('btnAddCierre').onclick=()=>{
-        tiendas.push({numero:null, clave:'', nombre:'Nueva tienda', region:'-', mes:'', pc:'-', lap:'-', internet:'-', entregado_arq:'-', entrega_impresora:'-', estatus:'Prospecto', nota:'', observaciones:''});
+        tiendas.push({numero:null, clave:'', nombre:'Nueva tienda', region:'-', mes:'', pc:'-', lap:'-', internet:'-', entregado_arq:'-', entrega_impresora:'-', estatus:'Prospecto', nota:'', observaciones:'', correo_borrado:false});
         render();
       };
       document.getElementById('btnSaveCierre').onclick=()=>{
         document.querySelectorAll('[data-cz-field]').forEach(inp=>{
           const i = Number(inp.dataset.czRow);
           const field = inp.dataset.czField;
-          let val = inp.value;
+          let val = inp.type === 'checkbox' ? inp.checked : inp.value;
           if(field==='numero') val = val==='' ? null : Number(val);
           tiendas[i][field] = val;
         });
