@@ -2171,6 +2171,11 @@ auth.onAuthStateChanged(async function(user){
       // Comentarios de seguimiento en Migración de carrier (agosto 2026) — objeto plano nombre de
       // tienda -> texto libre, exclusivo de amartinez (ver canEditComentariosMigracion()).
       if(!state.migracion_comentarios) state.migracion_comentarios = {};
+      // Lista de tiendas de Migración de carrier (sept. 2026) — antes era fija en el código
+      // (MIGRACION_MEGACABLE/MIGRACION_TELMEX); se precarga con esas mismas tiendas la primera vez
+      // que el documento en Firestore no trae este campo, y de ahí en adelante manda Firestore
+      // (cualquier admin puede agregar/quitar tiendas, ver canEdit en renderMigracionCarrier).
+      if(!state.migracion_carrier) state.migracion_carrier = { megacable: clone(MIGRACION_MEGACABLE), telmex: clone(MIGRACION_TELMEX) };
       if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
       if(!state.budget_it.historial) state.budget_it.historial = [];
       state.budget_it.capex.forEach(cx=>{ if(cx.incluir===undefined) cx.incluir = true; });
@@ -5115,10 +5120,15 @@ auth.onAuthStateChanged(async function(user){
   function canEditComentariosMigracion(){
     return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'amartinez');
   }
-  function tablaMigracion(filas, mesesCortos, tituloMigracion, textoMigracion){
+  function tablaMigracion(filas, mesesCortos, tituloMigracion, textoMigracion, listaKey){
     const puedeEditarComentarios = editing && canEditComentariosMigracion();
+    // Agregar/quitar tiendas de la lista (sept. 2026) es de cualquier admin (canEdit), distinto del
+    // permiso de Comentarios de arriba que sigue exclusivo de amartinez.
+    const puedeEditarLista = editing && canEdit;
+    const nombresEnLista = new Set(filas.map(r=>r.nombre));
+    const opcionesDisponibles = Object.keys(catalogoVivo.porNombre).filter(n=>!nombresEnLista.has(n)).sort((a,b)=>a.localeCompare(b,'es'));
     return `<div class="panel"><div style="overflow-x:auto;"><table>
-        <thead><tr><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th><th>${tituloMigracion}</th><th>Motivo</th><th style="text-align:left;">Comentarios</th></tr></thead>
+        <thead><tr><th>Tienda</th><th>Carrier</th><th>Tecnología</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Estatus</th><th>${tituloMigracion}</th><th>Motivo</th><th style="text-align:left;">Comentarios</th>${puedeEditarLista?'<th></th>':''}</tr></thead>
         <tbody>${filas.map(r=>{
           const st = estatusTienda(r.total);
           const comentario = state.migracion_comentarios[r.nombre] || '';
@@ -5134,29 +5144,40 @@ auth.onAuthStateChanged(async function(user){
             <td style="text-align:left;">${puedeEditarComentarios
               ? `<input type="text" data-migracion-comentario="${r.nombre}" value="${comentario.replace(/"/g,'&quot;')}" placeholder="Nota de seguimiento" style="width:180px;">`
               : (comentario ? comentario : '<span style="color:var(--sub);">—</span>')}</td>
+            ${puedeEditarLista ? `<td><button data-migracion-quitar="${listaKey}:${r.nombre}" style="padding:3px 8px;">✕</button></td>` : ''}
           </tr>`;
         }).join('')}</tbody>
-      </table></div></div>`;
+      </table></div>
+      ${puedeEditarLista ? `
+      <div style="display:flex; gap:8px; align-items:center; margin-top:12px;">
+        <select data-migracion-agregar-select="${listaKey}" style="flex:1; max-width:320px;">
+          <option value="">Elige una tienda del Directorio…</option>
+          ${opcionesDisponibles.map(n=>`<option value="${n}">${n}</option>`).join('')}
+        </select>
+        <button data-migracion-agregar-btn="${listaKey}">Agregar tienda</button>
+      </div>` : ''}
+      </div>`;
   }
   function renderMigracionCarrier(c){
     const hasta = idxMes(state.periodo_actual);
     const mesesCortos = MESES.slice(0,hasta+1);
-    const filasMega = filasMigracion(MIGRACION_MEGACABLE, hasta);
-    const filasTelmex = filasMigracion(MIGRACION_TELMEX, hasta);
+    const filasMega = filasMigracion(state.migracion_carrier.megacable, hasta);
+    const filasTelmex = filasMigracion(state.migracion_carrier.telmex, hasta);
     const puedeEditarComentarios = canEditComentariosMigracion();
+    const puedeEditar = canEdit || puedeEditarComentarios;
     c.innerHTML = `
       <div class="title">Migración de carrier</div>
-      <div class="editbar">${editing && puedeEditarComentarios
+      <div class="editbar">${editing && puedeEditar
         ? `<button id="btnCancelMigracion">Cancelar</button><button class="primary" id="btnSaveMigracion">Guardar cambios</button>`
-        : (puedeEditarComentarios ? `<button id="btnEditMigracion">Editar comentarios</button>` : '')}</div>
+        : (puedeEditar ? `<button id="btnEditMigracion">Editar</button>` : '')}</div>
 
       <h3 style="margin-top:6px;">Cambio de tecnología: Microonda → Megacable</h3>
-      ${tablaMigracion(filasMega, mesesCortos, 'Cambio a Megacable', 'En proceso')}
+      ${tablaMigracion(filasMega, mesesCortos, 'Cambio a Megacable', 'En proceso', 'megacable')}
 
       <h3 style="margin-top:24px;">Cambio de carrier: TotalPlay → Telmex</h3>
-      ${tablaMigracion(filasTelmex, mesesCortos, 'Migración', 'Migrada Telmex')}
+      ${tablaMigracion(filasTelmex, mesesCortos, 'Migración', 'Migrada Telmex', 'telmex')}
     `;
-    if(editing && puedeEditarComentarios){
+    if(editing && puedeEditar){
       document.getElementById('btnCancelMigracion').onclick = ()=>{ editing=false; render(); };
       document.getElementById('btnSaveMigracion').onclick = ()=>{
         document.querySelectorAll('[data-migracion-comentario]').forEach(inp=>{
@@ -5164,11 +5185,30 @@ auth.onAuthStateChanged(async function(user){
           if(texto) state.migracion_comentarios[inp.dataset.migracionComentario] = texto;
           else delete state.migracion_comentarios[inp.dataset.migracionComentario];
         });
-        descripcionActualizacion = 'Edición manual — Comentarios de Migración de carrier';
+        descripcionActualizacion = 'Edición manual — Migración de carrier';
         editing = false;
         save();
       };
-    } else if(puedeEditarComentarios){
+      document.querySelectorAll('[data-migracion-quitar]').forEach(btn=>{
+        btn.onclick = ()=>{
+          const [listaKey, nombre] = btn.dataset.migracionQuitar.split(':');
+          const arr = state.migracion_carrier[listaKey];
+          const idx = arr.indexOf(nombre);
+          if(idx>-1) arr.splice(idx,1);
+          render();
+        };
+      });
+      document.querySelectorAll('[data-migracion-agregar-btn]').forEach(btn=>{
+        btn.onclick = ()=>{
+          const listaKey = btn.dataset.migracionAgregarBtn;
+          const select = document.querySelector(`[data-migracion-agregar-select="${listaKey}"]`);
+          const nombre = select.value;
+          if(!nombre) return;
+          if(!state.migracion_carrier[listaKey].includes(nombre)) state.migracion_carrier[listaKey].push(nombre);
+          render();
+        };
+      });
+    } else if(puedeEditar){
       document.getElementById('btnEditMigracion').onclick = ()=>{ editing=true; render(); };
     }
   }
