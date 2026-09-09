@@ -1831,6 +1831,18 @@ auth.onAuthStateChanged(async function(user){
     if(!iso) return 'aún no se ha guardado';
     return new Date(iso).toLocaleString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   }
+  // Aviso de "última actualización" por sección (sept. 2026) — a diferencia del indicador general de
+  // arriba (state.updated_at, que cambia con CUALQUIER guardado de CUALQUIER pestaña), cada sección con
+  // carga de Excel guarda su propio archivo/fecha/usuario en su `.carga`. A petición explícita del
+  // cliente, esto SOLO lo ve quien subió ese archivo — ni siquiera otro admin (ej. mgiron) lo ve si no
+  // fue quien cargó ese archivo en particular — EXCEPTO amartinez, admin general, que sí ve todas.
+  function resumenCarga(carga){
+    if(!carga || !carga.archivo || !carga.usuario) return '';
+    const puedeVer = typeof currentUser !== 'undefined' && currentUser &&
+      (currentUser.username === carga.usuario || currentUser.username === 'amartinez');
+    if(!puedeVer) return '';
+    return `<div class="upload-summary">Última actualización: ${carga.archivo} · ${fmtFecha(carga.fecha)}</div>`;
+  }
   function fmtFechaCorta(iso){
     if(!iso) return '—';
     return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short'});
@@ -2692,7 +2704,7 @@ auth.onAuthStateChanged(async function(user){
     state.ticketsmc.agentes = datos.agentes_mc;
     state.ticketsmc.categorias = datos.mc_categorias;
     state.ticketsmc.categoria_agente = datos.mc_categoria_agente;
-    state.carga = { archivo: datos.fileName, tickets_caidas: datos.resumen.totalCaidas, fecha: new Date().toISOString() };
+    state.carga = { archivo: datos.fileName, tickets_caidas: datos.resumen.totalCaidas, fecha: new Date().toISOString(), usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : null };
     cargaPendiente = null;
     descripcionActualizacion = `Carga de Excel — Tickets y Caídas (${datos.fileName})`;
     save();
@@ -2845,7 +2857,7 @@ auth.onAuthStateChanged(async function(user){
     });
 
     state.expansion.tiendas = existentes;
-    state.expansion.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregadas, actualizadas };
+    state.expansion.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregadas, actualizadas, usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : null };
     cargaPendienteExpansion = null;
     descripcionActualizacion = `Carga de Excel — Plan de Expansión (${datos.fileName})`;
     save();
@@ -3086,7 +3098,7 @@ auth.onAuthStateChanged(async function(user){
     });
 
     state.envios_recolecciones.registros = existentes;
-    state.envios_recolecciones.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados };
+    state.envios_recolecciones.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados, usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : null };
     cargaPendienteEnviosRec = null;
     descripcionActualizacion = `Carga de Excel — Envíos y Recolecciones (${datos.fileName})`;
     save();
@@ -3167,6 +3179,7 @@ auth.onAuthStateChanged(async function(user){
         <input type="file" id="fileEnviosRec" accept=".xlsx,.xls" style="display:none">
         <button class="upload" id="btnUploadEnviosRec">Cargar archivo</button>
       </div>` : ''}
+      ${resumenCarga(er.carga)}
       ${cargaPendienteEnviosRec ? panelConfirmacionEnviosRec() : ''}
 
       <div class="cards">
@@ -3332,6 +3345,7 @@ auth.onAuthStateChanged(async function(user){
     c.innerHTML = `
       <div class="title">${opts.titulo}</div>
       ${opts.uploadBarHtml || ''}
+      ${resumenCarga(opts.carga)}
       ${opts.previewHtml || ''}
       <div class="cards">${opts.kpis.map(k=>`<div class="card"><div class="head" style="background:${cardGrad(k.color)}">${k.label}</div><div class="body"><div class="big">${k.valor}</div><div class="lbl">${k.lbl}</div></div></div>`).join('')}</div>
       ${sinDatos ? `
@@ -3440,6 +3454,7 @@ auth.onAuthStateChanged(async function(user){
         <input type="file" id="fileReemplazoLaptop" accept=".xlsx,.xls" style="display:none">
         <button class="upload" id="btnUploadReemplazoLaptop">Cargar archivo</button>
       </div>` : '',
+      carga: rl.carga,
       previewHtml: cargaPendienteReemplazoLaptop ? panelConfirmacionReemplazoLaptop() : '',
       kpis:[
         {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades · Dic25 a hoy', color:COL_BAR},
@@ -3494,6 +3509,7 @@ auth.onAuthStateChanged(async function(user){
         <input type="file" id="fileReemplazoCpu" accept=".xlsx,.xls" style="display:none">
         <button class="upload" id="btnUploadReemplazoCpu">Cargar archivo</button>
       </div>` : '',
+      carga: rc.carga,
       previewHtml: cargaPendienteReemplazoCpu ? panelConfirmacionReemplazoCpu() : '',
       kpis:[
         {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades · 2026', color:COL_BAR},
@@ -3563,7 +3579,7 @@ auth.onAuthStateChanged(async function(user){
     });
 
     state.reemplazo_disco.registros = existentes;
-    state.reemplazo_disco.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados };
+    state.reemplazo_disco.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados, usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : null };
     cargaPendienteReemplazoDisco = null;
     descripcionActualizacion = `Carga de Excel — Reemplazo Disco Duro (${datos.fileName})`;
     save();
@@ -3683,7 +3699,7 @@ auth.onAuthStateChanged(async function(user){
     const ordenMes = (m)=> m==='Dic25' ? -1 : (MESES12.indexOf(m)>=0 ? MESES12.indexOf(m) : 999);
     existentes.sort((a,b)=> ordenMes(a.mes) - ordenMes(b.mes));
     destino.registros = existentes;
-    destino.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados };
+    destino.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), agregados, actualizados, usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : null };
     descripcionActualizacion = `Carga de Excel — ${descripcionCorta} (${datos.fileName})`;
     save();
   }
@@ -3955,7 +3971,7 @@ auth.onAuthStateChanged(async function(user){
   // vino el listado vigente.
   function aplicarDatosHub(datos){
     state.hub.registros = datos.registros;
-    state.hub.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), total: datos.registros.length };
+    state.hub.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), total: datos.registros.length, usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : null };
     cargaPendienteHub = null;
     descripcionActualizacion = `Carga de Excel — HUB (${datos.fileName})`;
     save();
@@ -4053,6 +4069,7 @@ auth.onAuthStateChanged(async function(user){
         <input type="file" id="fileHub" accept=".xlsx,.xls" style="display:none">
         <button class="upload" id="btnUploadHub">Cargar archivo</button>
       </div>` : ''}
+      ${resumenCarga(hub.carga)}
       ${cargaPendienteHub ? panelConfirmacionHub() : ''}
 
       ${registros.length===0 ? `
@@ -4259,6 +4276,7 @@ auth.onAuthStateChanged(async function(user){
         <input type="file" id="fileReemplazoDisco" accept=".xlsx,.xls" style="display:none">
         <button class="upload" id="btnUploadReemplazoDisco">Cargar archivo</button>
       </div>` : ''}
+      ${resumenCarga(rd.carga)}
       ${cargaPendienteReemplazoDisco ? panelConfirmacionReemplazoDisco() : ''}
 
       <div class="cards">
@@ -4331,6 +4349,7 @@ auth.onAuthStateChanged(async function(user){
         <input type="file" id="fileBiometricos" accept=".xlsx,.xls" style="display:none">
         <button class="upload" id="btnUploadBiometricos">Cargar archivo</button>
       </div>` : '',
+      carga: bio.carga,
       previewHtml: cargaPendienteBiometricos ? panelConfirmacionBiometricos() : '',
       kpis:[
         {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades reemplazadas', color:COL_BAR},
@@ -4374,6 +4393,7 @@ auth.onAuthStateChanged(async function(user){
         <input type="file" id="filePinPad" accept=".xlsx,.xls" style="display:none">
         <button class="upload" id="btnUploadPinPad">Cargar archivo</button>
       </div>` : '',
+      carga: pp.carga,
       previewHtml: cargaPendientePinPad ? panelConfirmacionPinPad() : '',
       kpis:[
         {label:'Promedio / mes', valor:fmtMX(promedioMes), lbl:'unidades reemplazadas', color:COL_BAR},
@@ -4839,7 +4859,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="uploadbar">
         <div class="txt">
           <b>Cargar reporte de tickets (.xlsx, año completo)</b> — recalcula Tendencia, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier) a partir de las categorías "Internet y telefonia".
-          ${state.carga.archivo ? `<div class="upload-summary">Último archivo: ${state.carga.archivo} · ${state.carga.tickets_caidas} tickets de caídas procesados · ${fmtFecha(state.carga.fecha)}</div>` : ''}
+          ${(state.carga.archivo && currentUser && (state.carga.usuario===currentUser.username || currentUser.username==='amartinez')) ? `<div class="upload-summary">Última actualización: ${state.carga.archivo} · ${state.carga.tickets_caidas} tickets de caídas procesados · ${fmtFecha(state.carga.fecha)}</div>` : ''}
           <div id="uploadError"></div>
         </div>
         <input type="file" id="fileTickets" accept=".xlsx,.xls" style="display:none">
@@ -6692,6 +6712,7 @@ auth.onAuthStateChanged(async function(user){
           <input type="file" id="fileExpansion" accept=".xlsx,.xls" style="display:none">
           <button class="upload" id="btnUploadExp">Cargar archivo</button>
         </div>` : ''}
+        ${resumenCarga(exp.carga)}
         ${cargaPendienteExpansion ? panelConfirmacionExpansion() : `
         <div class="placeholder">
           <h3>Todavía no hay tiendas cargadas</h3>
@@ -6734,6 +6755,7 @@ auth.onAuthStateChanged(async function(user){
         <input type="file" id="fileExpansion" accept=".xlsx,.xls" style="display:none">
         <button class="upload" id="btnUploadExp">Cargar archivo</button>
       </div>` : ''}
+      ${resumenCarga(exp.carga)}
       ${cargaPendienteExpansion ? panelConfirmacionExpansion() : ''}
 
       <div class="cards">
