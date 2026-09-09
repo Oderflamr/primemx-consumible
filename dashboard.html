@@ -424,6 +424,13 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
   .noc-modal-status.caida{background:#FECACA; color:#DC2626;}
   .noc-modal-status.en-linea{background:#E6F5EC; color:#1E8E5A;}
 
+  /* Mapa de HUBs de recolección (sept. 2026, reemplaza las tarjetas) — banderita por HUB, ondeando
+     con una animación de skew sobre el triángulo de tela; el asta no se mueve. */
+  @keyframes hubFlagWave{ 0%{transform:skewY(0deg);} 50%{transform:skewY(-14deg);} 100%{transform:skewY(0deg);} }
+  .hub-flagwave{ animation:hubFlagWave 1.6s ease-in-out infinite; transform-origin:0% 50%; }
+  .hub-flagpin:hover line{ stroke:var(--tp); }
+  .hub-flagpin:hover circle{ fill:var(--tp); }
+
   /* ===== Budget IT 2026 ===== */
   #tbl-budget-it{min-width:1710px; table-layout:fixed;}
   /* Proveedor / Categoría / Moneda / Presup. quedan fijas (sticky) al hacer scroll horizontal para llegar al mes que se necesita editar */
@@ -1803,13 +1810,32 @@ auth.onAuthStateChanged(async function(user){
   let cargaPendienteBiometricos = null;
   let cargaPendientePinPad = null;
   let cargaPendienteHub = null;
-  // Directorio de HUBs de recolección (agosto 2026) — tabla editable a mano dentro de la pestaña HUB
-  // (Región/Estado/Ciudad/Hub/Responsable/Teléfono), independiente del Excel de tickets de esa misma
-  // pestaña. Exclusivo de asanchez (canEditHub()), agregar/editar/borrar fila. `directorioHubDraft` es
-  // una copia de trabajo (clone()) mientras se edita, para que "Cancelar" descarte filas agregadas o
-  // borradas sin tocar state.hub.directorio hasta que se le dé "Guardar cambios".
-  let editingDirectorioHub = false;
-  let directorioHubDraft = null;
+  // Directorio de HUBs de recolección — mapa de México con una bandera por HUB (sept. 2026, reemplaza
+  // las tarjetas), independiente del Excel de tickets de esa misma pestaña. Exclusivo de asanchez
+  // (canEditHub()). Coordenadas aproximadas por estado (mapa esquemático, no a escala exacta) —
+  // normalizadas en mayúsculas sin acentos para tolerar variantes del campo `estado` capturado a mano.
+  const ESTADOS_HUB_COORDS = {
+    'BAJA CALIFORNIA':{x:60,y:60}, 'BAJA CALIFORNIA NORTE':{x:60,y:60}, 'BAJA CALIFORNIA SUR':{x:95,y:170},
+    'SONORA':{x:140,y:90}, 'CHIHUAHUA':{x:200,y:75}, 'SINALOA':{x:135,y:170}, 'DURANGO':{x:185,y:170},
+    'COAHUILA':{x:245,y:100}, 'NUEVO LEON':{x:275,y:130}, 'TAMAULIPAS':{x:295,y:170}, 'ZACATECAS':{x:205,y:210},
+    'SAN LUIS POTOSI':{x:240,y:225}, 'NAYARIT':{x:135,y:225}, 'AGUASCALIENTES':{x:205,y:235}, 'JALISCO':{x:170,y:245},
+    'GUANAJUATO':{x:220,y:250}, 'QUERETARO':{x:235,y:260}, 'HIDALGO':{x:260,y:255}, 'VERACRUZ':{x:300,y:275},
+    'COLIMA':{x:160,y:270}, 'MICHOACAN':{x:190,y:275}, 'ESTADO DE MEXICO':{x:235,y:280}, 'CIUDAD DE MEXICO':{x:240,y:288},
+    'TLAXCALA':{x:255,y:278}, 'PUEBLA':{x:265,y:290}, 'MORELOS':{x:238,y:298}, 'GUERRERO':{x:205,y:310},
+    'OAXACA':{x:250,y:330}, 'CHIAPAS':{x:285,y:360}, 'TABASCO':{x:310,y:335}, 'CAMPECHE':{x:345,y:320},
+    'YUCATAN':{x:365,y:295}, 'QUINTANA ROO':{x:385,y:310}
+  };
+  const MEXICO_OUTLINE_PATH = 'M70,50 L230,45 L280,70 L300,110 L330,160 L360,220 L400,270 L385,300 L350,330 L300,345 L270,320 L250,340 L220,320 L180,335 L150,310 L120,280 L100,230 L80,180 L60,120 Z';
+  function normalizarEstadoHub(s){
+    return String(s||'').toUpperCase().trim()
+      .replace(/Á/g,'A').replace(/É/g,'E').replace(/Í/g,'I').replace(/Ó/g,'O').replace(/Ú/g,'U');
+  }
+  function coordEstadoHub(estado){
+    return ESTADOS_HUB_COORDS[normalizarEstadoHub(estado)] || {x:220, y:230};
+  }
+  let hubMapModoEdicion = false;
+  let hubMapSeleccion = null; // índice en state.hub.directorio, 'nuevo', o null (modal cerrado)
+  let hubMapDraft = null;
   // Guardias: solo el mes en curso se ve abierto de entrada; los demás meses se guardan comprimidos
   // detrás de un botón "+" — a petición explícita del cliente, para no llenar la pantalla con 6 meses
   // de golpe. Vive fuera de renderGuardias() para que no se resetee cada vez que la app repinta.
@@ -4059,6 +4085,8 @@ auth.onAuthStateChanged(async function(user){
     c.innerHTML = `
       <div class="title">HUB</div>
 
+      ${renderDirectorioHubs()}
+
       <div class="oculto-en-carrusel">
       ${canEditHub() ? `
       <div class="uploadbar">
@@ -4103,8 +4131,6 @@ auth.onAuthStateChanged(async function(user){
       </div>
       `}
       </div>
-
-      ${renderDirectorioHubs()}
     `;
     wireHubUpload();
     wireDirectorioHubs();
@@ -4139,110 +4165,148 @@ auth.onAuthStateChanged(async function(user){
     {region:'Pacífico', estado:'Jalisco', ciudad:'Guadalajara', hub:'PRM TDA GDL COUNTRY', responsable:'', telefono:''},
     {region:'Pacífico', estado:'Colima', ciudad:'Colima', hub:'PRM TDA COLIMA AV. MADERO', responsable:'', telefono:''}
   ];
-  // Tarjetas (agosto 2026, mismo estilo que las tarjetas de tienda del Directorio de Tiendas: fondo
-  // blanco, borde que resalta en teal al pasar el mouse, badge de Estado, y el resto de campos como
-  // etiquetas). Orden pedido por el cliente: hub (título) → estado → ciudad → región → responsable →
-  // teléfono. Los atributos data-dirhub-* se mantienen igual que antes para no tocar wireDirectorioHubs().
+  // Mapa (sept. 2026, reemplaza las tarjetas de agosto): una bandera por HUB sobre un mapa esquemático
+  // de México, ubicada por el campo `estado` (ver ESTADOS_HUB_COORDS). Clic en la bandera abre la ficha
+  // con los mismos datos que antes (hub, estado, ciudad, región, responsable, teléfono).
   function renderDirectorioHubs(){
     const puedeEditar = canEditHub();
-    const filas = editingDirectorioHub ? directorioHubDraft : (state.hub.directorio || []);
-    const tarjeta = (f, fi) => {
-      if(editingDirectorioHub){
-        return `
-          <div style="background:#fff; border:1px solid var(--signal); border-radius:10px; padding:14px; position:relative;">
-            <button data-dirhub-eliminar="${fi}" style="position:absolute; top:10px; right:10px; border:none; background:none; color:var(--crit); cursor:pointer; font-size:16px; line-height:1;" title="Eliminar tarjeta">×</button>
-            <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Hub de recolección</label>
-            <input type="text" data-dirhub-campo="hub" data-dirhub-fila="${fi}" value="${String(f.hub||'').replace(/"/g,'&quot;')}" style="width:100%; padding:5px 7px; font-size:13px; font-weight:600; margin-bottom:8px;">
-            <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Estado</label>
-            <input type="text" data-dirhub-campo="estado" data-dirhub-fila="${fi}" value="${String(f.estado||'').replace(/"/g,'&quot;')}" style="width:100%; padding:5px 7px; font-size:12.5px; margin-bottom:8px; font-family:var(--font-mono);">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-              <div>
-                <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Ciudad</label>
-                <input type="text" data-dirhub-campo="ciudad" data-dirhub-fila="${fi}" value="${String(f.ciudad||'').replace(/"/g,'&quot;')}" style="width:100%; padding:5px 7px; font-size:12px;">
-              </div>
-              <div>
-                <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Región</label>
-                <input type="text" data-dirhub-campo="region" data-dirhub-fila="${fi}" value="${String(f.region||'').replace(/"/g,'&quot;')}" style="width:100%; padding:5px 7px; font-size:12px;">
-              </div>
-              <div>
-                <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Responsable</label>
-                <input type="text" data-dirhub-campo="responsable" data-dirhub-fila="${fi}" value="${String(f.responsable||'').replace(/"/g,'&quot;')}" style="width:100%; padding:5px 7px; font-size:12px;">
-              </div>
-              <div>
-                <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Teléfono</label>
-                <input type="text" data-dirhub-campo="telefono" data-dirhub-fila="${fi}" value="${String(f.telefono||'').replace(/"/g,'&quot;')}" style="width:100%; padding:5px 7px; font-size:12px;">
-              </div>
-            </div>
-          </div>`;
-      }
-      return `
-        <div style="background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; transition:border-color .12s ease, box-shadow .12s ease;" onmouseover="this.style.borderColor='var(--signal)'; this.style.boxShadow='0 4px 14px rgba(18,32,49,0.07)';" onmouseout="this.style.borderColor='var(--line)'; this.style.boxShadow='none';">
-          <p style="font-size:14px; font-weight:600; margin:0 0 8px; line-height:1.3; color:var(--ink);">${f.hub || 'Sin nombre'}</p>
-          <div style="font-size:12px; color:var(--sub); display:flex; flex-wrap:wrap; gap:6px;">
-            ${f.estado ? `<span style="font-family:var(--font-mono); color:var(--signal-dark); background:var(--signal-soft); padding:2px 7px; border-radius:5px; font-weight:600;">${f.estado}</span>` : ''}
-            ${f.ciudad ? `<span style="background:#EFF2F1; border-radius:5px; padding:2px 7px;">${f.ciudad}</span>` : ''}
-            ${f.region ? `<span style="background:#EFF2F1; border-radius:5px; padding:2px 7px;">${f.region}</span>` : ''}
-            <span style="background:#EFF2F1; border-radius:5px; padding:2px 7px; ${f.responsable?'':'color:#9CA3AF;'}">${f.responsable || 'Sin responsable'}</span>
-            ${f.telefono ? `<span style="background:#EFF2F1; border-radius:5px; padding:2px 7px;">${f.telefono}</span>` : ''}
-          </div>
-        </div>`;
-    };
+    const filas = state.hub.directorio || [];
+    // Agrupa por estado para separar un poco las banderas cuando hay más de un HUB en el mismo estado.
+    const conteoPorEstado = {};
+    const posiciones = filas.map(f=>{
+      const key = normalizarEstadoHub(f.estado);
+      const idx = (conteoPorEstado[key] = (conteoPorEstado[key]||0) + 1) - 1;
+      const base = coordEstadoHub(f.estado);
+      const paso = Math.ceil(idx/2);
+      const offset = idx===0 ? {x:0,y:0} : { x:(idx%2===1?1:-1)*10*paso, y:-8*paso };
+      return { x: base.x+offset.x, y: base.y+offset.y };
+    });
     return `
       <div class="panel">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <h3 style="margin:0;">Directorio de HUBs de recolección</h3>
-          ${puedeEditar ? (editingDirectorioHub
-            ? `<div class="editbar" style="margin:0;"><button id="btnCancelDirHub">Cancelar</button><button class="primary" id="btnSaveDirHub">Guardar cambios</button></div>`
-            : `<button id="btnEditDirHub">Editar directorio</button>`) : ''}
+          ${puedeEditar ? (hubMapModoEdicion
+            ? `<div class="editbar" style="margin:0;"><button id="btnAgregarHubMapa">+ Agregar HUB</button><button class="primary" id="btnCerrarEdicionHubMapa">Terminar edición</button></div>`
+            : `<button id="btnEditarHubMapa">Editar directorio</button>`) : ''}
         </div>
         ${filas.length===0 ? `<p style="color:var(--sub); margin-top:10px;">Sin registros todavía.</p>` : `
-        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; margin-top:12px;">
-          ${filas.map((f,fi)=>tarjeta(f,fi)).join('')}
-        </div>`}
-        ${editingDirectorioHub ? `<button id="btnAgregarFilaDirHub" style="margin-top:12px;">+ Agregar tarjeta</button>` : ''}
+        <div style="margin-top:12px; overflow-x:auto;">
+          <svg viewBox="0 0 420 400" style="width:100%; max-width:460px; display:block;" role="img">
+            <title>Mapa de HUBs de recolección</title>
+            <path d="${MEXICO_OUTLINE_PATH}" fill="#F5F7F8" stroke="var(--line)" stroke-width="1.5"/>
+            ${filas.map((f,i)=>{
+              const p = posiciones[i];
+              return `<g class="hub-flagpin" data-hub-idx="${i}" transform="translate(${p.x},${p.y})">
+                <line x1="0" y1="0" x2="0" y2="-18" stroke="var(--sub)" stroke-width="1.5"/>
+                <path class="hub-flagwave" d="M0,-18 L15,-15 L0,-12 Z" fill="var(--tp)"/>
+                <circle r="2.5" fill="var(--sub)"/>
+              </g>`;
+            }).join('')}
+          </svg>
+        </div>
+        <div style="font-size:11px; color:var(--sub); margin-top:8px;">Mapa esquemático, no a escala exacta — da clic en una bandera para ver los datos del HUB.</div>
+        `}
+        <div id="hubMapModalRoot"></div>
       </div>
     `;
   }
-  function wireDirectorioHubs(){
-    if(!canEditHub()) return;
-    if(!editingDirectorioHub){
-      const btnEdit = document.getElementById('btnEditDirHub');
-      if(btnEdit) btnEdit.onclick = ()=>{
-        directorioHubDraft = clone(state.hub.directorio || []);
-        editingDirectorioHub = true;
-        render();
+  // Ficha del HUB — vive en su propio contenedor (#hubMapModalRoot), mismo patrón que #esvModalRoot,
+  // para abrir/cerrar y guardar sin reconstruir todo el mapa (evita perder la posición del scroll).
+  // En modo edición (hubMapModoEdicion) la ficha trae los campos editables; si no, es de solo lectura.
+  function renderHubMapModal(){
+    const root = document.getElementById('hubMapModalRoot');
+    if(!root) return;
+    if(hubMapSeleccion===null){ root.innerHTML=''; return; }
+    const esNuevo = hubMapSeleccion==='nuevo';
+    const editando = hubMapModoEdicion;
+    const f = editando ? hubMapDraft : (state.hub.directorio||[])[hubMapSeleccion];
+    if(!f){ root.innerHTML=''; hubMapSeleccion=null; return; }
+    root.innerHTML = `
+      <div class="noc-overlay" id="hubMapOverlay">
+        <div class="noc-modal">
+          ${editando ? `
+            <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Hub de recolección</label>
+            <input type="text" id="hubMapCampoHub" value="${String(f.hub||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:14px; font-weight:600; margin-bottom:8px;">
+            <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Estado</label>
+            <select id="hubMapCampoEstado" style="width:100%; padding:6px 8px; font-size:13px; margin-bottom:8px;">
+              ${!f.estado ? `<option value="" disabled selected>Elige un estado…</option>` : ''}
+              ${Object.keys(ESTADOS_HUB_COORDS).map(k=>`<option value="${k}" ${normalizarEstadoHub(f.estado)===k?'selected':''}>${k}</option>`).join('')}
+            </select>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Ciudad</label>
+                <input type="text" id="hubMapCampoCiudad" value="${String(f.ciudad||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+              <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Región</label>
+                <input type="text" id="hubMapCampoRegion" value="${String(f.region||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+              <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Responsable</label>
+                <input type="text" id="hubMapCampoResponsable" value="${String(f.responsable||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+              <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Teléfono</label>
+                <input type="text" id="hubMapCampoTelefono" value="${String(f.telefono||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+            </div>
+            <div class="editbar" style="margin-top:14px;">
+              ${!esNuevo ? `<button id="btnEliminarHubMapa" style="color:#DC2626;">Eliminar</button>` : ''}
+              <button class="primary" id="btnGuardarHubMapa">Guardar</button>
+            </div>
+          ` : `
+            <h3>${f.hub || 'Sin nombre'}</h3>
+            <div class="noc-modal-row"><span>Estado</span><b>${f.estado||'—'}</b></div>
+            <div class="noc-modal-row"><span>Ciudad</span><b>${f.ciudad||'—'}</b></div>
+            <div class="noc-modal-row"><span>Región</span><b>${f.region||'—'}</b></div>
+            <div class="noc-modal-row"><span>Responsable</span><b>${f.responsable||'Sin responsable'}</b></div>
+            <div class="noc-modal-row"><span>Teléfono</span><b>${f.telefono||'—'}</b></div>
+          `}
+          <button class="noc-modal-close" id="hubMapModalCloseBtn">Cerrar</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('hubMapOverlay').onclick = (e)=>{ if(e.target.id==='hubMapOverlay'){ hubMapSeleccion=null; hubMapDraft=null; renderHubMapModal(); } };
+    document.getElementById('hubMapModalCloseBtn').onclick = ()=>{ hubMapSeleccion=null; hubMapDraft=null; renderHubMapModal(); };
+    if(editando){
+      document.getElementById('btnGuardarHubMapa').onclick = ()=>{
+        const nuevo = {
+          hub: document.getElementById('hubMapCampoHub').value,
+          estado: document.getElementById('hubMapCampoEstado').value,
+          ciudad: document.getElementById('hubMapCampoCiudad').value,
+          region: document.getElementById('hubMapCampoRegion').value,
+          responsable: document.getElementById('hubMapCampoResponsable').value,
+          telefono: document.getElementById('hubMapCampoTelefono').value
+        };
+        if(esNuevo) state.hub.directorio.push(nuevo);
+        else state.hub.directorio[hubMapSeleccion] = nuevo;
+        hubMapSeleccion = null;
+        hubMapDraft = null;
+        descripcionActualizacion = 'Edición manual — Directorio de HUBs de recolección';
+        save();
       };
-      return;
+      const btnEliminar = document.getElementById('btnEliminarHubMapa');
+      if(btnEliminar) btnEliminar.onclick = ()=>{
+        state.hub.directorio.splice(hubMapSeleccion,1);
+        hubMapSeleccion = null;
+        hubMapDraft = null;
+        descripcionActualizacion = 'Edición manual — Directorio de HUBs de recolección';
+        save();
+      };
     }
-    document.querySelectorAll('[data-dirhub-campo]').forEach(inp=>{
-      inp.oninput = ()=>{
-        directorioHubDraft[Number(inp.dataset.dirhubFila)][inp.dataset.dirhubCampo] = inp.value;
+  }
+  function wireDirectorioHubs(){
+    document.querySelectorAll('.hub-flagpin').forEach(g=>{
+      g.onclick = ()=>{
+        const i = Number(g.dataset.hubIdx);
+        hubMapSeleccion = i;
+        hubMapDraft = hubMapModoEdicion ? clone(state.hub.directorio[i]) : null;
+        renderHubMapModal();
       };
     });
-    document.querySelectorAll('[data-dirhub-eliminar]').forEach(btn=>{
-      btn.onclick = ()=>{
-        directorioHubDraft.splice(Number(btn.dataset.dirhubEliminar), 1);
-        render();
-      };
-    });
-    const btnAgregar = document.getElementById('btnAgregarFilaDirHub');
+    renderHubMapModal();
+    if(!canEditHub()) return;
+    const btnEditar = document.getElementById('btnEditarHubMapa');
+    if(btnEditar) btnEditar.onclick = ()=>{ hubMapModoEdicion = true; render(); };
+    const btnCerrar = document.getElementById('btnCerrarEdicionHubMapa');
+    if(btnCerrar) btnCerrar.onclick = ()=>{ hubMapModoEdicion = false; hubMapSeleccion=null; hubMapDraft=null; render(); };
+    const btnAgregar = document.getElementById('btnAgregarHubMapa');
     if(btnAgregar) btnAgregar.onclick = ()=>{
-      directorioHubDraft.push({region:'', estado:'', ciudad:'', hub:'', responsable:'', telefono:''});
-      render();
-    };
-    const btnCancel = document.getElementById('btnCancelDirHub');
-    if(btnCancel) btnCancel.onclick = ()=>{
-      editingDirectorioHub = false;
-      directorioHubDraft = null;
-      render();
-    };
-    const btnSave = document.getElementById('btnSaveDirHub');
-    if(btnSave) btnSave.onclick = ()=>{
-      state.hub.directorio = directorioHubDraft;
-      editingDirectorioHub = false;
-      directorioHubDraft = null;
-      descripcionActualizacion = 'Edición manual — Directorio de HUBs de recolección';
-      save();
+      hubMapDraft = {region:'', estado:'', ciudad:'', hub:'', responsable:'', telefono:''};
+      hubMapSeleccion = 'nuevo';
+      renderHubMapModal();
     };
   }
 
