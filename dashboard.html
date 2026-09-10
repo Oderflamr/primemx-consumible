@@ -602,7 +602,13 @@ document.getElementById('logout-btn').addEventListener('click', function(){
 const SESION_DURACION_MS = 10 * 60 * 60 * 1000;
 function sesionExpirada(){
   const inicio = Number(localStorage.getItem('primemx_sesion_inicio') || 0);
-  return !inicio || (Date.now() - inicio) > SESION_DURACION_MS;
+  // Sin marca de tiempo todavía NO cuenta como vencida (bug real, sept. 2026): justo al iniciar sesión,
+  // onAuthStateChanged puede dispararse ANTES de que el login termine de guardar primemx_sesion_inicio
+  // (es una carrera entre el listener y el await del login) — si "sin marca" se trataba como "vencida",
+  // eso cerraba la sesión recién iniciada de inmediato y daba la impresión de que la contraseña estaba
+  // mal, hasta el segundo intento (para entonces la marca ya había quedado guardada del primer intento).
+  if(!inicio) return false;
+  return (Date.now() - inicio) > SESION_DURACION_MS;
 }
 setInterval(()=>{
   if(currentUser && sesionExpirada()){
@@ -661,6 +667,11 @@ auth.onAuthStateChanged(async function(user){
     localStorage.removeItem('primemx_sesion_inicio');
     auth.signOut();
     return;
+  }
+  // Autocuración: si hay usuario pero todavía no hay marca de tiempo (login recién hecho, o se perdió
+  // por alguna razón), se arranca el reloj de 10h aquí mismo — no depende solo del handler de login.
+  if(user && !localStorage.getItem('primemx_sesion_inicio')){
+    localStorage.setItem('primemx_sesion_inicio', String(Date.now()));
   }
   if(user){
     const username = (user.email || '').split('@')[0];
