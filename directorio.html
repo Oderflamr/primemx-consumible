@@ -618,7 +618,10 @@ document.getElementById('logout-btn').addEventListener('click', function(){
 const SESION_DURACION_MS = 10 * 60 * 60 * 1000;
 function sesionExpirada(){
   const inicio = Number(localStorage.getItem('primemx_sesion_inicio') || 0);
-  return !inicio || (Date.now() - inicio) > SESION_DURACION_MS;
+  // Sin marca de tiempo todavía NO cuenta como vencida (bug real, sept. 2026): ver dashboard.html para
+  // el detalle completo de la carrera entre onAuthStateChanged y el guardado de la marca al iniciar sesión.
+  if(!inicio) return false;
+  return (Date.now() - inicio) > SESION_DURACION_MS;
 }
 setInterval(()=>{
   if(currentUser && sesionExpirada()){
@@ -635,6 +638,9 @@ auth.onAuthStateChanged(async function(user){
     localStorage.removeItem('primemx_sesion_inicio');
     auth.signOut();
     return;
+  }
+  if(user && !localStorage.getItem('primemx_sesion_inicio')){
+    localStorage.setItem('primemx_sesion_inicio', String(Date.now()));
   }
   if(user){
     const username = (user.email || '').split('@')[0];
@@ -1291,14 +1297,10 @@ function openDetail(id){
       <button class="btn btn-ghost" id="close-modal-btn">Cerrar</button>
     </div>`;
 
-  const notaEstructura = s.estructura_regional_archivo ? `
-    <p class="modal-sub" style="margin-top:-6px;">Región / Gerente Regional / Director actualizados desde <strong>${esc(s.estructura_regional_archivo)}</strong> · ${fmtFechaHist(s.estructura_regional_fecha)}</p>` : '';
-
   document.getElementById('modal-content').innerHTML = `
     <h2>${esc(s.plaza||'Detalle de tienda')}</h2>
     <p class="modal-sub">Centro de Costo ${esc(s.cc||'—')}</p>
     <div>${rowsHtml}</div>
-    ${notaEstructura}
     <div class="fallas-section">
       <div class="fallas-title-row">
         <h3>Fallas de servicio</h3>
