@@ -1904,6 +1904,13 @@ auth.onAuthStateChanged(async function(user){
   function coordEstadoHub(estado){
     return ESTADOS_HUB_COORDS[normalizarEstadoHub(estado)] || {x:220, y:230};
   }
+  // Efecto "extrudido" del mapa (sept. 2026, a petición del cliente — se veía muy plano): cada estado
+  // se dibuja dos veces — una copia sólida desplazada (el "lado" del bloque) y encima el estado real
+  // con degradado — dando relieve pseudo-3D sin necesitar ninguna librería. Los paths solo usan M/L con
+  // números planos, así que desplazarlos es un simple regex sobre cada par x,y.
+  function offsetPathHub(d, dx, dy){
+    return d.replace(/(-?[\d.]+),(-?[\d.]+)/g, (m, x, y) => `${(Number(x)+dx).toFixed(1)},${(Number(y)+dy).toFixed(1)}`);
+  }
   let hubMapModoEdicion = false;
   let hubMapSeleccion = null; // índice en state.hub.directorio, 'nuevo', o null (modal cerrado)
   let hubMapDraft = null;
@@ -4262,9 +4269,16 @@ auth.onAuthStateChanged(async function(user){
         </div>
         ${filas.length===0 ? `<p style="color:var(--sub); margin-top:10px;">Sin registros todavía.</p>` : `
         <div style="margin-top:12px; overflow-x:auto;">
-          <svg viewBox="12 144 397 244" style="width:100%; max-width:700px; display:block; margin:0 auto;" role="img">
+          <svg viewBox="12 144 400 248" style="width:100%; max-width:700px; display:block; margin:0 auto;" role="img">
             <title>Mapa de HUBs de recolección</title>
-            ${Object.values(ESTADOS_HUB_PATHS).map(d=>`<path d="${d}" fill="#F5F7F8" stroke="var(--line)" stroke-width="1"/>`).join('')}
+            <defs>
+              <linearGradient id="gradEstadoHub" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#F8FAFB"/>
+                <stop offset="100%" stop-color="#D3DCE1"/>
+              </linearGradient>
+            </defs>
+            ${Object.values(ESTADOS_HUB_PATHS).map(d=>`<path d="${offsetPathHub(d,1.8,2.6)}" fill="#8B94A0" stroke="none"/>`).join('')}
+            ${Object.values(ESTADOS_HUB_PATHS).map(d=>`<path d="${d}" fill="url(#gradEstadoHub)" stroke="#FFFFFF" stroke-width="1"/>`).join('')}
             ${filas.map((f,i)=>{
               const p = posiciones[i];
               return `<g class="hub-flagpin" data-hub-idx="${i}" transform="translate(${p.x},${p.y})">
