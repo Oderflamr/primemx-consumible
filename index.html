@@ -515,7 +515,10 @@ function doLogout() {
 const SESION_DURACION_MS = 10 * 60 * 60 * 1000;
 function sesionExpirada(){
   const inicio = Number(localStorage.getItem('primemx_sesion_inicio') || 0);
-  return !inicio || (Date.now() - inicio) > SESION_DURACION_MS;
+  // Sin marca de tiempo todavía NO cuenta como vencida (bug real, sept. 2026): ver dashboard.html para
+  // el detalle completo de la carrera entre onAuthStateChanged y el guardado de la marca al iniciar sesión.
+  if(!inicio) return false;
+  return (Date.now() - inicio) > SESION_DURACION_MS;
 }
 setInterval(()=>{
   if(currentUser && sesionExpirada()){
@@ -533,6 +536,9 @@ auth.onAuthStateChanged(async function(user){
     localStorage.removeItem('primemx_sesion_inicio');
     auth.signOut();
     return;
+  }
+  if(user && !localStorage.getItem('primemx_sesion_inicio')){
+    localStorage.setItem('primemx_sesion_inicio', String(Date.now()));
   }
   if(user){
     const username = (user.email || '').split('@')[0];
@@ -994,6 +1000,9 @@ function procesarConfirmacionProveedor(rows, nombreArchivo){
 
   const encontrados = [];
   const noEncontrados = [];
+  // Evita duplicados cuando el Excel del proveedor trae el mismo ticket repetido en más de una fila
+  // (o repetido dentro del mismo campo TICKET separado por "/") — se queda solo la primera aparición.
+  const ticketsVistos = new Set();
   entregados.forEach(r=>{
     const cc = buscarCampo(r, ['CC','CECO']);
     const location = buscarCampo(r, ['LOCATION NAME','TIENDA','LOCATION']);
@@ -1004,6 +1013,8 @@ function procesarConfirmacionProveedor(rows, nombreArchivo){
     const ticketsProveedor = ticketRaw.split('/').map(s=>s.trim()).filter(Boolean);
     if(!ticketsProveedor.length) return;
     ticketsProveedor.forEach(numTicket=>{
+      if(ticketsVistos.has(numTicket)) return;
+      ticketsVistos.add(numTicket);
       const interno = tickets.find(t=>t.id===numTicket);
       if(interno && interno.estatus!=='CERRADO'){
         encontrados.push({ id:numTicket, tienda: interno.tienda||location, ceco: interno.ceco||cc, guia, recibio, fecha, estatusActual: interno.estatus });
