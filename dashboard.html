@@ -6527,7 +6527,10 @@ auth.onAuthStateChanged(async function(user){
               const dobleFactura = PROVEEDORES_DOBLE_FACTURA.includes(v.proveedor);
               const esUSD = esProveedorUSD(v.proveedor);
               const unidadFactura = esUSD ? ' (USD)' : '';
-              let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td class="bi-moneda">${monedaProveedor(v.proveedor)}</td><td class="bi-presup">${moneyIT(v.presupuesto_mes)}</td>`;
+              const presupCell = (editing && puedeEditar)
+                ? `<input type="number" step="1" data-bi-presup="${vi}" value="${v.presupuesto_mes}" style="width:80px;">`
+                : moneyIT(v.presupuesto_mes);
+              let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td class="bi-moneda">${monedaProveedor(v.proveedor)}</td><td class="bi-presup">${presupCell}</td>`;
               valores.forEach((o,i)=>{
                 const bloqueado = i<6 || o.esReal;
                 const puedeReabrir = bloqueado && editing && puedeEditar && puedeEditarBloqueadosBI();
@@ -6540,10 +6543,15 @@ auth.onAuthStateChanged(async function(user){
                   const valorMostrado = esUSD ? Math.round((valorPesos/TIPO_CAMBIO_USD)*100)/100 : Math.round(valorPesos);
                   cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${valorMostrado}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — mgiron puede editarlo${esUSD?' (en dólares)':''}"></td>`;
                 } else if(editing && puedeEditar && dobleFactura){
-                  cells += `<td><div style="display:flex; flex-direction:column; gap:2px;">
+                  // Antes topado a exactamente 2 facturas (agosto 2026). A petición del cliente (sept.
+                  // 2026, ej. METROCARRIER con 2250+19500), ahora se pueden agregar más si hace falta —
+                  // el botón "+" agrega otro input; al guardar se suman TODOS los que tengan dato (ver
+                  // btnSaveBI: ya no busca solo factura="1"/"2", agrupa por vi+mi sin importar cuántas haya).
+                  cells += `<td><div class="bi-multi-factura" style="display:flex; flex-direction:column; gap:2px;" data-bi-multi-v="${vi}" data-bi-multi-m="${i}">
                     <input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" data-bi-factura="1" placeholder="Factura 1${unidadFactura}" style="width:72px; font-size:11px;">
                     <input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" data-bi-factura="2" placeholder="Factura 2${unidadFactura}" style="width:72px; font-size:11px;">
-                  </div></td>`;
+                  </div>
+                  <button type="button" class="bi-add-factura" data-bi-add-v="${vi}" data-bi-add-m="${i}" data-bi-add-unidad="${unidadFactura}" style="font-size:10px; padding:1px 5px; margin-top:2px;">+ factura</button></td>`;
                 } else if(editing && puedeEditar){
                   cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" placeholder="${esUSD?'USD':''}" style="width:72px;"></td>`;
                 } else {
@@ -6645,6 +6653,18 @@ auth.onAuthStateChanged(async function(user){
       ${puedeVerBudgetIT() ? renderHistorialBudgetIT() : ''}
     `;
 
+    // La tabla mensual es muy ancha (12 meses) y por default el scroll horizontal arrancaba en enero —
+    // había que arrastrarlo a mano cada vez para ver los meses recientes. Se posiciona solo, dejando
+    // 2 meses de contexto antes del mes actual (sept. 2026, pedido explícito del cliente).
+    const wrapTablaBI = document.getElementById('tbl-budget-it');
+    if(wrapTablaBI && wrapTablaBI.parentElement){
+      const anchoPrefijo = 200 + 130 + 70 + 92; // Proveedor + Categoría + Moneda + Presup./mes
+      const anchoMes = 88;
+      const mesActualIdxBI = idxMes(state.periodo_actual);
+      const mesesDeContexto = 2;
+      wrapTablaBI.parentElement.scrollLeft = anchoPrefijo + anchoMes * Math.max(0, mesActualIdxBI - mesesDeContexto);
+    }
+
     if(editing && puedeEditar){
       document.getElementById('btnCancelBI').onclick = ()=>{ editing=false; render(); };
       document.getElementById('btnSaveBI').onclick = ()=>{
@@ -6659,18 +6679,26 @@ auth.onAuthStateChanged(async function(user){
           const factor = esProveedorUSD(data.opex[vi].proveedor) ? TIPO_CAMBIO_USD : 1;
           if(raw!=='') data.opex[vi].meses[mi] = Number(raw) * factor;
         });
-        // Proveedores de doble factura (Colour Klub y los demás en PROVEEDORES_DOBLE_FACTURA): se suman
-        // las 2 casillas y se guarda un solo total — nunca se persisten las 2 cantidades por separado.
-        // Si el proveedor es USD (Colour Klub), cada factura también se convierte a pesos antes de sumar.
-        document.querySelectorAll('[data-bi-v][data-bi-factura="1"]').forEach(inp1=>{
-          const vi = Number(inp1.dataset.biV), mi = Number(inp1.dataset.biM);
-          const inp2 = document.querySelector(`[data-bi-v="${vi}"][data-bi-m="${mi}"][data-bi-factura="2"]`);
-          const raw1 = inp1.value.trim();
-          const raw2 = inp2 ? inp2.value.trim() : '';
-          const factor = esProveedorUSD(data.opex[vi].proveedor) ? TIPO_CAMBIO_USD : 1;
-          if(raw1!=='' || raw2!==''){
-            data.opex[vi].meses[mi] = (Number(raw1||0) + Number(raw2||0)) * factor;
-          }
+        // Proveedores de doble/múltiple factura (Colour Klub y los demás en PROVEEDORES_DOBLE_FACTURA):
+        // se suman TODAS las casillas que tengan dato (puede haber más de 2, ver botón "+ factura") y se
+        // guarda un solo total — nunca se persisten las facturas por separado. Si el proveedor es USD
+        // (Colour Klub), cada factura también se convierte a pesos antes de sumar.
+        const gruposFactura = {};
+        document.querySelectorAll('[data-bi-v][data-bi-factura]').forEach(inp=>{
+          const vi = Number(inp.dataset.biV), mi = Number(inp.dataset.biM);
+          const key = vi + '_' + mi;
+          if(!gruposFactura[key]) gruposFactura[key] = { vi, mi, suma:0, algunaConDato:false };
+          const raw = inp.value.trim();
+          if(raw!==''){ gruposFactura[key].suma += Number(raw); gruposFactura[key].algunaConDato = true; }
+        });
+        Object.values(gruposFactura).forEach(g=>{
+          if(!g.algunaConDato) return;
+          const factor = esProveedorUSD(data.opex[g.vi].proveedor) ? TIPO_CAMBIO_USD : 1;
+          data.opex[g.vi].meses[g.mi] = g.suma * factor;
+        });
+        document.querySelectorAll('[data-bi-presup]').forEach(inp=>{
+          const raw = inp.value.trim();
+          if(raw!=='') data.opex[Number(inp.dataset.biPresup)].presupuesto_mes = Number(raw);
         });
         document.querySelectorAll('[data-bi-capex-incluir]').forEach(chk=>{
           data.capex[Number(chk.dataset.biCapexIncluir)].incluir = chk.checked;
@@ -6693,6 +6721,19 @@ auth.onAuthStateChanged(async function(user){
     } else if(puedeEditar){
       document.getElementById('btnEditBI').onclick = ()=>{ editing=true; render(); };
     }
+    document.querySelectorAll('.bi-add-factura').forEach(btn=>{
+      btn.onclick = ()=>{
+        const vi = btn.dataset.biAddV, m = btn.dataset.biAddM;
+        const cont = document.querySelector(`.bi-multi-factura[data-bi-multi-v="${vi}"][data-bi-multi-m="${m}"]`);
+        const num = cont.querySelectorAll('input').length + 1;
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.step = '1';
+        inp.dataset.biV = vi; inp.dataset.biM = m; inp.dataset.biFactura = String(num);
+        inp.placeholder = `Factura ${num}${btn.dataset.biAddUnidad||''}`;
+        inp.style.cssText = 'width:72px; font-size:11px;';
+        cont.appendChild(inp);
+      };
+    });
     document.querySelectorAll('[data-hist-bi-ver]').forEach(btn=>{
       btn.onclick = ()=>{
         const idx = Number(btn.dataset.histBiVer);
