@@ -6490,6 +6490,13 @@ auth.onAuthStateChanged(async function(user){
     const pctAhorro = d.ahorroProyectado/d.opexAnnualBudget*100;
     const pctReal = Math.max(0, Math.min(100, d.janJunActual/d.opexAnnualBudget*100));
     const pctProj = Math.max(0, Math.min(100-pctReal, (d.opexAnnualProjected-d.janJunActual)/d.opexAnnualBudget*100));
+    // Ventana editable de 2 meses (sept. 2026, pedido explícito): antes un mes de Jul-Dic se cerraba
+    // solo (candado) en cuanto tenía un dato real — el mes en curso podía necesitar correcciones
+    // durante todo el mes, así que ahora se queda abierto junto con el mes anterior, aunque ya tengan
+    // datos capturados (se precargan en el input, no se pierden). Los meses que todavía no llegan
+    // (después del actual) no muestran ningún campo — no tiene caso capturar algo que no ha pasado.
+    // Ene-Jun sigue congelado siempre. La ventana se recorre sola cada mes, sin tocar código.
+    const mesActualIdxBI = idxMes(state.periodo_actual);
 
     c.innerHTML = `
       <div class="title">Budget IT 2026</div>
@@ -6532,22 +6539,29 @@ auth.onAuthStateChanged(async function(user){
                 : moneyIT(v.presupuesto_mes);
               let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td class="bi-moneda">${monedaProveedor(v.proveedor)}</td><td class="bi-presup">${presupCell}</td>`;
               valores.forEach((o,i)=>{
-                const bloqueado = i<6 || o.esReal;
+                const esFuturo = i > mesActualIdxBI;
+                const enVentanaEditable = i === mesActualIdxBI || i === mesActualIdxBI - 1;
+                const bloqueado = !esFuturo && !enVentanaEditable;
                 const puedeReabrir = bloqueado && editing && puedeEditar && puedeEditarBloqueadosBI();
-                if(bloqueado && !puedeReabrir){
+                // El dato guardado siempre está en pesos — para un proveedor USD se vuelve a mostrar en
+                // dólares (÷ tipo de cambio) para editar en la misma unidad de la factura.
+                const valorPesos = v.meses[i]!==null && v.meses[i]!==undefined ? v.meses[i] : o.valor;
+                const valorPrecargado = esUSD ? Math.round((valorPesos/TIPO_CAMBIO_USD)*100)/100 : Math.round(valorPesos);
+                if(esFuturo){
+                  cells += `<td><span style="color:var(--sub);">—</span></td>`;
+                } else if(bloqueado && !puedeReabrir){
                   cells += `<td class="bi-locked" style="background:${bgPresupuesto(o.valor, v.presupuesto_mes)};">${moneyIT(o.valor)}</td>`;
                 } else if(puedeReabrir){
-                  // El dato guardado siempre está en pesos — para un proveedor USD se vuelve a mostrar
-                  // en dólares (÷ tipo de cambio) para que mgiron edite en la misma unidad de la factura.
-                  const valorPesos = v.meses[i]!==null && v.meses[i]!==undefined ? v.meses[i] : o.valor;
-                  const valorMostrado = esUSD ? Math.round((valorPesos/TIPO_CAMBIO_USD)*100)/100 : Math.round(valorPesos);
-                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${valorMostrado}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — mgiron puede editarlo${esUSD?' (en dólares)':''}"></td>`;
+                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${valorPrecargado}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — mgiron puede editarlo${esUSD?' (en dólares)':''}"></td>`;
                 } else if(editing && puedeEditar && dobleFactura){
-                  // Un solo campo de texto (sept. 2026, reemplaza los inputs separados de antes) — se
-                  // escriben las facturas del mes separadas por "+" (ej. 2250+19500) y btnSaveBI las suma.
-                  cells += `<td><input type="text" data-bi-v="${vi}" data-bi-m="${i}" placeholder="ej. 2250+19500${unidadFactura}" style="width:72px; font-size:11px;"></td>`;
+                  // Un solo campo de texto (sept. 2026) — se escriben las facturas del mes separadas por
+                  // "+" (ej. 2250+19500) y btnSaveBI las suma. Si el mes ya traía un dato real (dentro de
+                  // la ventana editable actual/anterior), se precarga el total para poder corregirlo.
+                  cells += `<td><input type="text" data-bi-v="${vi}" data-bi-m="${i}" value="${o.esReal ? valorPrecargado : ''}" placeholder="ej. 2250+19500${unidadFactura}" style="width:72px; font-size:11px; background:${o.esReal?bgPresupuesto(o.valor, v.presupuesto_mes):''};"></td>`;
                 } else if(editing && puedeEditar){
-                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" placeholder="${esUSD?'USD':''}" style="width:72px;"></td>`;
+                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${o.esReal ? valorPrecargado : ''}" placeholder="${esUSD?'USD':''}" style="width:72px; background:${o.esReal?bgPresupuesto(o.valor, v.presupuesto_mes):''};"></td>`;
+                } else if(o.esReal){
+                  cells += `<td class="bi-locked" style="background:${bgPresupuesto(o.valor, v.presupuesto_mes)};">${moneyIT(o.valor)}</td>`;
                 } else {
                   cells += `<td><span style="color:var(--sub);">—</span></td>`;
                 }
