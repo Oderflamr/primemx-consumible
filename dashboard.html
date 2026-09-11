@@ -1496,7 +1496,7 @@ auth.onAuthStateChanged(async function(user){
         {proveedor:'REDSLOG', categoria:'Mensajeria', presupuesto_mes:100000, meses:[88921.44, 116254.46, 112375.29, 128608.91, 130872.22, 140591, null, null, null, null, null, null]},
         {proveedor:'GRUPO LEYMARK', categoria:'CRM y Zapier', presupuesto_mes:619500, meses:[619000, 619000, 619000, 619000, 619500, 618500, null, null, null, null, null, null]},
         {proveedor:'COLOUR KLUB', categoria:'Impresión', presupuesto_mes:413000, meses:[176350, 410360, 460370, 238200, 326950, 400090, null, null, null, null, null, null]},
-        {proveedor:'RED', categoria:'Red', presupuesto_mes:15000, meses:[0, 0, 15000, 15000, 15000, 15000, 15000, null, null, null, null, null]},
+        {proveedor:'RED', categoria:'Red', presupuesto_mes:0, meses:[0, 0, 15000, 15000, 15000, 15000, 15000, null, null, null, null, null]},
         {proveedor:'REEMBOLSOS', categoria:'Reembolsos', presupuesto_mes:40000, meses:[40000, 40000, 40000, 40000, 40000, 40000, null, null, null, null, null, null]}
       ],
       capex: [
@@ -6543,15 +6543,9 @@ auth.onAuthStateChanged(async function(user){
                   const valorMostrado = esUSD ? Math.round((valorPesos/TIPO_CAMBIO_USD)*100)/100 : Math.round(valorPesos);
                   cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${valorMostrado}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — mgiron puede editarlo${esUSD?' (en dólares)':''}"></td>`;
                 } else if(editing && puedeEditar && dobleFactura){
-                  // Antes topado a exactamente 2 facturas (agosto 2026). A petición del cliente (sept.
-                  // 2026, ej. METROCARRIER con 2250+19500), ahora se pueden agregar más si hace falta —
-                  // el botón "+" agrega otro input; al guardar se suman TODOS los que tengan dato (ver
-                  // btnSaveBI: ya no busca solo factura="1"/"2", agrupa por vi+mi sin importar cuántas haya).
-                  cells += `<td><div class="bi-multi-factura" style="display:flex; flex-direction:column; gap:2px;" data-bi-multi-v="${vi}" data-bi-multi-m="${i}">
-                    <input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" data-bi-factura="1" placeholder="Factura 1${unidadFactura}" style="width:72px; font-size:11px;">
-                    <input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" data-bi-factura="2" placeholder="Factura 2${unidadFactura}" style="width:72px; font-size:11px;">
-                  </div>
-                  <button type="button" class="bi-add-factura" data-bi-add-v="${vi}" data-bi-add-m="${i}" data-bi-add-unidad="${unidadFactura}" style="font-size:10px; padding:1px 5px; margin-top:2px;">+ factura</button></td>`;
+                  // Un solo campo de texto (sept. 2026, reemplaza los inputs separados de antes) — se
+                  // escriben las facturas del mes separadas por "+" (ej. 2250+19500) y btnSaveBI las suma.
+                  cells += `<td><input type="text" data-bi-v="${vi}" data-bi-m="${i}" placeholder="ej. 2250+19500${unidadFactura}" style="width:72px; font-size:11px;"></td>`;
                 } else if(editing && puedeEditar){
                   cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" placeholder="${esUSD?'USD':''}" style="width:72px;"></td>`;
                 } else {
@@ -6671,30 +6665,17 @@ auth.onAuthStateChanged(async function(user){
         // Los inputs solo existen para meses sin dato todavía (ver render de arriba) — si se deja en
         // blanco, no se toca nada (sigue "sin capturar", se ve como -). Nunca se sobreescribe un mes
         // que ya tenía un dato real guardado, porque para ese caso no se dibuja ningún input.
-        document.querySelectorAll('[data-bi-v]:not([data-bi-factura])').forEach(inp=>{
+        document.querySelectorAll('[data-bi-v]').forEach(inp=>{
           const vi = Number(inp.dataset.biV), mi = Number(inp.dataset.biM);
           const raw = inp.value.trim();
-          // Para un proveedor USD, lo capturado es dólares — se convierte a pesos con TIPO_CAMBIO_USD
-          // antes de guardarse. En Firestore y en toda la tabla el dato siempre queda en pesos.
+          if(raw==='') return;
+          // Admite escribir varios montos separados por "+" en el mismo campo (ej. 2250+19500 para un
+          // mes con 2 facturas) y los suma — un solo número normal funciona igual. Para un proveedor USD,
+          // lo capturado es dólares — se convierte a pesos con TIPO_CAMBIO_USD antes de guardarse. En
+          // Firestore y en toda la tabla el dato siempre queda en pesos.
+          const suma = raw.split('+').reduce((s,parte)=> s + (Number(parte.trim())||0), 0);
           const factor = esProveedorUSD(data.opex[vi].proveedor) ? TIPO_CAMBIO_USD : 1;
-          if(raw!=='') data.opex[vi].meses[mi] = Number(raw) * factor;
-        });
-        // Proveedores de doble/múltiple factura (Colour Klub y los demás en PROVEEDORES_DOBLE_FACTURA):
-        // se suman TODAS las casillas que tengan dato (puede haber más de 2, ver botón "+ factura") y se
-        // guarda un solo total — nunca se persisten las facturas por separado. Si el proveedor es USD
-        // (Colour Klub), cada factura también se convierte a pesos antes de sumar.
-        const gruposFactura = {};
-        document.querySelectorAll('[data-bi-v][data-bi-factura]').forEach(inp=>{
-          const vi = Number(inp.dataset.biV), mi = Number(inp.dataset.biM);
-          const key = vi + '_' + mi;
-          if(!gruposFactura[key]) gruposFactura[key] = { vi, mi, suma:0, algunaConDato:false };
-          const raw = inp.value.trim();
-          if(raw!==''){ gruposFactura[key].suma += Number(raw); gruposFactura[key].algunaConDato = true; }
-        });
-        Object.values(gruposFactura).forEach(g=>{
-          if(!g.algunaConDato) return;
-          const factor = esProveedorUSD(data.opex[g.vi].proveedor) ? TIPO_CAMBIO_USD : 1;
-          data.opex[g.vi].meses[g.mi] = g.suma * factor;
+          data.opex[vi].meses[mi] = suma * factor;
         });
         document.querySelectorAll('[data-bi-presup]').forEach(inp=>{
           const raw = inp.value.trim();
@@ -6721,19 +6702,6 @@ auth.onAuthStateChanged(async function(user){
     } else if(puedeEditar){
       document.getElementById('btnEditBI').onclick = ()=>{ editing=true; render(); };
     }
-    document.querySelectorAll('.bi-add-factura').forEach(btn=>{
-      btn.onclick = ()=>{
-        const vi = btn.dataset.biAddV, m = btn.dataset.biAddM;
-        const cont = document.querySelector(`.bi-multi-factura[data-bi-multi-v="${vi}"][data-bi-multi-m="${m}"]`);
-        const num = cont.querySelectorAll('input').length + 1;
-        const inp = document.createElement('input');
-        inp.type = 'number'; inp.step = '1';
-        inp.dataset.biV = vi; inp.dataset.biM = m; inp.dataset.biFactura = String(num);
-        inp.placeholder = `Factura ${num}${btn.dataset.biAddUnidad||''}`;
-        inp.style.cssText = 'width:72px; font-size:11px;';
-        cont.appendChild(inp);
-      };
-    });
     document.querySelectorAll('[data-hist-bi-ver]').forEach(btn=>{
       btn.onclick = ()=>{
         const idx = Number(btn.dataset.histBiVer);
