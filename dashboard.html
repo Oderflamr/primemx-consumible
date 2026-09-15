@@ -398,20 +398,9 @@ main{flex:1;padding:20px 32px;width:100%;}
   .noc-dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
   .noc-dot.on{background:#1E8E5A;}
   .noc-dot.off{background:#DC2626;}
-  .noc-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px;}
-  /* Tiendas "en línea" agrupadas por proveedor (sept. 2026, pedido explícito) — 3 bloques lado a lado
-     (TotalPlay / Telmex / Metrocarrier+Mega+Starlink), sin encabezados, cada uno con sus propias
-     columnas fijas (no auto-fill: con zoom de Modo pantalla, auto-fill calcula mal las columnas — ver
-     el mismo problema ya resuelto antes para .noc-grid). En pantallas angostas se apilan uno debajo
-     del otro y cada bloque usa más columnas, ya que tiene todo el ancho para él solo. Las caídas NO
-     entran aquí, se quedan en su propio .noc-grid de arriba, sin cambios.*/
-  .noc-grid-3col{display:grid; grid-template-columns:repeat(3,1fr); gap:20px; align-items:start;}
-  .noc-grid-bloque{display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px;}
-  @media (max-width:1400px){
-    .noc-grid-3col{grid-template-columns:1fr;}
-    .noc-grid-bloque{grid-template-columns:repeat(8,minmax(0,1fr));}
-  }
-  @media (max-width:700px){ .noc-grid-bloque{grid-template-columns:repeat(4,minmax(0,1fr));} }
+  .noc-grid{display:grid; grid-template-columns:repeat(15,minmax(0,1fr)); gap:10px;}
+  @media (max-width:1400px){ .noc-grid{grid-template-columns:repeat(8,minmax(0,1fr));} }
+  @media (max-width:700px){ .noc-grid{grid-template-columns:repeat(4,minmax(0,1fr));} }
   .noc-card{background:#FAFBFB; border:1px solid var(--line); border-radius:10px; padding:12px 10px; text-align:center; position:relative; cursor:pointer; transition:transform .12s ease, border-color .12s ease;}
   .noc-card:hover{transform:translateY(-2px); border-color:#9AA6A5;}
   .noc-card.caida{border-color:#F87171; background:#FECACA;}
@@ -2174,28 +2163,7 @@ auth.onAuthStateChanged(async function(user){
     esvTotalPaginasActual = totalPaginas;
     const idxPagina = ((esvPagina % totalPaginas) + totalPaginas) % totalPaginas; // seguro aunque totalPaginas cambie entre recargas
     const enLineaPagina = pageSize > 0 ? enLinea.slice(idxPagina * pageSize, idxPagina * pageSize + pageSize) : [];
-    // Bloques por proveedor (sept. 2026, pedido explícito) — las tiendas "en línea" de la página
-    // actual se separan en 3 columnas lado a lado: TotalPlay, Telmex, y Metrocarrier/Mega+Starlink
-    // juntos. Sin encabezados — se distinguen solo por el color de la etiqueta de cada tarjeta. Las
-    // caídas NO entran en esta agrupación: siguen igual que siempre, todas juntas arriba y fijas.
-    const grupoTotalplay = enLineaPagina.filter(t=> esvCarrierKey(t.carrier)==='TOTALPLAY');
-    const grupoTelmex = enLineaPagina.filter(t=> esvCarrierKey(t.carrier)==='TELMEX');
-    const grupoOtros = enLineaPagina.filter(t=> !['TOTALPLAY','TELMEX'].includes(esvCarrierKey(t.carrier)));
-    const nocCardHtml = (t) => {
-      const falla = caidasMap.get(t.id);
-      const color = esvCarrierColor(t.carrier);
-      const label = esvCarrierLabel(t.carrier);
-      const diasCaida = esvDiasCaida(falla);
-      const estadoTxt = falla
-        ? (diasCaida ? `${diasCaida} día${diasCaida===1?'':'s'} caída` : 'Caída')
-        : 'En línea';
-      return `<div class="noc-card ${falla?'caida':'en-linea'}" data-esv-id="${escEsv(t.id)}">
-        <span class="noc-dot ${falla?'off':'on'}"></span>
-        <div class="noc-plaza">${escEsv(esvNombreCorto(t.plaza))}</div>
-        <span class="noc-carrier-badge" style="background:${color}">${escEsv(label)}</span>
-        <div class="noc-estado">${estadoTxt}</div>
-      </div>`;
-    };
+    const ordenadas = [...caidas, ...enLineaPagina];
 
     c.innerHTML = `
       <div class="noc-wrap">
