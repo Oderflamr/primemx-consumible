@@ -398,7 +398,9 @@ main{flex:1;padding:20px 32px;width:100%;}
   .noc-dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
   .noc-dot.on{background:#1E8E5A;}
   .noc-dot.off{background:#DC2626;}
-  .noc-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:10px;}
+  .noc-grid{display:grid; grid-template-columns:repeat(15,minmax(0,1fr)); gap:10px;}
+  @media (max-width:1400px){ .noc-grid{grid-template-columns:repeat(8,minmax(0,1fr));} }
+  @media (max-width:700px){ .noc-grid{grid-template-columns:repeat(4,minmax(0,1fr));} }
   .noc-card{background:#FAFBFB; border:1px solid var(--line); border-radius:10px; padding:12px 10px; text-align:center; position:relative; cursor:pointer; transition:transform .12s ease, border-color .12s ease;}
   .noc-card:hover{transform:translateY(-2px); border-color:#9AA6A5;}
   .noc-card.caida{border-color:#F87171; background:#FECACA;}
@@ -1620,7 +1622,7 @@ auth.onAuthStateChanged(async function(user){
   // Rotativo de "en línea": se muestran hasta 40 tiendas a la vez; las caídas siempre van TODAS y
   // fijas al inicio (nunca rotan). esvPagina avanza cada 15 segundos (ver iniciarAutoRefreshEstatusServicio)
   // y persiste entre recargas de datos para que la rotación no se reinicie sola.
-  const ESV_VISIBLE_TOTAL = 40;
+  const ESV_VISIBLE_TOTAL = 75; // 5 filas de 15 (sept. 2026, antes 40) — ahora que el dashboard usa todo el ancho de pantalla, caben más tiendas por página sin dejar una fila incompleta.
   let esvPagina = 0;
   let esvTotalPaginasActual = 1; // ultimo totalPaginas calculado en renderEstatusServicio, lo usa el carrusel
 
