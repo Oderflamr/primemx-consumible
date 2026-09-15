@@ -2188,13 +2188,22 @@ auth.onAuthStateChanged(async function(user){
           <button id="btnModoPantalla" style="${carruselActivo ? 'background:var(--tp); color:#fff; border-color:var(--tp);' : ''}">${carruselActivo ? '● Modo pantalla activo' : 'Modo pantalla'}</button>
         </div>
 
-        <div id="esvGrid">
-          ${caidas.length>0 ? `<div class="noc-grid" style="margin-bottom:14px;">${caidas.map(nocCardHtml).join('')}</div>` : ''}
-          <div class="noc-grid-3col">
-            <div class="noc-grid-bloque">${grupoTotalplay.map(nocCardHtml).join('')}</div>
-            <div class="noc-grid-bloque">${grupoTelmex.map(nocCardHtml).join('')}</div>
-            <div class="noc-grid-bloque">${grupoOtros.map(nocCardHtml).join('')}</div>
-          </div>
+        <div class="noc-grid" id="esvGrid">
+          ${ordenadas.map(t=>{
+            const falla = caidasMap.get(t.id);
+            const color = esvCarrierColor(t.carrier);
+            const label = esvCarrierLabel(t.carrier);
+            const diasCaida = esvDiasCaida(falla);
+            const estadoTxt = falla
+              ? (diasCaida ? `${diasCaida} día${diasCaida===1?'':'s'} caída` : 'Caída')
+              : 'En línea';
+            return `<div class="noc-card ${falla?'caida':'en-linea'}" data-esv-id="${escEsv(t.id)}">
+              <span class="noc-dot ${falla?'off':'on'}"></span>
+              <div class="noc-plaza">${escEsv(esvNombreCorto(t.plaza))}</div>
+              <span class="noc-carrier-badge" style="background:${color}">${escEsv(label)}</span>
+              <div class="noc-estado">${estadoTxt}</div>
+            </div>`;
+          }).join('')}
         </div>
 
         <div class="noc-foot">Las fallas se capturan en "Registrar falla" dentro del Directorio de Tiendas — este panel es de solo lectura.</div>
