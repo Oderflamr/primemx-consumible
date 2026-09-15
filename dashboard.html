@@ -185,7 +185,7 @@ header.topbar{
 }
 .role-tag.admin{background:#FDEBD8;color:#A6560F;}
 
-main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
+main{flex:1;padding:20px;max-width:1800px;margin:0 auto;width:100%;}
 
 .toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(10px);
@@ -1576,6 +1576,11 @@ auth.onAuthStateChanged(async function(user){
   // del Excel de cada pestaña (ver DEFAULTS.biometricos/pin_pad, renderBiometricos()/renderPinPad()).
 
   let state = null;
+  // Foto de `state` justo después de cargar (sept. 2026, arregla una pérdida real de datos: dos
+  // usuarios con el dashboard abierto a la vez, uno guarda algo sin relación y sobreescribe TODO el
+  // documento con su copia vieja, borrando lo que el otro acababa de subir). save() compara contra
+  // esta foto para saber qué apartado(s) se tocaron DE VERDAD en esta sesión — ver save() más abajo.
+  let stateAlCargar = null;
   // Pantalla de entrada (agosto 2026, tercera vuelta): el cliente pidió que lo primero que se vea al
   // entrar sea "Estatus de Servicio" (servicios activos), y luego "Resumen 2026" — antes era al revés
   // (Resumen primero). Ver también el orden de INTERNET_TABS más abajo, que se reordenó igual para que
@@ -2296,33 +2301,58 @@ auth.onAuthStateChanged(async function(user){
       if(!state.budget_it.historial) state.budget_it.historial = [];
       state.budget_it.capex.forEach(cx=>{ if(cx.incluir===undefined) cx.incluir = true; });
     }catch(e){ console.error(e); state = clone(DEFAULTS); }
+    stateAlCargar = clone(state);
     render();
   }
   async function save(){
     if(!canEdit && !canEditInventario() && !canEditPdvRegion() && !canEditWin11() && !canEditBudgetIT() && !canEditLaptopCerrado() && !canEditEnviosRec() && !canEditResumenReemplazos() && !canEditReemplazoDisco() && !canEditHub() && !canEditExpansion()){ toast('Tu usuario es de solo consulta, no puede guardar cambios.', 'error'); return; }
-    // Log global de "Actualizaciones" (usuario, archivo o tipo de actualización, fecha, hora) — cada
-    // punto del dashboard que llama a save() fija descripcionActualizacion justo antes de llamarlo.
-    if(!Array.isArray(state.actualizaciones)) state.actualizaciones = [];
-    state.actualizaciones.unshift({
-      usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : 'desconocido',
-      tipo: descripcionActualizacion || 'Actualización en el dashboard',
-      fecha: new Date().toISOString()
-    });
-    if(state.actualizaciones.length > 200) state.actualizaciones.length = 200;
-    descripcionActualizacion = null;
-    state.updated_at = new Date().toISOString();
+    const usuarioActual = (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : 'desconocido';
     try{
-      await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).set({
-        payload: JSON.stringify(state),
-        updated_at: state.updated_at,
-        updated_by: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : null
+      const ref = db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
+      // Guardado por apartado, no por documento completo (sept. 2026 — antes cualquier "Guardar", aunque
+      // fuera de un apartado sin relación, sobreescribía TODO el documento con la copia local de esa
+      // pestaña y podía borrar lo que otro usuario acababa de subir mientras tanto). Se compara `state`
+      // contra `stateAlCargar` (la foto de cuando esta pestaña cargó) para saber qué apartado(s) se
+      // tocaron DE VERDAD en esta sesión — solo esos se escriben; todo lo demás toma la versión más
+      // reciente del servidor, no la copia vieja de esta pestaña.
+      const fusion = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const servidor = (snap.exists && snap.data().payload) ? JSON.parse(snap.data().payload) : {};
+        const resultado = {...servidor};
+        Object.keys(state).forEach(key => {
+          if(key === 'actualizaciones' || key === 'updated_at') return; // se arman aparte, abajo
+          const antes = JSON.stringify(stateAlCargar ? stateAlCargar[key] : undefined);
+          const ahora = JSON.stringify(state[key]);
+          if(antes !== ahora) resultado[key] = state[key];
+        });
+        // Log de "Actualizaciones": se agrega sobre el arreglo MÁS RECIENTE del servidor, no sobre el
+        // de esta pestaña — así no se pierden entradas de otros usuarios que guardaron mientras tanto.
+        const actualizacionesServidor = Array.isArray(servidor.actualizaciones) ? servidor.actualizaciones : [];
+        actualizacionesServidor.unshift({
+          usuario: usuarioActual,
+          tipo: descripcionActualizacion || 'Actualización en el dashboard',
+          fecha: new Date().toISOString()
+        });
+        if(actualizacionesServidor.length > 200) actualizacionesServidor.length = 200;
+        resultado.actualizaciones = actualizacionesServidor;
+        resultado.updated_at = new Date().toISOString();
+        tx.set(ref, {
+          payload: JSON.stringify(resultado),
+          updated_at: resultado.updated_at,
+          updated_by: usuarioActual
+        });
+        return resultado;
       });
+      // Esta pestaña queda sincronizada con lo que de verdad se guardó (incluye cambios de otros
+      // usuarios que hayan guardado mientras tanto, no solo los propios).
+      state = fusion;
+      stateAlCargar = clone(fusion);
+      descripcionActualizacion = null;
       toast('Cambios guardados');
     }catch(e){ toast('No se pudo guardar. Intenta de nuevo.', 'error'); console.error(e); }
     editing = false;
     render();
   }
-
   // ---------- Carga de archivo de tickets (Excel) ----------
   const DIST_LABELS = ['<4h','4-12h','12-24h','1-3d','>3d'];
 
