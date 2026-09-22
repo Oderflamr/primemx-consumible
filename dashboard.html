@@ -6473,14 +6473,16 @@ auth.onAuthStateChanged(async function(user){
               <thead><tr>
                 <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line);">Gerente regional</th>
                 <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Tiendas</th>
+                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">HeadCount</th>
                 <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Laptop</th>
                 <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Desktop</th>
                 <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Dif. Equipo</th>
               </tr></thead>
-              <tbody>${region.gerentes.length===0 ? `<tr><td colspan="5" style="padding:10px 6px; color:var(--sub);">Sin detalle de gerentes todavía — carga un Excel para llenarlo.</td></tr>` : region.gerentes.map(g=>`
+              <tbody>${region.gerentes.length===0 ? `<tr><td colspan="6" style="padding:10px 6px; color:var(--sub);">Sin detalle de gerentes todavía — carga un Excel para llenarlo.</td></tr>` : region.gerentes.map(g=>`
                 <tr class="pdv-gerente-row" data-gerente="${escEsv(g.nombre)}" style="cursor:pointer;">
                   <td style="padding:6px; color:var(--tp);">${escEsv(g.nombre)}</td>
                   <td style="text-align:right; padding:6px;">${g.tiendas.length}</td>
+                  <td style="text-align:right; padding:6px;">${g.headcount}</td>
                   <td style="text-align:right; padding:6px;">${g.pdv_laptop+g.cambaceo}</td>
                   <td style="text-align:right; padding:6px;">${g.desktop}</td>
                   <td style="text-align:right; padding:6px; font-weight:700;">${g.dif_equipo}</td>
