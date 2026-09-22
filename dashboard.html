@@ -6356,7 +6356,7 @@ auth.onAuthStateChanged(async function(user){
     const header = (rows2d[0]||[]).map(h=> String(h||'').trim().toLowerCase());
     const idx = (nombre) => header.indexOf(nombre);
     const cClave = idx('clave'), cNombre = idx('nombre'), cRegion = idx('region'),
-      cVendedor = idx('vendedor'), cGerente = idx('gerente'), cPc = idx('pc'), cLap = idx('lap'),
+      cVendedor = idx('vendedor'), cPc = idx('pc'), cLap = idx('lap'),
       cDifEquipo = idx('dif equipo'), cGerenteTienda = idx('gerente tienda'), cGerenteRegional = idx('gerente regional');
     if(cClave<0 || cNombre<0 || cRegion<0 || cPc<0 || cLap<0){
       throw new Error('No se encontraron las columnas esperadas (Clave, nombre, region, pc, lap). Revisa que sea el archivo "Concentrado".');
@@ -6374,13 +6374,12 @@ auth.onAuthStateChanged(async function(user){
       const lap = Number(row[cLap])||0;
       const pc = Number(row[cPc])||0;
       const vendedor = cVendedor>=0 ? (Number(row[cVendedor])||0) : 0;
-      const gerenteCount = cGerente>=0 ? (Number(row[cGerente])||0) : 0;
       const difEquipo = cDifEquipo>=0 ? (Number(row[cDifEquipo])||0) : 0;
       const gerenteTienda = cGerenteTienda>=0 ? String(row[cGerenteTienda]||'').trim() : '';
       const gerenteRegional = cGerenteRegional>=0 ? (String(row[cGerenteRegional]||'').trim() || 'Sin gerente asignado') : 'Sin gerente asignado';
       const pdvLaptop = Math.min(lap,1);
       const cambaceo = Math.max(lap-1,0);
-      const headcount = vendedor + gerenteCount;
+      const headcount = vendedor; // HeadCount = solo "vendedor" (sept. 2026, antes vendedor+gerente)
 
       if(!porRegion[regionBonita]) porRegion[regionBonita] = { pdv_laptop:0, cambaceo:0, desktop:0, headcount:0, dif_equipo:0, gerentes:{} };
       const r = porRegion[regionBonita];
