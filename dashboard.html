@@ -6484,7 +6484,7 @@ auth.onAuthStateChanged(async function(user){
       const t = todasTiendas.find(x=>x.nombre===inpTienda.value);
       if(!t){ box.style.display='none'; return; }
       box.style.display='block';
-      box.innerHTML = `<b>${escEsv(t.nombre)}</b> — Región: <b>${escEsv(t.region)}</b> · Gerente regional: <b>${escEsv(t.gerenteRegional)}</b> · Gerente de tienda: <b>${escEsv(t.gerente_tienda||'—')}</b> · HeadCount: <b>${t.headcount!==undefined ? t.headcount : '—'}</b> · Desktop: <b>${t.desktop}</b> · Laptop: <b>${t.lap}</b> · Dif. Equipo: <b>${t.dif_equipo}</b>
+      box.innerHTML = `<b>${escEsv(t.nombre)}</b> — Región: <b>${escEsv(t.region)}</b> · Gerente regional: <b>${escEsv(t.gerenteRegional)}</b> · Gerente de tienda: <b>${escEsv(t.gerente_tienda||'—')}</b> · Desktop: <b>${t.desktop}</b> · HeadCount: <b>${t.headcount!==undefined ? t.headcount : '—'}</b> · Dif. Equipo: <b>${t.dif_equipo}</b> · Laptop: <b>${t.lap}</b>
         &nbsp; <button id="btnPdvVerDetalleTienda" style="padding:3px 10px; font-size:12px;">Ver detalle →</button>`;
       document.getElementById('btnPdvVerDetalleTienda').onclick = ()=>{
         pdvFiltroTiendaModal = t;
@@ -6496,7 +6496,7 @@ auth.onAuthStateChanged(async function(user){
       const g = todosGerentes.find(x=>x.nombre===inpGerente.value);
       if(!g){ box.style.display='none'; return; }
       box.style.display='block';
-      box.innerHTML = `<b>${escEsv(g.nombre)}</b> — ${escEsv(g.region)} · Tiendas: <b>${g.tiendas.length}</b> · HeadCount: <b>${g.headcount}</b> · Laptop: <b>${g.pdv_laptop+g.cambaceo}</b> · Desktop: <b>${g.desktop}</b> · Dif. Equipo: <b>${g.dif_equipo}</b>
+      box.innerHTML = `<b>${escEsv(g.nombre)}</b> — ${escEsv(g.region)} · Tiendas: <b>${g.tiendas.length}</b> · Desktop: <b>${g.desktop}</b> · HeadCount: <b>${g.headcount}</b> · Dif. Equipo: <b>${g.dif_equipo}</b> · Laptop: <b>${g.pdv_laptop+g.cambaceo}</b>
         &nbsp; <button id="btnPdvVerTiendasFiltro" style="padding:3px 10px; font-size:12px;">Ver sus tiendas →</button>`;
       document.getElementById('btnPdvVerTiendasFiltro').onclick = ()=>{
         pdvRegionModalRegion = g.regionIdx;
@@ -6531,10 +6531,10 @@ auth.onAuthStateChanged(async function(user){
           <h3>${escEsv(t.nombre)}</h3>
           <div class="noc-modal-sub">${escEsv(t.region)} · Gerente regional: ${escEsv(t.gerenteRegional)}</div>
           <div class="noc-modal-row"><span>Gerente de tienda</span><b>${escEsv(t.gerente_tienda||'—')}</b></div>
-          <div class="noc-modal-row"><span>HeadCount</span><b>${t.headcount!==undefined ? t.headcount : '—'}</b></div>
           <div class="noc-modal-row"><span>Desktop</span><b>${t.desktop}</b></div>
-          <div class="noc-modal-row"><span>Laptop</span><b>${t.lap}</b></div>
+          <div class="noc-modal-row"><span>HeadCount</span><b>${t.headcount!==undefined ? t.headcount : '—'}</b></div>
           <div class="noc-modal-row"><span>Dif. Equipo</span><b>${t.dif_equipo}</b></div>
+          <div class="noc-modal-row"><span>Laptop</span><b>${t.lap}</b></div>
           <button class="noc-modal-close" id="pdvFiltroTiendaModalCloseBtn" data-html2canvas-ignore="true">Cerrar</button>
         </div>
       </div>
@@ -6573,23 +6573,26 @@ auth.onAuthStateChanged(async function(user){
                 <th style="text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Tienda</th>
                 <th style="text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Gerente de tienda</th>
                 <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Desktop</th>
-                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Laptop</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">HeadCount</th>
                 <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Dif. Equipo</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Laptop</th>
               </tr></thead>
               <tbody>${gerente.tiendas.map(t=>`
                 <tr>
                   <td style="padding:6px 10px; white-space:nowrap;">${escEsv(t.nombre)}</td>
                   <td style="padding:6px 10px; white-space:nowrap;">${escEsv(t.gerente_tienda||'—')}</td>
                   <td style="text-align:center; padding:6px 10px;">${t.desktop}</td>
-                  <td style="text-align:center; padding:6px 10px;">${t.lap}</td>
+                  <td style="text-align:center; padding:6px 10px;">${t.headcount!==undefined ? t.headcount : '—'}</td>
                   <td style="text-align:center; padding:6px 10px;">${t.dif_equipo}</td>
+                  <td style="text-align:center; padding:6px 10px;">${t.lap}</td>
                 </tr>`).join('')}
                 <tr style="border-top:2px solid var(--ink);">
                   <td style="padding:8px 10px; font-weight:700;">Total</td>
                   <td></td>
                   <td style="text-align:center; padding:8px 10px; font-weight:700;">${gerente.desktop}</td>
-                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${gerente.pdv_laptop+gerente.cambaceo}</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${gerente.headcount}</td>
                   <td style="text-align:center; padding:8px 10px; font-weight:700;">${gerente.dif_equipo}</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${gerente.pdv_laptop+gerente.cambaceo}</td>
                 </tr>
               </tbody>
             </table>
@@ -6600,28 +6603,28 @@ auth.onAuthStateChanged(async function(user){
               <thead><tr>
                 <th style="text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Gerente regional</th>
                 <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Tiendas</th>
-                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">HeadCount</th>
-                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Laptop</th>
                 <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Desktop</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">HeadCount</th>
                 <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Dif. Equipo</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Laptop</th>
               </tr></thead>
               <tbody>${region.gerentes.length===0 ? `<tr><td colspan="6" style="padding:10px 6px; color:var(--sub);">Sin detalle de gerentes todavía — carga un Excel para llenarlo.</td></tr>` : region.gerentes.map(g=>`
                 <tr class="pdv-gerente-row" data-gerente="${escEsv(g.nombre)}" style="cursor:pointer;">
                   <td style="padding:7px 10px; color:var(--tp); white-space:nowrap;">${escEsv(g.nombre)}</td>
                   <td style="text-align:center; padding:7px 10px;">${g.tiendas.length}</td>
-                  <td style="text-align:center; padding:7px 10px;">${g.headcount}</td>
-                  <td style="text-align:center; padding:7px 10px;">${g.pdv_laptop+g.cambaceo}</td>
                   <td style="text-align:center; padding:7px 10px;">${g.desktop}</td>
+                  <td style="text-align:center; padding:7px 10px;">${g.headcount}</td>
                   <td style="text-align:center; padding:7px 10px; font-weight:700;">${g.dif_equipo}</td>
+                  <td style="text-align:center; padding:7px 10px;">${g.pdv_laptop+g.cambaceo}</td>
                 </tr>`).join('')}
                 ${region.gerentes.length>0 ? `
                 <tr style="border-top:2px solid var(--ink);">
                   <td style="padding:8px 10px; font-weight:700;">Total</td>
                   <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.tiendas.length,0)}</td>
-                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.headcount,0)}</td>
-                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.pdv_laptop+g.cambaceo,0)}</td>
                   <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.desktop,0)}</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.headcount,0)}</td>
                   <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.dif_equipo,0)}</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.pdv_laptop+g.cambaceo,0)}</td>
                 </tr>` : ''}
               </tbody>
             </table>
@@ -6724,12 +6727,6 @@ auth.onAuthStateChanged(async function(user){
             <div style="padding:14px 16px;">
             <div style="font-size:26px; font-weight:700; text-align:right;">${r.total}</div>
             <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
-              <span>PDV laptop</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.pdv_laptop" value="${r.pdv_laptop}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">` : `<b>${r.pdv_laptop}</b>`}
-            </div>
-            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
-              <span>Cambaceo</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.cambaceo" value="${r.cambaceo}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">` : `<b>${r.cambaceo}</b>`}
-            </div>
-            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
               <span>Desktop</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.desktop" value="${r.desktop}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">` : `<b>${r.desktop}</b>`}
             </div>
             <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
@@ -6738,6 +6735,18 @@ auth.onAuthStateChanged(async function(user){
             <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px; color:var(--tp);">
               <span>Dif. Equipo</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.dif_equipo" value="${r.dif_equipo}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">` : `<b>${r.dif_equipo}</b>`}
             </div>
+            ${editing && puedeEditar ? `
+            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
+              <span>PDV laptop</span><input type="number" data-pdv-campo="${r._i}.pdv_laptop" value="${r.pdv_laptop}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
+              <span>Cambaceo</span><input type="number" data-pdv-campo="${r._i}.cambaceo" value="${r.cambaceo}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">
+            </div>
+            ` : `
+            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
+              <span>Laptop</span><b>${r.pdv_laptop+r.cambaceo}</b>
+            </div>
+            `}
             </div>
           </div>
         `).join('')}
