@@ -1942,6 +1942,7 @@ auth.onAuthStateChanged(async function(user){
   let cargaPendientePdvRegion = null; // vista previa antes de aplicar la carga de "Equipos PDV Región"
   let pdvRegionModalRegion = null; // índice de la región cuyo drill-down está abierto (o null)
   let pdvRegionModalGerente = null; // nombre del gerente regional cuyas tiendas se muestran (o null = vista de gerentes)
+  let pdvFiltroTiendaModal = null; // tienda (objeto) mostrada en la ficha individual del buscador, o null
   let historialWin11Expandido = null;
   let historialBudgetItExpandido = null;
   let win11RegionCardExpandida = null;
@@ -6484,7 +6485,12 @@ auth.onAuthStateChanged(async function(user){
       const t = todasTiendas.find(x=>x.nombre===inpTienda.value);
       if(!t){ box.style.display='none'; return; }
       box.style.display='block';
-      box.innerHTML = `<b>${escEsv(t.nombre)}</b> — Región: <b>${escEsv(t.region)}</b> · Gerente regional: <b>${escEsv(t.gerenteRegional)}</b> · Gerente de tienda: <b>${escEsv(t.gerente_tienda||'—')}</b> · Desktop: <b>${t.desktop}</b> · Laptop: <b>${t.lap}</b> · Dif. Equipo: <b>${t.dif_equipo}</b>`;
+      box.innerHTML = `<b>${escEsv(t.nombre)}</b> — Región: <b>${escEsv(t.region)}</b> · Gerente regional: <b>${escEsv(t.gerenteRegional)}</b> · Gerente de tienda: <b>${escEsv(t.gerente_tienda||'—')}</b> · Desktop: <b>${t.desktop}</b> · Laptop: <b>${t.lap}</b> · Dif. Equipo: <b>${t.dif_equipo}</b>
+        &nbsp; <button id="btnPdvVerDetalleTienda" style="padding:3px 10px; font-size:12px;">Ver detalle →</button>`;
+      document.getElementById('btnPdvVerDetalleTienda').onclick = ()=>{
+        pdvFiltroTiendaModal = t;
+        renderPdvFiltroTiendaModal();
+      };
     };
     inpGerente.oninput = ()=>{
       const box = document.getElementById('pdvResultadoGerente');
@@ -6498,6 +6504,47 @@ auth.onAuthStateChanged(async function(user){
         pdvRegionModalGerente = g.nombre;
         renderPdvRegionModal();
       };
+    };
+    const btnLimpiar = document.getElementById('btnPdvLimpiarFiltros');
+    if(btnLimpiar) btnLimpiar.onclick = ()=>{
+      inpTienda.value = '';
+      inpGerente.value = '';
+      document.getElementById('pdvResultadoTienda').style.display = 'none';
+      document.getElementById('pdvResultadoGerente').style.display = 'none';
+      pdvFiltroTiendaModal = null;
+      renderPdvFiltroTiendaModal();
+    };
+  }
+  // Ficha de una sola tienda, encontrada por el buscador de "Equipos PDV Región" — vive en su propio
+  // contenedor (#pdvFiltroTiendaModalRoot) para no chocar con el drill-down de región/gerente.
+  function renderPdvFiltroTiendaModal(){
+    const root = document.getElementById('pdvFiltroTiendaModalRoot');
+    if(!root) return;
+    if(!pdvFiltroTiendaModal){ root.innerHTML = ''; return; }
+    const t = pdvFiltroTiendaModal;
+    root.innerHTML = `
+      <div class="noc-overlay" id="pdvFiltroTiendaOverlay">
+        <div class="noc-modal" id="pdvFiltroTiendaModalBox">
+          <div style="display:flex; justify-content:flex-end; gap:12px; align-items:center; margin-bottom:-6px;" data-html2canvas-ignore="true">
+            <button id="btnPdvFiltroTiendaCopiar" style="background:none; border:1px solid var(--line); border-radius:6px; padding:3px 9px; font-size:12px; cursor:pointer; color:var(--sub);">Copiar</button>
+            <button id="btnPdvFiltroTiendaCerradorX" style="background:none; border:none; font-size:16px; cursor:pointer; color:var(--sub);" aria-label="Cerrar">✕</button>
+          </div>
+          <h3>${escEsv(t.nombre)}</h3>
+          <div class="noc-modal-sub">${escEsv(t.region)} · Gerente regional: ${escEsv(t.gerenteRegional)}</div>
+          <div class="noc-modal-row"><span>Gerente de tienda</span><b>${escEsv(t.gerente_tienda||'—')}</b></div>
+          <div class="noc-modal-row"><span>Desktop</span><b>${t.desktop}</b></div>
+          <div class="noc-modal-row"><span>Laptop</span><b>${t.lap}</b></div>
+          <div class="noc-modal-row"><span>Dif. Equipo</span><b>${t.dif_equipo}</b></div>
+          <button class="noc-modal-close" id="pdvFiltroTiendaModalCloseBtn" data-html2canvas-ignore="true">Cerrar</button>
+        </div>
+      </div>
+    `;
+    const cerrar = ()=>{ pdvFiltroTiendaModal = null; renderPdvFiltroTiendaModal(); };
+    document.getElementById('pdvFiltroTiendaOverlay').onclick = (e)=>{ if(e.target.id==='pdvFiltroTiendaOverlay') cerrar(); };
+    document.getElementById('pdvFiltroTiendaModalCloseBtn').onclick = cerrar;
+    document.getElementById('btnPdvFiltroTiendaCerradorX').onclick = cerrar;
+    document.getElementById('btnPdvFiltroTiendaCopiar').onclick = ()=>{
+      copiarElementoComoImagen(document.getElementById('pdvFiltroTiendaModalBox'), document.getElementById('btnPdvFiltroTiendaCopiar'));
     };
   }
   // ---------- Equipos PDV Región — drill-down por gerente regional (ventana emergente) ----------
@@ -6629,6 +6676,7 @@ auth.onAuthStateChanged(async function(user){
           <input type="text" id="pdvFiltroGerente" list="pdvDatalistGerentes" placeholder="Buscar gerente regional..." autocomplete="off" style="width:100%; height:36px; border:1px solid var(--line); border-radius:8px; padding:0 10px; font-size:13px;">
           <datalist id="pdvDatalistGerentes"></datalist>
         </div>
+        <button id="btnPdvLimpiarFiltros">Limpiar filtros</button>
         ${puedeEditar ? `<input type="file" id="filePdvRegion" accept=".xlsx,.xls" style="display:none"><button class="upload" id="btnUploadPdvRegion">Cargar Excel</button>` : ''}
         ${editing && puedeEditar
           ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
@@ -6696,10 +6744,12 @@ auth.onAuthStateChanged(async function(user){
       </div>
       <div class="oculto-en-carrusel">${canEdit ? renderHistorialPdvRegion() : ''}</div>
       <div id="pdvRegionModalRoot"></div>
+      <div id="pdvFiltroTiendaModalRoot"></div>
     `;
     wirePdvRegionUpload();
     wirePdvRegionFiltros();
     renderPdvRegionModal();
+    renderPdvFiltroTiendaModal();
     if(!editing){
       document.querySelectorAll('.pdv-region-card').forEach(card=>{
         card.onclick = ()=>{ pdvRegionModalRegion = Number(card.dataset.pdvRegionIdx); pdvRegionModalGerente = null; renderPdvRegionModal(); };
