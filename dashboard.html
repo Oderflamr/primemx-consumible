@@ -1370,23 +1370,24 @@ auth.onAuthStateChanged(async function(user){
     win11_observaciones: {},
     win11_equipos: WIN11_EQUIPOS_DEFAULT,
     equipos_pdv_region: {
-      // HeadCount/Vacantes (agosto 2026) — se agregan directo a cada una de estas 9 regiones de
-      // equipo (no hay un agrupamiento aparte); arrancan en 0 y se capturan a mano con "Editar".
+      // 7 regiones (sept. 2026 — antes 9, Centro I/II y Noroeste I/II se fusionaron en una sola Centro
+      // y una sola Noroeste porque esa división ya no existe). Se cargan y recalculan por completo desde
+      // "Cargar Excel" (archivo Concentrado de HC vs Equipo); `gerentes` guarda el detalle por gerente
+      // regional y sus tiendas para el drill-down, se llena solo con la carga, no se edita a mano.
       regiones: [
-        {nombre:'Bajío', pdv_laptop:89, cambaceo:10, desktop:439, headcount:0, vacantes:0},
-        {nombre:'Centro I', pdv_laptop:61, cambaceo:8, desktop:345, headcount:0, vacantes:0},
-        {nombre:'Centro II', pdv_laptop:64, cambaceo:7, desktop:346, headcount:0, vacantes:0},
-        {nombre:'Noroeste I', pdv_laptop:52, cambaceo:2, desktop:271, headcount:0, vacantes:0},
-        {nombre:'Noroeste II', pdv_laptop:65, cambaceo:4, desktop:331, headcount:0, vacantes:0},
-        {nombre:'Norte I', pdv_laptop:95, cambaceo:11, desktop:462, headcount:0, vacantes:0},
-        {nombre:'Norte II', pdv_laptop:62, cambaceo:13, desktop:336, headcount:0, vacantes:0},
-        {nombre:'Pacífico', pdv_laptop:74, cambaceo:8, desktop:384, headcount:0, vacantes:0},
-        {nombre:'Sur Península', pdv_laptop:63, cambaceo:9, desktop:298, headcount:0, vacantes:0}
+        {nombre:'Bajío', pdv_laptop:89, cambaceo:10, desktop:439, headcount:0, dif_equipo:0, gerentes:[]},
+        {nombre:'Centro', pdv_laptop:125, cambaceo:15, desktop:691, headcount:0, dif_equipo:0, gerentes:[]},
+        {nombre:'Noroeste', pdv_laptop:117, cambaceo:6, desktop:602, headcount:0, dif_equipo:0, gerentes:[]},
+        {nombre:'Norte I', pdv_laptop:95, cambaceo:11, desktop:462, headcount:0, dif_equipo:0, gerentes:[]},
+        {nombre:'Norte II', pdv_laptop:62, cambaceo:13, desktop:336, headcount:0, dif_equipo:0, gerentes:[]},
+        {nombre:'Pacífico', pdv_laptop:74, cambaceo:8, desktop:384, headcount:0, dif_equipo:0, gerentes:[]},
+        {nombre:'Sur Península', pdv_laptop:63, cambaceo:9, desktop:298, headcount:0, dif_equipo:0, gerentes:[]}
       ],
       // Laptops de tiendas ya cerradas, pendientes de reasignar/recoger — se resta de "PDV con laptop".
       // Es un solo número global (no por región). A propósito, cualquier usuario puede editarlo excepto
       // mgiron (ver canEditLaptopCerrado) — es la única excepción al modelo de permisos por lista blanca.
-      laptop_pdv_cerrado: 3
+      laptop_pdv_cerrado: 3,
+      carga: null
     },
     inventario: {
       laptop: {
@@ -1929,6 +1930,9 @@ auth.onAuthStateChanged(async function(user){
   let historialExpandido = null;
   let historialPdvExpandido = null;
   let editandoLaptopCerrado = false; // control independiente del botón "Editar" general de la pestaña
+  let cargaPendientePdvRegion = null; // vista previa antes de aplicar la carga de "Equipos PDV Región"
+  let pdvRegionModalRegion = null; // índice de la región cuyo drill-down está abierto (o null)
+  let pdvRegionModalGerente = null; // nombre del gerente regional cuyas tiendas se muestran (o null = vista de gerentes)
   let historialWin11Expandido = null;
   let historialBudgetItExpandido = null;
   let win11RegionCardExpandida = null;
@@ -2244,12 +2248,23 @@ auth.onAuthStateChanged(async function(user){
       if(!state.equipos_pdv_region) state.equipos_pdv_region = clone(DEFAULTS.equipos_pdv_region);
       if(!state.equipos_pdv_region_historial) state.equipos_pdv_region_historial = clone(DEFAULTS.equipos_pdv_region_historial);
       if(state.equipos_pdv_region.laptop_pdv_cerrado===undefined) state.equipos_pdv_region.laptop_pdv_cerrado = DEFAULTS.equipos_pdv_region.laptop_pdv_cerrado;
-      // HeadCount/Vacantes por región (agosto 2026, segunda vuelta) — relleno para tiendas que ya
-      // estaban guardadas en Firestore antes de agregar estos 2 campos nuevos.
+      // Migración de 9 regiones (Centro I/II, Noroeste I/II) a 7 (sept. 2026) — esa división ya no
+      // existe, así que si detectamos las regiones viejas se reemplaza el arreglo completo por el nuevo
+      // de 7; los números se recalculan con la próxima "Cargar Excel", no se intenta fusionar a mano.
+      const NOMBRES_REGION_VIEJOS = ['Centro I','Centro II','Noroeste I','Noroeste II'];
+      if((state.equipos_pdv_region.regiones||[]).some(r=>NOMBRES_REGION_VIEJOS.includes(r.nombre))){
+        state.equipos_pdv_region.regiones = clone(DEFAULTS.equipos_pdv_region.regiones);
+      }
+      // HeadCount/Dif. Equipo por región — relleno para tiendas que ya estaban guardadas en Firestore
+      // antes de agregar estos campos, y migración del campo "vacantes" (agosto 2026) a "dif_equipo"
+      // (sept. 2026, ahora viene del Excel en vez de capturarse a mano).
       state.equipos_pdv_region.regiones.forEach(r=>{
         if(r.headcount===undefined) r.headcount = 0;
-        if(r.vacantes===undefined) r.vacantes = 0;
+        if(r.dif_equipo===undefined) r.dif_equipo = (r.vacantes!==undefined ? r.vacantes : 0);
+        delete r.vacantes;
+        if(!Array.isArray(r.gerentes)) r.gerentes = [];
       });
+      if(state.equipos_pdv_region.carga===undefined) state.equipos_pdv_region.carga = null;
       if(!state.win11_equipos) state.win11_equipos = clone(DEFAULTS.win11_equipos);
       if(!state.win11_pendientes_historial) state.win11_pendientes_historial = clone(DEFAULTS.win11_pendientes_historial);
       if(!state.win11_observaciones) state.win11_observaciones = clone(DEFAULTS.win11_observaciones);
@@ -6297,6 +6312,197 @@ auth.onAuthStateChanged(async function(user){
     `;
   }
 
+  // ---------- Equipos PDV Región — carga de Excel (sept. 2026) ----------
+  // Nombres de región tal como llegan en el archivo "Concentrado" (mayúsculas, sin acentos, Centro y
+  // Noroeste ya sin dividir I/II) -> nombre "bonito" que usa el dashboard. Cualquier variante que no
+  // calce aquí se cuenta aparte como "sin región reconocida" en vez de perderse en silencio.
+  const REGION_PDV_ARCHIVO = {
+    'BAJIO':'Bajío', 'CENTRO':'Centro', 'NOROESTE':'Noroeste',
+    'NORTE 1':'Norte I', 'NORTE1':'Norte I', 'NORTE 2':'Norte II', 'NORTE2':'Norte II',
+    'PACIFICO':'Pacífico', 'SUR PENINSULA':'Sur Península'
+  };
+  function normalizarRegionPdv(v){
+    return String(v==null?'':v).trim().toUpperCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g,''); // quita acentos
+  }
+  function calcularDatosPdvRegion(rows2d, fileName){
+    const header = (rows2d[0]||[]).map(h=> String(h||'').trim().toLowerCase());
+    const idx = (nombre) => header.indexOf(nombre);
+    const cClave = idx('clave'), cNombre = idx('nombre'), cRegion = idx('region'),
+      cVendedor = idx('vendedor'), cGerente = idx('gerente'), cPc = idx('pc'), cLap = idx('lap'),
+      cDifEquipo = idx('dif equipo'), cGerenteTienda = idx('gerente tienda'), cGerenteRegional = idx('gerente regional');
+    if(cClave<0 || cNombre<0 || cRegion<0 || cPc<0 || cLap<0){
+      throw new Error('No se encontraron las columnas esperadas (Clave, nombre, region, pc, lap). Revisa que sea el archivo "Concentrado".');
+    }
+    const porRegion = {}; // nombre bonito -> {pdv_laptop,cambaceo,desktop,headcount,dif_equipo,gerentes:{nombreGerente->{...,tiendas:[]}}}
+    let filasIgnoradasSinRegion = 0, filasLeidas = 0;
+    for(let i=1; i<rows2d.length; i++){
+      const row = rows2d[i] || [];
+      const clave = row[cClave], nombre = row[cNombre];
+      if(clave===undefined || clave===null || String(clave).trim()===''
+        || nombre===undefined || nombre===null || String(nombre).trim()==='') continue; // filas en blanco, totales o encabezado repetido
+      const regionBonita = REGION_PDV_ARCHIVO[normalizarRegionPdv(row[cRegion])];
+      if(!regionBonita){ filasIgnoradasSinRegion++; continue; }
+      filasLeidas++;
+      const lap = Number(row[cLap])||0;
+      const pc = Number(row[cPc])||0;
+      const vendedor = cVendedor>=0 ? (Number(row[cVendedor])||0) : 0;
+      const gerenteCount = cGerente>=0 ? (Number(row[cGerente])||0) : 0;
+      const difEquipo = cDifEquipo>=0 ? (Number(row[cDifEquipo])||0) : 0;
+      const gerenteTienda = cGerenteTienda>=0 ? String(row[cGerenteTienda]||'').trim() : '';
+      const gerenteRegional = cGerenteRegional>=0 ? (String(row[cGerenteRegional]||'').trim() || 'Sin gerente asignado') : 'Sin gerente asignado';
+      const pdvLaptop = Math.min(lap,1);
+      const cambaceo = Math.max(lap-1,0);
+      const headcount = vendedor + gerenteCount;
+
+      if(!porRegion[regionBonita]) porRegion[regionBonita] = { pdv_laptop:0, cambaceo:0, desktop:0, headcount:0, dif_equipo:0, gerentes:{} };
+      const r = porRegion[regionBonita];
+      r.pdv_laptop += pdvLaptop; r.cambaceo += cambaceo; r.desktop += pc; r.headcount += headcount; r.dif_equipo += difEquipo;
+      if(!r.gerentes[gerenteRegional]) r.gerentes[gerenteRegional] = { pdv_laptop:0, cambaceo:0, desktop:0, headcount:0, dif_equipo:0, tiendas:[] };
+      const g = r.gerentes[gerenteRegional];
+      g.pdv_laptop += pdvLaptop; g.cambaceo += cambaceo; g.desktop += pc; g.headcount += headcount; g.dif_equipo += difEquipo;
+      g.tiendas.push({ nombre:String(nombre).trim(), gerente_tienda:gerenteTienda, desktop:pc, lap, dif_equipo:difEquipo });
+    }
+    if(filasLeidas===0) throw new Error('No se encontraron tiendas válidas en el archivo (columna "Clave"/"nombre" vacía en todas las filas).');
+
+    // Arma el arreglo final de regiones, siempre con las 7 fijas (aunque el archivo no traiga alguna,
+    // para no perder la tarjeta) y sus gerentes ordenados de más a menos tiendas.
+    const regiones = Object.keys(REGION_PDV_ARCHIVO).map(k=>REGION_PDV_ARCHIVO[k])
+      .filter((v,i,arr)=>arr.indexOf(v)===i) // nombres únicos (Norte 1/Norte1 -> mismo "Norte I")
+      .map(nombre=>{
+        const r = porRegion[nombre] || { pdv_laptop:0, cambaceo:0, desktop:0, headcount:0, dif_equipo:0, gerentes:{} };
+        const gerentes = Object.keys(r.gerentes).map(nombreG=>({ nombre:nombreG, ...r.gerentes[nombreG], tiendas: r.gerentes[nombreG].tiendas.sort((a,b)=>a.nombre.localeCompare(b.nombre)) }))
+          .sort((a,b)=> b.tiendas.length - a.tiendas.length);
+        return { nombre, pdv_laptop:r.pdv_laptop, cambaceo:r.cambaceo, desktop:r.desktop, headcount:r.headcount, dif_equipo:r.dif_equipo, gerentes };
+      });
+    return { fileName, regiones, resumen:{ filasLeidas, filasIgnoradasSinRegion, regiones: regiones.filter(r=>r.gerentes.length>0).length } };
+  }
+  function aplicarDatosPdvRegion(datos){
+    state.equipos_pdv_region.regiones = datos.regiones;
+    state.equipos_pdv_region.carga = { archivo: datos.fileName, fecha: new Date().toISOString(), usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : null };
+    cargaPendientePdvRegion = null;
+    descripcionActualizacion = `Carga de Excel — Equipos PDV Región (${datos.fileName})`;
+    save();
+  }
+  function handleFileUploadPdvRegion(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const errBox = document.getElementById('uploadErrorPdvRegion');
+    if(errBox) errBox.innerHTML = '';
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const nombreHoja = wb.SheetNames.includes('Concentrado') ? 'Concentrado' : wb.SheetNames[0];
+        const ws = wb.Sheets[nombreHoja];
+        const rows2d = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        cargaPendientePdvRegion = calcularDatosPdvRegion(rows2d, file.name);
+        render();
+      }catch(err){
+        console.error(err);
+        if(errBox) errBox.innerHTML = `<div style="color:var(--crit); font-size:12.5px; margin-top:6px;">${err.message}</div>`;
+      }
+      e.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  function panelConfirmacionPdvRegion(){
+    const d = cargaPendientePdvRegion;
+    return `<div class="panel" style="border-color:var(--tm);">
+      <h3 style="color:var(--tm);">Confirmar carga · ${d.fileName}</h3>
+      <div style="font-size:13px; line-height:1.8;">
+        Tiendas leídas: <b>${d.resumen.filasLeidas}</b> · Regiones con datos: <b>${d.resumen.regiones}</b>
+        ${d.resumen.filasIgnoradasSinRegion ? ` · Filas ignoradas por región no reconocida: <b>${d.resumen.filasIgnoradasSinRegion}</b>` : ''}
+      </div>
+      <div style="font-size:12.5px; color:var(--sub); margin-top:6px;">Esto reemplaza por completo PDV laptop, Cambaceo, Desktop, HeadCount y Dif. Equipo de las 7 regiones (no se suma a lo que ya había).</div>
+      <div class="editbar" style="margin-top:10px;">
+        <button id="btnCancelCargaPdvRegion">Cancelar</button>
+        <button class="primary" id="btnAplicarCargaPdvRegion">Aplicar datos</button>
+      </div>
+    </div>`;
+  }
+  function wirePdvRegionUpload(){
+    const btn = document.getElementById('btnUploadPdvRegion');
+    if(btn) btn.onclick = () => document.getElementById('filePdvRegion').click();
+    const inp = document.getElementById('filePdvRegion');
+    if(inp) inp.onchange = handleFileUploadPdvRegion;
+    const btnCancel = document.getElementById('btnCancelCargaPdvRegion');
+    if(btnCancel) btnCancel.onclick = ()=>{ cargaPendientePdvRegion = null; render(); };
+    const btnAplicar = document.getElementById('btnAplicarCargaPdvRegion');
+    if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosPdvRegion(cargaPendientePdvRegion); };
+  }
+  // ---------- Equipos PDV Región — drill-down por gerente regional (ventana emergente) ----------
+  function renderPdvRegionModal(){
+    const root = document.getElementById('pdvRegionModalRoot');
+    if(!root) return;
+    if(pdvRegionModalRegion===null){ root.innerHTML = ''; return; }
+    const region = state.equipos_pdv_region.regiones[pdvRegionModalRegion];
+    if(!region){ pdvRegionModalRegion = null; root.innerHTML = ''; return; }
+    const gerente = pdvRegionModalGerente!==null ? region.gerentes.find(g=>g.nombre===pdvRegionModalGerente) : null;
+    root.innerHTML = `
+      <div class="noc-overlay" id="pdvRegionOverlay">
+        <div class="noc-modal" style="max-width:${gerente ? '640px' : '560px'};">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            ${gerente ? `<button id="btnPdvRegionRegresar" style="background:none; border:none; color:var(--tp); font-size:12.5px; cursor:pointer; padding:0; font-family:inherit;">← Regresar</button>` : `<h3 style="margin:0;">Gerentes regionales — ${region.nombre}</h3>`}
+            <button id="btnPdvRegionCerradorX" style="background:none; border:none; font-size:16px; cursor:pointer; color:var(--sub);" aria-label="Cerrar">✕</button>
+          </div>
+          ${gerente ? `
+            <h3 style="margin-bottom:12px;">Tiendas de ${gerente.nombre} (${gerente.tiendas.length})</h3>
+            <div style="overflow-x:auto; max-height:50vh; overflow-y:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+              <thead><tr>
+                <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line);">Tienda</th>
+                <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line);">Gerente de tienda</th>
+                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Desktop</th>
+                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Laptop</th>
+                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Dif. Equipo</th>
+              </tr></thead>
+              <tbody>${gerente.tiendas.map(t=>`
+                <tr>
+                  <td style="padding:4px 6px;">${escEsv(t.nombre)}</td>
+                  <td style="padding:4px 6px;">${escEsv(t.gerente_tienda||'—')}</td>
+                  <td style="text-align:right; padding:4px 6px;">${t.desktop}</td>
+                  <td style="text-align:right; padding:4px 6px;">${t.lap}</td>
+                  <td style="text-align:right; padding:4px 6px;">${t.dif_equipo}</td>
+                </tr>`).join('')}</tbody>
+            </table>
+            </div>
+          ` : `
+            <div style="overflow-x:auto; max-height:50vh; overflow-y:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+              <thead><tr>
+                <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line);">Gerente regional</th>
+                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Tiendas</th>
+                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Laptop</th>
+                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Desktop</th>
+                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Dif. Equipo</th>
+              </tr></thead>
+              <tbody>${region.gerentes.length===0 ? `<tr><td colspan="5" style="padding:10px 6px; color:var(--sub);">Sin detalle de gerentes todavía — carga un Excel para llenarlo.</td></tr>` : region.gerentes.map(g=>`
+                <tr class="pdv-gerente-row" data-gerente="${escEsv(g.nombre)}" style="cursor:pointer;">
+                  <td style="padding:6px; color:var(--tp);">${escEsv(g.nombre)}</td>
+                  <td style="text-align:right; padding:6px;">${g.tiendas.length}</td>
+                  <td style="text-align:right; padding:6px;">${g.pdv_laptop+g.cambaceo}</td>
+                  <td style="text-align:right; padding:6px;">${g.desktop}</td>
+                  <td style="text-align:right; padding:6px; font-weight:700;">${g.dif_equipo}</td>
+                </tr>`).join('')}</tbody>
+            </table>
+            </div>
+          `}
+          <button class="noc-modal-close" id="pdvRegionModalCloseBtn">Cerrar</button>
+        </div>
+      </div>
+    `;
+    const cerrarModal = ()=>{ pdvRegionModalRegion = null; pdvRegionModalGerente = null; renderPdvRegionModal(); };
+    document.getElementById('pdvRegionOverlay').onclick = (e)=>{ if(e.target.id==='pdvRegionOverlay') cerrarModal(); };
+    document.getElementById('pdvRegionModalCloseBtn').onclick = cerrarModal;
+    document.getElementById('btnPdvRegionCerradorX').onclick = cerrarModal;
+    const btnRegresar = document.getElementById('btnPdvRegionRegresar');
+    if(btnRegresar) btnRegresar.onclick = ()=>{ pdvRegionModalGerente = null; renderPdvRegionModal(); };
+    document.querySelectorAll('.pdv-gerente-row').forEach(row=>{
+      row.onclick = ()=>{ pdvRegionModalGerente = row.dataset.gerente; renderPdvRegionModal(); };
+    });
+  }
+
   // ---------- Equipos PDV Región ----------
   function renderPdvRegion(c){
     const data = state.equipos_pdv_region;
@@ -6312,17 +6518,25 @@ auth.onAuthStateChanged(async function(user){
     const totalDesktop = regs.reduce((s,r)=>s+Number(r.desktop||0),0);
     const totalPdvLaptop = regs.reduce((s,r)=>s+Number(r.pdv_laptop||0),0);
     const totalCambaceo = regs.reduce((s,r)=>s+Number(r.cambaceo||0),0);
-    const pdvLaptopNeto = Math.max(0, totalPdvLaptop - laptopCerrado);
+    const totalDifEquipo = regs.reduce((s,r)=>s+Number(r.dif_equipo||0),0);
+    const totalLaptop = totalPdvLaptop + totalCambaceo;
+    const laptopNeto = Math.max(0, totalLaptop - laptopCerrado);
     c.innerHTML = `
       <div class="title">Equipos PDV Región</div>
-      <div class="editbar">${editing && puedeEditar
-        ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
-        : (puedeEditar ? `<button id="btnEdit">Editar</button>` : '')}</div>
+      <div class="editbar">
+        ${puedeEditar ? `<input type="file" id="filePdvRegion" accept=".xlsx,.xls" style="display:none"><button class="upload" id="btnUploadPdvRegion">Cargar Excel</button>` : ''}
+        ${editing && puedeEditar
+          ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
+          : (puedeEditar ? `<button id="btnEdit">Editar</button>` : '')}
+      </div>
+      <div id="uploadErrorPdvRegion"></div>
+      ${resumenCarga(data.carga)}
+      ${cargaPendientePdvRegion ? panelConfirmacionPdvRegion() : ''}
       <div class="cards cards-5" style="margin-top:10px;">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total general</div><div class="body"><div class="big">${totalGeneral.toLocaleString('es-MX')}</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Desktop</div><div class="body"><div class="big">${totalDesktop.toLocaleString('es-MX')}</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">PDV con laptop</div>
-          <div class="body"><div class="big">${pdvLaptopNeto.toLocaleString('es-MX')}</div><div class="lbl">${totalPdvLaptop.toLocaleString('es-MX')} activas − ${laptopCerrado.toLocaleString('es-MX')} cerradas</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total laptop</div>
+          <div class="body"><div class="big">${laptopNeto.toLocaleString('es-MX')}</div><div class="lbl">${totalLaptop.toLocaleString('es-MX')} (PDV + cambaceo) − ${laptopCerrado.toLocaleString('es-MX')} cerradas</div></div></div>
         <div class="card" style="${puedeEditarCerrado ? 'border-color:'+COLOR_PDV_CERRADO+'; box-shadow:0 0 0 2px rgba(217,119,6,.15);' : ''}">
           <div class="head" style="background:${cardGrad(COLOR_PDV_CERRADO)}; display:flex; justify-content:space-between; align-items:center; gap:6px;">
             <span>Laptop PDV cerrado</span>
@@ -6336,44 +6550,52 @@ auth.onAuthStateChanged(async function(user){
               </div>
               <div class="lbl">Editable por cualquier usuario, excepto mgiron</div>
             ` : `
-              <div class="big">${laptopCerrado.toLocaleString('es-MX')}</div><div class="lbl">Se resta de "PDV con laptop"</div>
+              <div class="big">${laptopCerrado.toLocaleString('es-MX')}</div><div class="lbl">Se resta de "Total laptop"</div>
             `}
           </div>
         </div>
-        <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Laptop cambaceo</div><div class="body"><div class="big">${totalCambaceo.toLocaleString('es-MX')}</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total Dif. Equipo</div><div class="body"><div class="big">${totalDifEquipo.toLocaleString('es-MX')}</div></div></div>
       </div>
       <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px;">
         ${regs.map((r,rank)=>`
-          <div style="border:1px solid var(--line); border-radius:10px; overflow:hidden;">
+          <div class="pdv-region-card" data-pdv-region-idx="${r._i}" style="border:1px solid var(--line); border-radius:10px; overflow:hidden; ${!editing ? 'cursor:pointer;' : ''}">
             <div style="background:${cardGrad(COLOR_PDV)}; color:#fff; font-weight:700; font-size:14px; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
               ${editing && puedeEditar
-                ? `<input type="text" data-pdv-nombre="${r._i}" value="${r.nombre}" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,.5); color:#fff; padding:2px 6px;">`
+                ? `<input type="text" data-pdv-nombre="${r._i}" value="${r.nombre}" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,.5); color:#fff; padding:2px 6px;" onclick="event.stopPropagation()">`
                 : `<span>${r.nombre}</span>`}
               <span style="font-size:11px; font-weight:700; background:rgba(255,255,255,.25); border-radius:20px; padding:2px 8px; flex:none;">#${rank+1}</span>
             </div>
             <div style="padding:14px 16px;">
             <div style="font-size:26px; font-weight:700; text-align:right;">${r.total}</div>
             <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
-              <span>PDV laptop</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.pdv_laptop" value="${r.pdv_laptop}" style="width:60px; text-align:right;">` : `<b>${r.pdv_laptop}</b>`}
+              <span>PDV laptop</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.pdv_laptop" value="${r.pdv_laptop}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">` : `<b>${r.pdv_laptop}</b>`}
             </div>
             <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
-              <span>Cambaceo</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.cambaceo" value="${r.cambaceo}" style="width:60px; text-align:right;">` : `<b>${r.cambaceo}</b>`}
+              <span>Cambaceo</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.cambaceo" value="${r.cambaceo}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">` : `<b>${r.cambaceo}</b>`}
             </div>
             <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
-              <span>Desktop</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.desktop" value="${r.desktop}" style="width:60px; text-align:right;">` : `<b>${r.desktop}</b>`}
+              <span>Desktop</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.desktop" value="${r.desktop}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">` : `<b>${r.desktop}</b>`}
             </div>
             <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
-              <span>HeadCount</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.headcount" value="${r.headcount}" style="width:60px; text-align:right;">` : `<b>${r.headcount}</b>`}
+              <span>HeadCount</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.headcount" value="${r.headcount}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">` : `<b>${r.headcount}</b>`}
             </div>
-            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px;">
-              <span>Vacantes</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.vacantes" value="${r.vacantes}" style="width:60px; text-align:right;">` : `<b>${r.vacantes}</b>`}
+            <div style="display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px; color:var(--tp);">
+              <span>Dif. Equipo</span>${editing && puedeEditar ? `<input type="number" data-pdv-campo="${r._i}.dif_equipo" value="${r.dif_equipo}" style="width:60px; text-align:right;" onclick="event.stopPropagation()">` : `<b>${r.dif_equipo}</b>`}
             </div>
             </div>
           </div>
         `).join('')}
       </div>
       ${canEdit ? renderHistorialPdvRegion() : ''}
+      <div id="pdvRegionModalRoot"></div>
     `;
+    wirePdvRegionUpload();
+    renderPdvRegionModal();
+    if(!editing){
+      document.querySelectorAll('.pdv-region-card').forEach(card=>{
+        card.onclick = ()=>{ pdvRegionModalRegion = Number(card.dataset.pdvRegionIdx); pdvRegionModalGerente = null; renderPdvRegionModal(); };
+      });
+    }
     if(editing && puedeEditar){
       document.getElementById('btnCancel').onclick = ()=>{ editing=false; render(); };
       document.getElementById('btnSave').onclick = ()=>{
