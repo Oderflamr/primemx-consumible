@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 /* ===== Portal: variables, login, shell y header (igual que directorio.html) ===== */
 <style>
@@ -1975,6 +1976,23 @@ auth.onAuthStateChanged(async function(user){
 
   // ===== Estatus de Servicio: helpers, carga desde Firestore y render =====
   function escEsv(v){ return (v===undefined||v===null) ? '' : String(v).replace(/</g,'&lt;'); }
+  // Copia un elemento del DOM como imagen al portapapeles (sept. 2026) — para pegar una ventana como
+  // si fuera un recorte de pantalla. Cualquier botón dentro del elemento con `data-html2canvas-ignore`
+  // se excluye de la imagen (así no salen "Copiar"/"Cerrar" en la captura). `btnTexto` es el <span>
+  // dentro del botón que dispara la copia, se usa para dar feedback ("Copiado"/"No se pudo") sin tener
+  // que reconstruir el botón entero.
+  function copiarElementoComoImagen(el, btnTexto){
+    if(!el || !btnTexto || typeof html2canvas==='undefined') return;
+    const original = btnTexto.textContent;
+    html2canvas(el, {backgroundColor:'#ffffff', scale:2}).then(canvas=>{
+      canvas.toBlob(blob=>{
+        if(!blob || !navigator.clipboard || !window.ClipboardItem){ btnTexto.textContent = 'No se pudo copiar'; setTimeout(()=>btnTexto.textContent=original, 1800); return; }
+        navigator.clipboard.write([new ClipboardItem({'image/png': blob})])
+          .then(()=>{ btnTexto.textContent = 'Copiado'; setTimeout(()=>btnTexto.textContent=original, 1800); })
+          .catch(()=>{ btnTexto.textContent = 'No se pudo copiar'; setTimeout(()=>btnTexto.textContent=original, 1800); });
+      });
+    }).catch(()=>{ btnTexto.textContent = 'No se pudo copiar'; setTimeout(()=>btnTexto.textContent=original, 1800); });
+  }
   const ESV_CARRIER_COLOR = { TELMEX:'#29B6F6', TOTALPLAY:'#6600CC', METRO:'#92D050', STARLINK:'#212121' };
   function esvCarrierKey(carrier){
     const u = String(carrier||'').toUpperCase();
@@ -6441,10 +6459,13 @@ auth.onAuthStateChanged(async function(user){
     const gerente = pdvRegionModalGerente!==null ? region.gerentes.find(g=>g.nombre===pdvRegionModalGerente) : null;
     root.innerHTML = `
       <div class="noc-overlay" id="pdvRegionOverlay">
-        <div class="noc-modal" style="max-width:${gerente ? '920px' : '800px'}; width:auto;">
+        <div class="noc-modal" id="pdvRegionModalBox" style="max-width:${gerente ? '920px' : '800px'}; width:auto;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             ${gerente ? `<button id="btnPdvRegionRegresar" style="background:none; border:none; color:var(--tp); font-size:12.5px; cursor:pointer; padding:0; font-family:inherit;">← Regresar</button>` : `<h3 style="margin:0;">Gerentes regionales — ${region.nombre}</h3>`}
-            <button id="btnPdvRegionCerradorX" style="background:none; border:none; font-size:16px; cursor:pointer; color:var(--sub);" aria-label="Cerrar">✕</button>
+            <div style="display:flex; align-items:center; gap:14px;" data-html2canvas-ignore="true">
+              <button id="btnPdvRegionCopiar" style="background:none; border:1px solid var(--line); border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer; color:var(--sub);">Copiar</button>
+              <button id="btnPdvRegionCerradorX" style="background:none; border:none; font-size:16px; cursor:pointer; color:var(--sub);" aria-label="Cerrar">✕</button>
+            </div>
           </div>
           ${gerente ? `
             <h3 style="margin-bottom:12px;">Tiendas de ${gerente.nombre} (${gerente.tiendas.length})</h3>
@@ -6490,7 +6511,7 @@ auth.onAuthStateChanged(async function(user){
             </table>
             </div>
           `}
-          <button class="noc-modal-close" id="pdvRegionModalCloseBtn">Cerrar</button>
+          <button class="noc-modal-close" id="pdvRegionModalCloseBtn" data-html2canvas-ignore="true">Cerrar</button>
         </div>
       </div>
     `;
@@ -6498,6 +6519,10 @@ auth.onAuthStateChanged(async function(user){
     document.getElementById('pdvRegionOverlay').onclick = (e)=>{ if(e.target.id==='pdvRegionOverlay') cerrarModal(); };
     document.getElementById('pdvRegionModalCloseBtn').onclick = cerrarModal;
     document.getElementById('btnPdvRegionCerradorX').onclick = cerrarModal;
+    document.getElementById('btnPdvRegionCopiar').onclick = ()=>{
+      const btn = document.getElementById('btnPdvRegionCopiar');
+      copiarElementoComoImagen(document.getElementById('pdvRegionModalBox'), btn);
+    };
     const btnRegresar = document.getElementById('btnPdvRegionRegresar');
     if(btnRegresar) btnRegresar.onclick = ()=>{ pdvRegionModalGerente = null; renderPdvRegionModal(); };
     document.querySelectorAll('.pdv-gerente-row').forEach(row=>{
