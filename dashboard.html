@@ -6441,7 +6441,7 @@ auth.onAuthStateChanged(async function(user){
     const gerente = pdvRegionModalGerente!==null ? region.gerentes.find(g=>g.nombre===pdvRegionModalGerente) : null;
     root.innerHTML = `
       <div class="noc-overlay" id="pdvRegionOverlay">
-        <div class="noc-modal" style="max-width:${gerente ? '640px' : '560px'};">
+        <div class="noc-modal" style="max-width:${gerente ? '920px' : '560px'}; width:auto;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             ${gerente ? `<button id="btnPdvRegionRegresar" style="background:none; border:none; color:var(--tp); font-size:12.5px; cursor:pointer; padding:0; font-family:inherit;">← Regresar</button>` : `<h3 style="margin:0;">Gerentes regionales — ${region.nombre}</h3>`}
             <button id="btnPdvRegionCerradorX" style="background:none; border:none; font-size:16px; cursor:pointer; color:var(--sub);" aria-label="Cerrar">✕</button>
@@ -6451,16 +6451,16 @@ auth.onAuthStateChanged(async function(user){
             <div style="overflow-x:auto; max-height:50vh; overflow-y:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
               <thead><tr>
-                <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line);">Tienda</th>
-                <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line);">Gerente de tienda</th>
+                <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap;">Tienda</th>
+                <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap;">Gerente de tienda</th>
                 <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Desktop</th>
                 <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Laptop</th>
                 <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Dif. Equipo</th>
               </tr></thead>
               <tbody>${gerente.tiendas.map(t=>`
                 <tr>
-                  <td style="padding:4px 6px;">${escEsv(t.nombre)}</td>
-                  <td style="padding:4px 6px;">${escEsv(t.gerente_tienda||'—')}</td>
+                  <td style="padding:4px 6px; white-space:nowrap;">${escEsv(t.nombre)}</td>
+                  <td style="padding:4px 6px; white-space:nowrap;">${escEsv(t.gerente_tienda||'—')}</td>
                   <td style="text-align:right; padding:4px 6px;">${t.desktop}</td>
                   <td style="text-align:right; padding:4px 6px;">${t.lap}</td>
                   <td style="text-align:right; padding:4px 6px;">${t.dif_equipo}</td>
