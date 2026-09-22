@@ -6388,7 +6388,7 @@ auth.onAuthStateChanged(async function(user){
       if(!r.gerentes[gerenteRegional]) r.gerentes[gerenteRegional] = { pdv_laptop:0, cambaceo:0, desktop:0, headcount:0, dif_equipo:0, tiendas:[] };
       const g = r.gerentes[gerenteRegional];
       g.pdv_laptop += pdvLaptop; g.cambaceo += cambaceo; g.desktop += pc; g.headcount += headcount; g.dif_equipo += difEquipo;
-      g.tiendas.push({ nombre:String(nombre).trim(), gerente_tienda:gerenteTienda, desktop:pc, lap, dif_equipo:difEquipo });
+      g.tiendas.push({ nombre:String(nombre).trim(), gerente_tienda:gerenteTienda, desktop:pc, lap, headcount, dif_equipo:difEquipo });
     }
     if(filasLeidas===0) throw new Error('No se encontraron tiendas válidas en el archivo (columna "Clave"/"nombre" vacía en todas las filas).');
 
@@ -6485,7 +6485,7 @@ auth.onAuthStateChanged(async function(user){
       const t = todasTiendas.find(x=>x.nombre===inpTienda.value);
       if(!t){ box.style.display='none'; return; }
       box.style.display='block';
-      box.innerHTML = `<b>${escEsv(t.nombre)}</b> — Región: <b>${escEsv(t.region)}</b> · Gerente regional: <b>${escEsv(t.gerenteRegional)}</b> · Gerente de tienda: <b>${escEsv(t.gerente_tienda||'—')}</b> · Desktop: <b>${t.desktop}</b> · Laptop: <b>${t.lap}</b> · Dif. Equipo: <b>${t.dif_equipo}</b>
+      box.innerHTML = `<b>${escEsv(t.nombre)}</b> — Región: <b>${escEsv(t.region)}</b> · Gerente regional: <b>${escEsv(t.gerenteRegional)}</b> · Gerente de tienda: <b>${escEsv(t.gerente_tienda||'—')}</b> · HeadCount: <b>${t.headcount!==undefined ? t.headcount : '—'}</b> · Desktop: <b>${t.desktop}</b> · Laptop: <b>${t.lap}</b> · Dif. Equipo: <b>${t.dif_equipo}</b>
         &nbsp; <button id="btnPdvVerDetalleTienda" style="padding:3px 10px; font-size:12px;">Ver detalle →</button>`;
       document.getElementById('btnPdvVerDetalleTienda').onclick = ()=>{
         pdvFiltroTiendaModal = t;
@@ -6532,6 +6532,7 @@ auth.onAuthStateChanged(async function(user){
           <h3>${escEsv(t.nombre)}</h3>
           <div class="noc-modal-sub">${escEsv(t.region)} · Gerente regional: ${escEsv(t.gerenteRegional)}</div>
           <div class="noc-modal-row"><span>Gerente de tienda</span><b>${escEsv(t.gerente_tienda||'—')}</b></div>
+          <div class="noc-modal-row"><span>HeadCount</span><b>${t.headcount!==undefined ? t.headcount : '—'}</b></div>
           <div class="noc-modal-row"><span>Desktop</span><b>${t.desktop}</b></div>
           <div class="noc-modal-row"><span>Laptop</span><b>${t.lap}</b></div>
           <div class="noc-modal-row"><span>Dif. Equipo</span><b>${t.dif_equipo}</b></div>
