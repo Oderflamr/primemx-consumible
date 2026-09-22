@@ -6441,7 +6441,7 @@ auth.onAuthStateChanged(async function(user){
     const gerente = pdvRegionModalGerente!==null ? region.gerentes.find(g=>g.nombre===pdvRegionModalGerente) : null;
     root.innerHTML = `
       <div class="noc-overlay" id="pdvRegionOverlay">
-        <div class="noc-modal" style="max-width:${gerente ? '920px' : '620px'}; width:auto;">
+        <div class="noc-modal" style="max-width:${gerente ? '920px' : '800px'}; width:auto;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             ${gerente ? `<button id="btnPdvRegionRegresar" style="background:none; border:none; color:var(--tp); font-size:12.5px; cursor:pointer; padding:0; font-family:inherit;">← Regresar</button>` : `<h3 style="margin:0;">Gerentes regionales — ${region.nombre}</h3>`}
             <button id="btnPdvRegionCerradorX" style="background:none; border:none; font-size:16px; cursor:pointer; color:var(--sub);" aria-label="Cerrar">✕</button>
@@ -6468,24 +6468,24 @@ auth.onAuthStateChanged(async function(user){
             </table>
             </div>
           ` : `
-            <div style="overflow-x:auto; max-height:50vh; overflow-y:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+            <div style="max-height:50vh; overflow-y:auto;">
+            <table style="width:auto; margin:0 auto; border-collapse:collapse; font-size:12.5px;">
               <thead><tr>
-                <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap;">Gerente regional</th>
-                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap;">Tiendas</th>
-                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap;">HeadCount</th>
-                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap;">Laptop</th>
-                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap;">Desktop</th>
-                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap;">Dif. Equipo</th>
+                <th style="text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Gerente regional</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Tiendas</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">HeadCount</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Laptop</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Desktop</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Dif. Equipo</th>
               </tr></thead>
               <tbody>${region.gerentes.length===0 ? `<tr><td colspan="6" style="padding:10px 6px; color:var(--sub);">Sin detalle de gerentes todavía — carga un Excel para llenarlo.</td></tr>` : region.gerentes.map(g=>`
                 <tr class="pdv-gerente-row" data-gerente="${escEsv(g.nombre)}" style="cursor:pointer;">
-                  <td style="padding:6px; color:var(--tp); white-space:nowrap;">${escEsv(g.nombre)}</td>
-                  <td style="text-align:right; padding:6px;">${g.tiendas.length}</td>
-                  <td style="text-align:right; padding:6px;">${g.headcount}</td>
-                  <td style="text-align:right; padding:6px;">${g.pdv_laptop+g.cambaceo}</td>
-                  <td style="text-align:right; padding:6px;">${g.desktop}</td>
-                  <td style="text-align:right; padding:6px; font-weight:700;">${g.dif_equipo}</td>
+                  <td style="padding:7px 10px; color:var(--tp); white-space:nowrap;">${escEsv(g.nombre)}</td>
+                  <td style="text-align:center; padding:7px 10px;">${g.tiendas.length}</td>
+                  <td style="text-align:center; padding:7px 10px;">${g.headcount}</td>
+                  <td style="text-align:center; padding:7px 10px;">${g.pdv_laptop+g.cambaceo}</td>
+                  <td style="text-align:center; padding:7px 10px;">${g.desktop}</td>
+                  <td style="text-align:center; padding:7px 10px; font-weight:700;">${g.dif_equipo}</td>
                 </tr>`).join('')}</tbody>
             </table>
             </div>
