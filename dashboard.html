@@ -228,6 +228,10 @@ main{flex:1;padding:20px 32px;width:100%;}
      más o menos columnas de las que debería. Fijamos columnas solo en modo pantalla para que el
      tamaño de las tarjetas de tienda sea predecible sin importar el nivel de zoom de esa pestaña. */
   main.carrusel-zoom .noc-grid{ grid-template-columns: repeat(8, minmax(0,1fr)); }
+  /* Equipos PDV Región en Modo pantalla (sept. 2026) — se pidió ver los KPI y las 7 regiones en una
+     sola pantalla: en vez de las 3 columnas de la vista normal (3 filas para 7 tarjetas, no cabe),
+     durante el carrusel pasan a 7 columnas en una sola fila. */
+  main.carrusel-zoom .pdv-region-grid{ grid-template-columns: repeat(7, minmax(0,1fr)); gap:8px; }
   /* Apartados largos (Tickets Soporte, Tickets Mesa de control) tienen varias gráficas/tablas
      apiladas — en modo pantalla no hay scroll, así que solo se alcanzaba a ver la primera. Cada
      sección va envuelta en .carrusel-slide y JS (actualizarSlideCarrusel) va mostrando una a la
@@ -402,6 +406,9 @@ main{flex:1;padding:20px 32px;width:100%;}
   .noc-grid{display:grid; grid-template-columns:repeat(15,minmax(0,1fr)); gap:10px;}
   @media (max-width:1400px){ .noc-grid{grid-template-columns:repeat(8,minmax(0,1fr));} }
   @media (max-width:700px){ .noc-grid{grid-template-columns:repeat(4,minmax(0,1fr));} }
+  .pdv-region-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px;}
+  @media (max-width:900px){ .pdv-region-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  @media (max-width:560px){ .pdv-region-grid{grid-template-columns:1fr;} }
   .noc-card{background:#FAFBFB; border:1px solid var(--line); border-radius:10px; padding:12px 10px; text-align:center; position:relative; cursor:pointer; transition:transform .12s ease, border-color .12s ease;}
   .noc-card:hover{transform:translateY(-2px); border-color:#9AA6A5;}
   .noc-card.caida{border-color:#F87171; background:#FECACA;}
@@ -1641,6 +1648,7 @@ auth.onAuthStateChanged(async function(user){
     { tab: 'resumen', segundos: 30 },
     { tab: 'tendencia', segundos: 25 },
     { tab: 'ingenieros', slides: 4, segundosPorSlide: 8 },
+    { tab: 'pdv_region', segundos: 20 },
     { tab: 'ticketsmc', slides: 6, segundosPorSlide: 8 },
     { tab: 'migracion_win11', slides: 2, segundosPorSlide: 15 },
     { tab: 'reemplazo_laptop', segundos: 15 },
@@ -6449,6 +6457,49 @@ auth.onAuthStateChanged(async function(user){
     const btnAplicar = document.getElementById('btnAplicarCargaPdvRegion');
     if(btnAplicar) btnAplicar.onclick = ()=>{ aplicarDatosPdvRegion(cargaPendientePdvRegion); };
   }
+  // Filtro por tienda / por gerente regional (sept. 2026) — mismo patrón que el buscador de tienda de
+  // Consumibles (index.html): un <input list="..."> con un <datalist>, el navegador sugiere solo
+  // mientras se escribe. No dispara render() en cada tecla, solo actualiza los 2 recuadros de
+  // resultado a mano — así no se pierde el foco del input ni se reconstruye toda la pestaña.
+  function wirePdvRegionFiltros(){
+    const dlTiendas = document.getElementById('pdvDatalistTiendas');
+    const dlGerentes = document.getElementById('pdvDatalistGerentes');
+    const inpTienda = document.getElementById('pdvFiltroTienda');
+    const inpGerente = document.getElementById('pdvFiltroGerente');
+    if(!dlTiendas || !dlGerentes || !inpTienda || !inpGerente) return;
+
+    const todasTiendas = [];
+    const todosGerentes = [];
+    state.equipos_pdv_region.regiones.forEach((r,ri)=>{
+      (r.gerentes||[]).forEach(g=>{
+        todosGerentes.push({...g, region:r.nombre, regionIdx:ri});
+        (g.tiendas||[]).forEach(t=> todasTiendas.push({...t, region:r.nombre, gerenteRegional:g.nombre}));
+      });
+    });
+    dlTiendas.innerHTML = todasTiendas.map(t=>`<option value="${escEsv(t.nombre)}">`).join('');
+    dlGerentes.innerHTML = todosGerentes.map(g=>`<option value="${escEsv(g.nombre)}">`).join('');
+
+    inpTienda.oninput = ()=>{
+      const box = document.getElementById('pdvResultadoTienda');
+      const t = todasTiendas.find(x=>x.nombre===inpTienda.value);
+      if(!t){ box.style.display='none'; return; }
+      box.style.display='block';
+      box.innerHTML = `<b>${escEsv(t.nombre)}</b> — Región: <b>${escEsv(t.region)}</b> · Gerente regional: <b>${escEsv(t.gerenteRegional)}</b> · Gerente de tienda: <b>${escEsv(t.gerente_tienda||'—')}</b> · Desktop: <b>${t.desktop}</b> · Laptop: <b>${t.lap}</b> · Dif. Equipo: <b>${t.dif_equipo}</b>`;
+    };
+    inpGerente.oninput = ()=>{
+      const box = document.getElementById('pdvResultadoGerente');
+      const g = todosGerentes.find(x=>x.nombre===inpGerente.value);
+      if(!g){ box.style.display='none'; return; }
+      box.style.display='block';
+      box.innerHTML = `<b>${escEsv(g.nombre)}</b> — ${escEsv(g.region)} · Tiendas: <b>${g.tiendas.length}</b> · HeadCount: <b>${g.headcount}</b> · Laptop: <b>${g.pdv_laptop+g.cambaceo}</b> · Desktop: <b>${g.desktop}</b> · Dif. Equipo: <b>${g.dif_equipo}</b>
+        &nbsp; <button id="btnPdvVerTiendasFiltro" style="padding:3px 10px; font-size:12px;">Ver sus tiendas →</button>`;
+      document.getElementById('btnPdvVerTiendasFiltro').onclick = ()=>{
+        pdvRegionModalRegion = g.regionIdx;
+        pdvRegionModalGerente = g.nombre;
+        renderPdvRegionModal();
+      };
+    };
+  }
   // ---------- Equipos PDV Región — drill-down por gerente regional (ventana emergente) ----------
   function renderPdvRegionModal(){
     const root = document.getElementById('pdvRegionModalRoot');
@@ -6568,15 +6619,27 @@ auth.onAuthStateChanged(async function(user){
     const laptopNeto = Math.max(0, totalLaptop - laptopCerrado);
     c.innerHTML = `
       <div class="title">Equipos PDV Región</div>
-      <div class="editbar">
+      <div class="oculto-en-carrusel">
+      <div class="editbar" style="flex-wrap:wrap;">
+        <div style="position:relative; min-width:200px;">
+          <input type="text" id="pdvFiltroTienda" list="pdvDatalistTiendas" placeholder="Buscar tienda..." autocomplete="off" style="width:100%; height:36px; border:1px solid var(--line); border-radius:8px; padding:0 10px; font-size:13px;">
+          <datalist id="pdvDatalistTiendas"></datalist>
+        </div>
+        <div style="position:relative; min-width:200px;">
+          <input type="text" id="pdvFiltroGerente" list="pdvDatalistGerentes" placeholder="Buscar gerente regional..." autocomplete="off" style="width:100%; height:36px; border:1px solid var(--line); border-radius:8px; padding:0 10px; font-size:13px;">
+          <datalist id="pdvDatalistGerentes"></datalist>
+        </div>
         ${puedeEditar ? `<input type="file" id="filePdvRegion" accept=".xlsx,.xls" style="display:none"><button class="upload" id="btnUploadPdvRegion">Cargar Excel</button>` : ''}
         ${editing && puedeEditar
           ? `<button id="btnCancel">Cancelar</button><button class="primary" id="btnSave">Guardar cambios</button>`
           : (puedeEditar ? `<button id="btnEdit">Editar</button>` : '')}
       </div>
+      <div id="pdvResultadoTienda" style="display:none; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:12.5px;"></div>
+      <div id="pdvResultadoGerente" style="display:none; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:12.5px;"></div>
       <div id="uploadErrorPdvRegion"></div>
       ${resumenCarga(data.carga)}
       ${cargaPendientePdvRegion ? panelConfirmacionPdvRegion() : ''}
+      </div>
       <div class="cards cards-5" style="margin-top:10px;">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total general</div><div class="body"><div class="big">${totalGeneral.toLocaleString('es-MX')}</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Desktop</div><div class="body"><div class="big">${totalDesktop.toLocaleString('es-MX')}</div></div></div>
@@ -6601,7 +6664,7 @@ auth.onAuthStateChanged(async function(user){
         </div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total Dif. Equipo</div><div class="body"><div class="big">${totalDifEquipo.toLocaleString('es-MX')}</div></div></div>
       </div>
-      <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px;">
+      <div class="pdv-region-grid">
         ${regs.map((r,rank)=>`
           <div class="pdv-region-card" data-pdv-region-idx="${r._i}" style="border:1px solid var(--line); border-radius:10px; overflow:hidden; ${!editing ? 'cursor:pointer;' : ''}">
             <div style="background:${cardGrad(COLOR_PDV)}; color:#fff; font-weight:700; font-size:14px; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
@@ -6631,10 +6694,11 @@ auth.onAuthStateChanged(async function(user){
           </div>
         `).join('')}
       </div>
-      ${canEdit ? renderHistorialPdvRegion() : ''}
+      <div class="oculto-en-carrusel">${canEdit ? renderHistorialPdvRegion() : ''}</div>
       <div id="pdvRegionModalRoot"></div>
     `;
     wirePdvRegionUpload();
+    wirePdvRegionFiltros();
     renderPdvRegionModal();
     if(!editing){
       document.querySelectorAll('.pdv-region-card').forEach(card=>{
