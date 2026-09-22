@@ -6472,20 +6472,28 @@ auth.onAuthStateChanged(async function(user){
             <div style="overflow-x:auto; max-height:50vh; overflow-y:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
               <thead><tr>
-                <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap;">Tienda</th>
-                <th style="text-align:left; padding:4px 6px; border-bottom:1px solid var(--line); white-space:nowrap;">Gerente de tienda</th>
-                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Desktop</th>
-                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Laptop</th>
-                <th style="text-align:right; padding:4px 6px; border-bottom:1px solid var(--line);">Dif. Equipo</th>
+                <th style="text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Tienda</th>
+                <th style="text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Gerente de tienda</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Desktop</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Laptop</th>
+                <th style="text-align:center; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;">Dif. Equipo</th>
               </tr></thead>
               <tbody>${gerente.tiendas.map(t=>`
                 <tr>
-                  <td style="padding:4px 6px; white-space:nowrap;">${escEsv(t.nombre)}</td>
-                  <td style="padding:4px 6px; white-space:nowrap;">${escEsv(t.gerente_tienda||'—')}</td>
-                  <td style="text-align:right; padding:4px 6px;">${t.desktop}</td>
-                  <td style="text-align:right; padding:4px 6px;">${t.lap}</td>
-                  <td style="text-align:right; padding:4px 6px;">${t.dif_equipo}</td>
-                </tr>`).join('')}</tbody>
+                  <td style="padding:6px 10px; white-space:nowrap;">${escEsv(t.nombre)}</td>
+                  <td style="padding:6px 10px; white-space:nowrap;">${escEsv(t.gerente_tienda||'—')}</td>
+                  <td style="text-align:center; padding:6px 10px;">${t.desktop}</td>
+                  <td style="text-align:center; padding:6px 10px;">${t.lap}</td>
+                  <td style="text-align:center; padding:6px 10px;">${t.dif_equipo}</td>
+                </tr>`).join('')}
+                <tr style="border-top:2px solid var(--ink);">
+                  <td style="padding:8px 10px; font-weight:700;">Total</td>
+                  <td></td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${gerente.desktop}</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${gerente.pdv_laptop+gerente.cambaceo}</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${gerente.dif_equipo}</td>
+                </tr>
+              </tbody>
             </table>
             </div>
           ` : `
@@ -6507,7 +6515,17 @@ auth.onAuthStateChanged(async function(user){
                   <td style="text-align:center; padding:7px 10px;">${g.pdv_laptop+g.cambaceo}</td>
                   <td style="text-align:center; padding:7px 10px;">${g.desktop}</td>
                   <td style="text-align:center; padding:7px 10px; font-weight:700;">${g.dif_equipo}</td>
-                </tr>`).join('')}</tbody>
+                </tr>`).join('')}
+                ${region.gerentes.length>0 ? `
+                <tr style="border-top:2px solid var(--ink);">
+                  <td style="padding:8px 10px; font-weight:700;">Total</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.tiendas.length,0)}</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.headcount,0)}</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.pdv_laptop+g.cambaceo,0)}</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.desktop,0)}</td>
+                  <td style="text-align:center; padding:8px 10px; font-weight:700;">${region.gerentes.reduce((s,g)=>s+g.dif_equipo,0)}</td>
+                </tr>` : ''}
+              </tbody>
             </table>
             </div>
           `}
