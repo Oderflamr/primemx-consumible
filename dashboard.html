@@ -2516,6 +2516,13 @@ auth.onAuthStateChanged(async function(user){
   // Agentes que se miden aparte, en la pestaña "Tickets Mesa de control" (son colas, no personas individuales).
   const AGENTES_MESA_CONTROL = ['MC PPM','MC EGF','MESA CONTROL'];
   const MESAS_CONTROL = ['Mesa de Control','Mesa de Control Nivel 1'];
+  // "Reset de Token VPN" se atiende entre Soporte y Mesa de Control por partes iguales (sept. 2026,
+  // pedido explícito del cliente) — a diferencia de cualquier otra categoría de Mesa de Control (que
+  // solo cuenta si Mesa de ayuda = Mesa de Control), esta debe verse COMPLETA en la tabla "por
+  // categoría" de Mesa de Control sin importar qué mesa atendió el ticket. Por eso el total de esa
+  // tabla ya no cuadra con "Total Mesa de Control por mes" para este renglón en particular — es a
+  // propósito, solo para esta categoría.
+  const CATEGORIA_COMPARTIDA_SOPORTE = 'Mesa de Control > Reset de Token VPN';
   // Tickets Soporte: se cuentan TODOS los tickets del archivo, sin importar categoría ni mesa de
   // ayuda, EXCEPTO estas 4 categorías exactas (que son de Mesa de Control, no de Soporte).
   const CATEGORIAS_EXCLUIR_SOPORTE = [
@@ -2677,38 +2684,61 @@ auth.onAuthStateChanged(async function(user){
         const estadoMC = String(row['Estado']).trim();
         const idTicket = Number(row['ID']);
         const forzarRechazado = IDS_FORZAR_RECHAZADO.includes(idTicket);
-
-        if(forzarRechazado || estadoMC === 'Rechazado' || estadoMC === 'Cancelado'){
-          rechazoCancelMC++;
-        } else {
-          // Solo Cerrado/Abierto entran al detalle por agente y por categoría.
-          // Los que no tienen agente asignado se cuentan como MESA CONTROL (no aparte).
-          const agenteMC = agente || 'MESA CONTROL';
-          if(!agenteMonthMC[agenteMC]) agenteMonthMC[agenteMC] = new Array(12).fill(0);
-          agenteMonthMC[agenteMC][mIdx]++;
-          let hrsMC = null;
-          if(estadoMC === 'Cerrado'){
-            const fcierreMC = parseFechaTicket(row['Fecha de cierre']);
-            if(fcierreMC){
-              const h = (fcierreMC - fc)/3600000;
-              if(h >= 0) hrsMC = h;
-            }
+        const esRechazadoCanceladoMC = forzarRechazado || estadoMC === 'Rechazado' || estadoMC === 'Cancelado';
+        // Los que no tienen agente asignado se cuentan como MESA CONTROL (no aparte).
+        const agenteMC = agente || 'MESA CONTROL';
+        let hrsMC = null;
+        if(estadoMC === 'Cerrado'){
+          const fcierreMC = parseFechaTicket(row['Fecha de cierre']);
+          if(fcierreMC){
+            const h = (fcierreMC - fc)/3600000;
+            if(h >= 0) hrsMC = h;
           }
-          if(hrsMC !== null){
-            if(!agenteDuracionesMC[agenteMC]) agenteDuracionesMC[agenteMC] = [];
-            agenteDuracionesMC[agenteMC].push(hrsMC);
-          }
+        }
 
-          const categoriaFull = String(row['Categoría']||'').trim();
-          const catCorta = categoriaFull.startsWith('Mesa de Control > ')
-            ? categoriaFull.replace('Mesa de Control > ', '')
-            : (categoriaFull === 'Mesa de Control' || !categoriaFull ? 'Sin subcategoría' : 'Otros');
-          if(!catMonth[catCorta]) catMonth[catCorta] = new Array(12).fill(0);
-          catMonth[catCorta][mIdx]++;
-          if(!catAgente[catCorta]) catAgente[catCorta] = {};
-          if(!catAgente[catCorta][agenteMC]) catAgente[catCorta][agenteMC] = { count:0, dur:[] };
-          catAgente[catCorta][agenteMC].count++;
-          if(hrsMC !== null) catAgente[catCorta][agenteMC].dur.push(hrsMC);
+        if(esRechazadoCanceladoMC) rechazoCancelMC++;
+
+        // Por agente: cuenta TODOS los estatus (sept. 2026, antes solo Cerrado/Abierto) — aunque el
+        // ticket termine Rechazado, alguien lo tocó y debe contar para ese agente.
+        if(!agenteMonthMC[agenteMC]) agenteMonthMC[agenteMC] = new Array(12).fill(0);
+        agenteMonthMC[agenteMC][mIdx]++;
+        if(hrsMC !== null){
+          if(!agenteDuracionesMC[agenteMC]) agenteDuracionesMC[agenteMC] = [];
+          agenteDuracionesMC[agenteMC].push(hrsMC);
+        }
+
+        // Por categoría: cuenta TODOS los estatus (sept. 2026, antes solo Cerrado/Abierto) — a
+        // petición explícita del cliente, para no perder de vista categorías con muchos Rechazados
+        // (ej. "Reset de Token VPN", donde ~84% del volumen quedaba fuera al filtrar solo Cerrado/Abierto).
+        const categoriaFull = String(row['Categoría']||'').trim();
+        const catCorta = categoriaFull.startsWith('Mesa de Control > ')
+          ? categoriaFull.replace('Mesa de Control > ', '')
+          : (categoriaFull === 'Mesa de Control' || !categoriaFull ? 'Sin subcategoría' : 'Otros');
+        if(!catMonth[catCorta]) catMonth[catCorta] = new Array(12).fill(0);
+        catMonth[catCorta][mIdx]++;
+        if(!catAgente[catCorta]) catAgente[catCorta] = {};
+        if(!catAgente[catCorta][agenteMC]) catAgente[catCorta][agenteMC] = { count:0, dur:[] };
+        catAgente[catCorta][agenteMC].count++;
+        if(hrsMC !== null) catAgente[catCorta][agenteMC].dur.push(hrsMC);
+      }
+
+      // Ver CATEGORIA_COMPARTIDA_SOPORTE arriba: estos tickets los atendió Soporte (no Mesa de
+      // Control), pero igual cuentan en la tabla "por categoría" de Mesa de Control, todos los
+      // estatus — para que ese renglón muestre el volumen completo, atendido entre las dos mesas.
+      if((mesaAyuda === 'Soporte IT' || mesaAyuda === 'Soporte IT Nivel 1') && categoriaTicket === CATEGORIA_COMPARTIDA_SOPORTE){
+        const catCortaCompartida = 'Reset de Token VPN';
+        const agenteCompartido = agente || 'MESA CONTROL';
+        if(!catMonth[catCortaCompartida]) catMonth[catCortaCompartida] = new Array(12).fill(0);
+        catMonth[catCortaCompartida][mIdx]++;
+        if(!catAgente[catCortaCompartida]) catAgente[catCortaCompartida] = {};
+        if(!catAgente[catCortaCompartida][agenteCompartido]) catAgente[catCortaCompartida][agenteCompartido] = { count:0, dur:[] };
+        catAgente[catCortaCompartida][agenteCompartido].count++;
+        if(String(row['Estado']).trim() === 'Cerrado'){
+          const fcierreComp = parseFechaTicket(row['Fecha de cierre']);
+          if(fcierreComp){
+            const h = (fcierreComp - fc)/3600000;
+            if(h >= 0) catAgente[catCortaCompartida][agenteCompartido].dur.push(h);
+          }
         }
       }
 
