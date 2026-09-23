@@ -2723,23 +2723,13 @@ auth.onAuthStateChanged(async function(user){
       }
 
       // Ver CATEGORIA_COMPARTIDA_SOPORTE arriba: estos tickets los atendió Soporte (no Mesa de
-      // Control), pero igual cuentan en la tabla "por categoría" de Mesa de Control, todos los
-      // estatus — para que ese renglón muestre el volumen completo, atendido entre las dos mesas.
+      // Control), y solo suman al TOTAL por mes de esa categoría (todos los estatus) — a propósito
+      // NO se agregan a "Categoría × Agente de Mesa de Control": esa tabla es de agentes/colas de
+      // Mesa de Control (MC PPM, MC EGF, MESA CONTROL), no debe mezclarse con agentes de Soporte.
       if((mesaAyuda === 'Soporte IT' || mesaAyuda === 'Soporte IT Nivel 1') && categoriaTicket === CATEGORIA_COMPARTIDA_SOPORTE){
         const catCortaCompartida = 'Reset de Token VPN';
-        const agenteCompartido = agente || 'MESA CONTROL';
         if(!catMonth[catCortaCompartida]) catMonth[catCortaCompartida] = new Array(12).fill(0);
         catMonth[catCortaCompartida][mIdx]++;
-        if(!catAgente[catCortaCompartida]) catAgente[catCortaCompartida] = {};
-        if(!catAgente[catCortaCompartida][agenteCompartido]) catAgente[catCortaCompartida][agenteCompartido] = { count:0, dur:[] };
-        catAgente[catCortaCompartida][agenteCompartido].count++;
-        if(String(row['Estado']).trim() === 'Cerrado'){
-          const fcierreComp = parseFechaTicket(row['Fecha de cierre']);
-          if(fcierreComp){
-            const h = (fcierreComp - fc)/3600000;
-            if(h >= 0) catAgente[catCortaCompartida][agenteCompartido].dur.push(h);
-          }
-        }
       }
 
       const provVel = proveedorVelocidad(row['Categoría']);
