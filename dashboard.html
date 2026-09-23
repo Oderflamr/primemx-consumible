@@ -4321,26 +4321,26 @@ auth.onAuthStateChanged(async function(user){
   // la primera edición y guardado de asanchez, el dato de Firestore manda, no esta constante.
   const DIRECTORIO_HUBS_INICIAL = [
     {region:'Bajío', estado:'Aguascalientes', ciudad:'Aguascalientes', hub:'PRM TDA AGUASCALIENTES VELARIA MALL', responsable:'Israel Gallo Muñoz', telefono:'449-919-30-08'},
-    {region:'Bajío', estado:'San Luis Potosi', ciudad:'San Luis Potosi', hub:'PRM TDA ARMAS II SLP', responsable:'Christian de Jesus Perez Vazquez', telefono:'444-714-72-05'},
+    {region:'Bajío', estado:'San Luis Potosi', ciudad:'San Luis Potosi', hub:'PRM TDA SAN LUIS POTOSI ARMAS II', responsable:'Christian de Jesus Perez Vazquez', telefono:'444-714-72-05'},
     {region:'Bajío', estado:'Queretaro', ciudad:'JURIQUILLA', hub:'PRM TDA URBAN CENTER JURIQUILLA', responsable:'', telefono:''},
     {region:'Centro I', estado:'Morelos', ciudad:'Cuernavaca', hub:'PRM TDA PLAZA MARGOL CUERNAVACA', responsable:'Yuriria Ruiz Hernandez', telefono:'777-564-14-38'},
     {region:'Centro I', estado:'Ciudad de México', ciudad:'CDMX / Roma', hub:'PRM TDA CDMX FUENTE DE CIBELES ROMA', responsable:'Ivan Valencia Campa', telefono:'557-657-22-54'},
     {region:'Centro II', estado:'Guerrero', ciudad:'Acapulco', hub:'PRM TDA ACAPULCO II', responsable:'Carolina Gómez Orozco', telefono:'744-168-99-18'},
-    {region:'Noroeste I', estado:'Baja California Sur', ciudad:'Baja California Sur', hub:'PRM TDA PLAZA NÁUTICA', responsable:'', telefono:''},
+    {region:'Noroeste I', estado:'Baja California Sur', ciudad:'Baja California Sur', hub:'PRM TDA LA PAZ PLAZA NAUTICA', responsable:'', telefono:''},
     {region:'Noroeste I', estado:'Baja California', ciudad:'Tijuana', hub:'PRM TDA TIJUANA PLAZA PACIFICO', responsable:'Rafael Reyes Rangel', telefono:'664-460-03-39'},
-    {region:'Noroeste I', estado:'Baja California Norte', ciudad:'Tijuana', hub:'PRM TDA TIJUANA PLAZA PENINSULA', responsable:'Jose Rafael Araiza Rodriguez', telefono:'663-161-44-42'},
+    {region:'Noroeste I', estado:'Baja California Norte', ciudad:'Tijuana', hub:'PRM TDA TIJUANA PENINSULA', responsable:'Jose Rafael Araiza Rodriguez', telefono:'663-161-44-42'},
     {region:'Noroeste II', estado:'Nuevo Leon', ciudad:'', hub:'PRM TDA CULIACAN', responsable:'Mario Antonio Valenzuela Miranda', telefono:'66-7389-4856'},
-    {region:'Norte I', estado:'Nuevo Leon', ciudad:'Monterrey', hub:'PRM TDA MONTERREY PLAZA ALTEA LINCONL', responsable:'Omar Castillo Herrera', telefono:'844-401-20-52'},
-    {region:'Norte I', estado:'Nuevo León', ciudad:'Monterrey', hub:'PRM TDA HUMBERTO LOBO', responsable:'Hector Carreon Imperial', telefono:'812-652-59-45'},
-    {region:'Norte I', estado:'Nuevo León', ciudad:'Monterrey', hub:'PRM TDA SUN MALL VIP', responsable:'Brenda Berenice Bautista', telefono:'818-473-88-87'},
+    {region:'Norte I', estado:'Nuevo Leon', ciudad:'Monterrey', hub:'PRM TDA MONTERREY PLAZA ALTEA LINCOLN', responsable:'Omar Castillo Herrera', telefono:'844-401-20-52'},
+    {region:'Norte I', estado:'Nuevo León', ciudad:'Monterrey', hub:'PRM TDA HUMBERTO LOBO MTY', responsable:'Hector Carreon Imperial', telefono:'812-652-59-45'},
+    {region:'Norte I', estado:'Nuevo León', ciudad:'Monterrey', hub:'PRM TDA MONTERREY SUN MALL VIP', responsable:'Brenda Berenice Bautista', telefono:'818-473-88-87'},
     {region:'Norte I', estado:'Coahuila', ciudad:'Monclova', hub:'PRM TDA MONCLOVA', responsable:'Saulo Peña', telefono:'866-124-11-60'},
     {region:'Norte I', estado:'Coahuila', ciudad:'Piedras Negras', hub:'PRM TDA PIEDRAS NEGRAS PLAZA INOVA', responsable:'Saulo Peña', telefono:'866-124-11-60'},
     {region:'Norte II', estado:'Durango', ciudad:'Durango', hub:'PRM TDA DURANGO I', responsable:'Marcial García', telefono:'618-133-92-97'},
-    {region:'Norte II', estado:'Chihuahua', ciudad:'Ciudad Juárez', hub:'PRM TDA JUÁREZ II', responsable:'Sergio Chaparro', telefono:'614-580-80-00'},
+    {region:'Norte II', estado:'Chihuahua', ciudad:'Ciudad Juárez', hub:'PRM TDA JUAREZ II', responsable:'Sergio Chaparro', telefono:'614-580-80-00'},
     {region:'Norte II', estado:'Chihuahua', ciudad:'Chihuahua', hub:'PRM TDA MI PLAZA CHIHUAHUA I', responsable:'Fernando González', telefono:'614-288-22-83'},
-    {region:'Norte II', estado:'Coahuila', ciudad:'Torreón', hub:'PRM TDA TORREÓN', responsable:'Erick Sánchez', telefono:'871-315-04-39'},
-    {region:'Pacífico', estado:'Jalisco', ciudad:'Guadalajara', hub:'PRM TDA GDL COUNTRY', responsable:'', telefono:''},
-    {region:'Pacífico', estado:'Colima', ciudad:'Colima', hub:'PRM TDA COLIMA AV. MADERO', responsable:'', telefono:''}
+    {region:'Norte II', estado:'Coahuila', ciudad:'Torreón', hub:'PRM TDA TORREON', responsable:'Erick Sánchez', telefono:'871-315-04-39'},
+    {region:'Pacífico', estado:'Jalisco', ciudad:'Guadalajara', hub:'PRM TDA GUADALAJARA COUNTRY', responsable:'', telefono:''},
+    {region:'Pacífico', estado:'Colima', ciudad:'Colima', hub:'PRM TDA COLIMA AV MADERO', responsable:'', telefono:''}
   ];
   // Mapa (sept. 2026, reemplaza las tarjetas de agosto): una bandera por HUB sobre un mapa esquemático
   // de México, ubicada por el campo `estado` (ver ESTADOS_HUB_COORDS). Clic en la bandera abre la ficha
