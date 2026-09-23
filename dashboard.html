@@ -904,7 +904,9 @@ auth.onAuthStateChanged(async function(user){
         const t = d.data();
         const nombre = String(t.plaza||'').toUpperCase().trim();
         if(!nombre) return;
-        porNombre[nombre] = { carrier: t.carrier, tecnologia: t.tecnologia };
+        // direccion/latitud/longitud/gerente_regional (sept. 2026) — para la ficha del mapa de HUB,
+        // que cruza por nombre contra este mismo catálogo en vivo de Directorio.
+        porNombre[nombre] = { carrier: t.carrier, tecnologia: t.tecnologia, direccion: t.direccion, latitud: t.latitud, longitud: t.longitud, gerente_regional: t.gerente_regional };
         const label = CARRIER_DASHBOARD_LABEL[String(t.carrier||'').toUpperCase().trim()];
         if(label && String(t.activo)==='1') activasPorCarrier[label]++;
       });
@@ -4428,14 +4430,23 @@ auth.onAuthStateChanged(async function(user){
               ${!esNuevo ? `<button id="btnEliminarHubMapa" style="color:#DC2626;">Eliminar</button>` : ''}
               <button class="primary" id="btnGuardarHubMapa">Guardar</button>
             </div>
-          ` : `
+          ` : (()=>{
+            // Cruce por nombre contra el catálogo en vivo de Directorio (mismo patrón que Top 15/
+            // Migración, ver 3.2) — Dirección/Latitud/Longitud/Gerente Regional no viven en el propio
+            // directorio de HUB, se toman de la tienda con el mismo nombre si existe.
+            const tienda = catalogoVivo.porNombre[String(f.hub||'').toUpperCase().trim()];
+            return `
             <h3>${f.hub || 'Sin nombre'}</h3>
             <div class="noc-modal-row"><span>Estado</span><b>${f.estado||'—'}</b></div>
             <div class="noc-modal-row"><span>Ciudad</span><b>${f.ciudad||'—'}</b></div>
+            <div class="noc-modal-row"><span>Dirección</span><b>${tienda&&tienda.direccion||'No encontrado en Directorio'}</b></div>
+            <div class="noc-modal-row"><span>Latitud</span><b>${tienda&&tienda.latitud||'—'}</b></div>
+            <div class="noc-modal-row"><span>Longitud</span><b>${tienda&&tienda.longitud||'—'}</b></div>
             <div class="noc-modal-row"><span>Región</span><b>${f.region||'—'}</b></div>
+            <div class="noc-modal-row"><span>Gerente Regional</span><b>${tienda&&tienda.gerente_regional||'No encontrado en Directorio'}</b></div>
             <div class="noc-modal-row"><span>Responsable</span><b>${f.responsable||'Sin responsable'}</b></div>
             <div class="noc-modal-row"><span>Teléfono</span><b>${f.telefono||'—'}</b></div>
-          `}
+          `; })()}
           <button class="noc-modal-close" id="hubMapModalCloseBtn">Cerrar</button>
         </div>
       </div>
