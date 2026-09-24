@@ -4377,6 +4377,32 @@ auth.onAuthStateChanged(async function(user){
       const offset = idx===0 ? {x:0,y:0} : { x:(idx%2===1?1:-1)*10*paso, y:-8*paso };
       return { x: base.x+offset.x, y: base.y+offset.y };
     });
+    // Separación automática (sept. 2026): con ubicación real, 2 HUBs de la misma ciudad pueden caer
+    // casi en el mismo punto y una bandera tapa a la otra. Si dos quedan a menos de 6 unidades de
+    // distancia, se empujan un poco cada una en direcciones opuestas — varias pasadas por si al
+    // separar un par se acercan de más a un tercero.
+    for(let pasada=0; pasada<6; pasada++){
+      let huboAjuste = false;
+      for(let i=0; i<posiciones.length; i++){
+        for(let j=i+1; j<posiciones.length; j++){
+          const dxRaw = posiciones[j].x - posiciones[i].x;
+          const dyRaw = posiciones[j].y - posiciones[i].y;
+          const dist = Math.hypot(dxRaw, dyRaw);
+          const distMin = 6;
+          if(dist < distMin){
+            huboAjuste = true;
+            const falta = (distMin - dist) / 2;
+            // Si caen exactamente en el mismo punto (dist=0), dxRaw/dyRaw no dan ninguna dirección
+            // para separarlas — se usa un ángulo fijo por pareja (i,j) en vez de dividir entre 0.
+            const angulo = dist > 0.001 ? Math.atan2(dyRaw, dxRaw) : (i*47 + j*13);
+            const ux = Math.cos(angulo), uy = Math.sin(angulo);
+            posiciones[i].x -= ux*falta; posiciones[i].y -= uy*falta;
+            posiciones[j].x += ux*falta; posiciones[j].y += uy*falta;
+          }
+        }
+      }
+      if(!huboAjuste) break;
+    }
     return `
       <div class="panel">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
