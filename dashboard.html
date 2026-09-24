@@ -1815,7 +1815,9 @@ auth.onAuthStateChanged(async function(user){
   // HUB: mismo patrón exclusivo que Envíos y Recolecciones / Reemplazo Disco Duro — solo asanchez ve
   // el botón de carga (columnas TICKET, PROCESO, PDV, DISPOSITIVO, STATUS, REGION), ni el admin general.
   function canEditHub(){
-    return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'asanchez');
+    // Antes exclusivo de asanchez — se amplió (sept. 2026, pedido explícito) para que cualquier
+    // admin general (canEdit) también pueda editar el Directorio de HUBs, no solo asanchez.
+    return !!(canEdit || (typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'asanchez'));
   }
   // Plan de expansión (y su sección de Cierre de tiendas): además del admin, mgiron puede editar
   // esta pestaña aunque su rol general sea "consulta" (sept. 2026, pedido explícito).
