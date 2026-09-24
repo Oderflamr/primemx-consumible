@@ -1926,6 +1926,15 @@ auth.onAuthStateChanged(async function(user){
   function coordEstadoHub(estado){
     return ESTADOS_HUB_COORDS[normalizarEstadoHub(estado)] || {x:220, y:230};
   }
+  // Proyección lat/lon -> coordenadas del SVG del mapa (sept. 2026) — es la MISMA proyección lineal
+  // (equirectangular) con la que se generaron ESTADOS_HUB_COORDS/ESTADOS_HUB_PATHS en su momento; se
+  // reconstruyó ajustando por mínimos cuadrados los 32 centroides reales de estado (mismo GeoJSON
+  // fuente, angelnmara/geojson) contra sus coordenadas ya guardadas aquí — el error máximo del ajuste
+  // fue de 0.18 unidades sobre un lienzo de ~400x260, así que es prácticamente exacta. Sirve para
+  // ubicar un HUB por su latitud/longitud real (columna del Directorio) en vez de solo por estado.
+  function proyectarLatLonHub(lat, lon){
+    return { x: 12.536421*lon + 1488.350992, y: -12.532873*lat + 562.214833 };
+  }
   // Efecto "extrudido" del mapa (sept. 2026, a petición del cliente — se veía muy plano): cada estado
   // se dibuja dos veces — una copia sólida desplazada (el "lado" del bloque) y encima el estado real
   // con degradado — dando relieve pseudo-3D sin necesitar ninguna librería. Los paths solo usan M/L con
@@ -4350,9 +4359,17 @@ auth.onAuthStateChanged(async function(user){
   function renderDirectorioHubs(){
     const puedeEditar = canEditHub();
     const filas = state.hub.directorio || [];
-    // Agrupa por estado para separar un poco las banderas cuando hay más de un HUB en el mismo estado.
+    // Ubicación de cada bandera (sept. 2026): si el nombre del HUB coincide con una tienda del
+    // catálogo en vivo de Directorio (mismo cruce que la ficha, ver renderHubMapModal) y esa tienda
+    // trae latitud/longitud, se usa la posición real (proyectarLatLonHub) en vez del centroide del
+    // estado. Si no hay coincidencia o no trae coordenadas, se cae al comportamiento anterior:
+    // centroide del estado, con un pequeño offset si hay más de un HUB así en el mismo estado.
     const conteoPorEstado = {};
     const posiciones = filas.map(f=>{
+      const tiendaDir = catalogoVivo.porNombre[String(f.hub||'').toUpperCase().trim()];
+      const lat = tiendaDir ? Number(tiendaDir.latitud) : NaN;
+      const lon = tiendaDir ? Number(tiendaDir.longitud) : NaN;
+      if(!isNaN(lat) && !isNaN(lon) && lat && lon) return proyectarLatLonHub(lat, lon);
       const key = normalizarEstadoHub(f.estado);
       const idx = (conteoPorEstado[key] = (conteoPorEstado[key]||0) + 1) - 1;
       const base = coordEstadoHub(f.estado);
@@ -4382,7 +4399,8 @@ auth.onAuthStateChanged(async function(user){
             ${Object.values(ESTADOS_HUB_PATHS).map(d=>`<path d="${d}" fill="url(#gradEstadoHub)" stroke="#FFFFFF" stroke-width="1"/>`).join('')}
             ${filas.map((f,i)=>{
               const p = posiciones[i];
-              return `<g class="hub-flagpin" data-hub-idx="${i}" transform="translate(${p.x},${p.y})">
+              return `<g class="hub-flagpin" data-hub-idx="${i}" transform="translate(${p.x},${p.y})" style="cursor:pointer;">
+                <title>${escEsv(f.hub||'Sin nombre')}</title>
                 <line x1="0" y1="0" x2="0" y2="-18" stroke="var(--sub)" stroke-width="1.5"/>
                 <path class="hub-flagwave" d="M0,-18 L15,-15 L0,-12 Z" fill="var(--tp)"/>
                 <circle r="2.5" fill="var(--sub)"/>
@@ -4390,7 +4408,7 @@ auth.onAuthStateChanged(async function(user){
             }).join('')}
           </svg>
         </div>
-        <div style="font-size:11px; color:var(--sub); margin-top:8px;">Da clic en una bandera para ver los datos del HUB.</div>
+        <div style="font-size:11px; color:var(--sub); margin-top:8px;">Pasa el mouse sobre una bandera para ver su nombre, da clic para ver el detalle abajo.</div>
         `}
         <div id="hubMapModalRoot"></div>
       </div>
@@ -4407,53 +4425,58 @@ auth.onAuthStateChanged(async function(user){
     const editando = hubMapModoEdicion;
     const f = editando ? hubMapDraft : (state.hub.directorio||[])[hubMapSeleccion];
     if(!f){ root.innerHTML=''; hubMapSeleccion=null; return; }
+    // Detalle EN LÍNEA (sept. 2026, antes era una ventana emergente con fondo oscuro) — se pinta como
+    // una tarjeta normal debajo del mapa, dentro del flujo de la página, no como overlay.
     root.innerHTML = `
-      <div class="noc-overlay" id="hubMapOverlay">
-        <div class="noc-modal">
-          ${editando ? `
-            <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Hub de recolección</label>
-            <input type="text" id="hubMapCampoHub" value="${String(f.hub||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:14px; font-weight:600; margin-bottom:8px;">
-            <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Estado</label>
-            <select id="hubMapCampoEstado" style="width:100%; padding:6px 8px; font-size:13px; margin-bottom:8px;">
-              ${!f.estado ? `<option value="" disabled selected>Elige un estado…</option>` : ''}
-              ${Object.keys(ESTADOS_HUB_COORDS).map(k=>`<option value="${k}" ${normalizarEstadoHub(f.estado)===k?'selected':''}>${k}</option>`).join('')}
-            </select>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-              <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Ciudad</label>
-                <input type="text" id="hubMapCampoCiudad" value="${String(f.ciudad||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
-              <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Región</label>
-                <input type="text" id="hubMapCampoRegion" value="${String(f.region||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
-              <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Responsable</label>
-                <input type="text" id="hubMapCampoResponsable" value="${String(f.responsable||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
-              <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Teléfono</label>
-                <input type="text" id="hubMapCampoTelefono" value="${String(f.telefono||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
-            </div>
-            <div class="editbar" style="margin-top:14px;">
-              ${!esNuevo ? `<button id="btnEliminarHubMapa" style="color:#DC2626;">Eliminar</button>` : ''}
-              <button class="primary" id="btnGuardarHubMapa">Guardar</button>
-            </div>
-          ` : (()=>{
-            // Cruce por nombre contra el catálogo en vivo de Directorio (mismo patrón que Top 15/
-            // Migración, ver 3.2) — Dirección/Latitud/Longitud/Gerente Regional no viven en el propio
-            // directorio de HUB, se toman de la tienda con el mismo nombre si existe.
-            const tienda = catalogoVivo.porNombre[String(f.hub||'').toUpperCase().trim()];
-            return `
-            <h3>${f.hub || 'Sin nombre'}</h3>
-            <div class="noc-modal-row"><span>Estado</span><b>${f.estado||'—'}</b></div>
-            <div class="noc-modal-row"><span>Ciudad</span><b>${f.ciudad||'—'}</b></div>
-            <div class="noc-modal-row"><span>Dirección</span><b>${tienda&&tienda.direccion||'No encontrado en Directorio'}</b></div>
-            <div class="noc-modal-row"><span>Latitud</span><b>${tienda&&tienda.latitud||'—'}</b></div>
-            <div class="noc-modal-row"><span>Longitud</span><b>${tienda&&tienda.longitud||'—'}</b></div>
-            <div class="noc-modal-row"><span>Región</span><b>${f.region||'—'}</b></div>
-            <div class="noc-modal-row"><span>Gerente Regional</span><b>${tienda&&tienda.gerente_regional||'No encontrado en Directorio'}</b></div>
-            <div class="noc-modal-row"><span>Responsable</span><b>${f.responsable||'Sin responsable'}</b></div>
-            <div class="noc-modal-row"><span>Teléfono</span><b>${f.telefono||'—'}</b></div>
-          `; })()}
-          <button class="noc-modal-close" id="hubMapModalCloseBtn">Cerrar</button>
-        </div>
+      <div class="panel" style="margin-top:16px;">
+        ${editando ? `
+          <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Hub de recolección</label>
+          <input type="text" id="hubMapCampoHub" value="${String(f.hub||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:14px; font-weight:600; margin-bottom:8px;">
+          <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Estado</label>
+          <select id="hubMapCampoEstado" style="width:100%; padding:6px 8px; font-size:13px; margin-bottom:8px;">
+            ${!f.estado ? `<option value="" disabled selected>Elige un estado…</option>` : ''}
+            ${Object.keys(ESTADOS_HUB_COORDS).map(k=>`<option value="${k}" ${normalizarEstadoHub(f.estado)===k?'selected':''}>${k}</option>`).join('')}
+          </select>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px;">
+            <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Ciudad</label>
+              <input type="text" id="hubMapCampoCiudad" value="${String(f.ciudad||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+            <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Región</label>
+              <input type="text" id="hubMapCampoRegion" value="${String(f.region||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+            <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Responsable</label>
+              <input type="text" id="hubMapCampoResponsable" value="${String(f.responsable||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+            <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Teléfono</label>
+              <input type="text" id="hubMapCampoTelefono" value="${String(f.telefono||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+          </div>
+          <div class="editbar" style="margin-top:14px;">
+            ${!esNuevo ? `<button id="btnEliminarHubMapa" style="color:#DC2626;">Eliminar</button>` : ''}
+            <button class="primary" id="btnGuardarHubMapa">Guardar</button>
+            <button id="hubMapModalCloseBtn">Cerrar</button>
+          </div>
+        ` : (()=>{
+          // Cruce por nombre contra el catálogo en vivo de Directorio (mismo patrón que Top 15/
+          // Migración, ver 3.2) — Dirección/Latitud/Longitud/Gerente Regional no viven en el propio
+          // directorio de HUB, se toman de la tienda con el mismo nombre si existe.
+          const tienda = catalogoVivo.porNombre[String(f.hub||'').toUpperCase().trim()];
+          const dato = (v)=> `<div><span style="color:var(--sub); font-size:11.5px;">${v.label}</span><br><b style="font-size:13.5px;">${v.valor}</b></div>`;
+          return `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0;">${f.hub || 'Sin nombre'}</h3>
+            <span id="hubMapModalCloseBtn" style="font-size:13px; color:var(--sub); cursor:pointer;">✕ Cerrar</span>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;">
+            ${dato({label:'Estado', valor:f.estado||'—'})}
+            ${dato({label:'Ciudad', valor:f.ciudad||'—'})}
+            ${dato({label:'Dirección', valor:(tienda&&tienda.direccion)||'No encontrado en Directorio'})}
+            ${dato({label:'Latitud', valor:(tienda&&tienda.latitud)||'—'})}
+            ${dato({label:'Longitud', valor:(tienda&&tienda.longitud)||'—'})}
+            ${dato({label:'Región', valor:f.region||'—'})}
+            ${dato({label:'Gerente Regional', valor:(tienda&&tienda.gerente_regional)||'No encontrado en Directorio'})}
+            ${dato({label:'Responsable', valor:f.responsable||'Sin responsable'})}
+            ${dato({label:'Teléfono', valor:f.telefono||'—'})}
+          </div>
+        `; })()}
       </div>
     `;
-    document.getElementById('hubMapOverlay').onclick = (e)=>{ if(e.target.id==='hubMapOverlay'){ hubMapSeleccion=null; hubMapDraft=null; renderHubMapModal(); } };
     document.getElementById('hubMapModalCloseBtn').onclick = ()=>{ hubMapSeleccion=null; hubMapDraft=null; renderHubMapModal(); };
     if(editando){
       document.getElementById('btnGuardarHubMapa').onclick = ()=>{
