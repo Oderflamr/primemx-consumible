@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Dashboard IT · PrimeMX</title>
+<script>
+// Modo oscuro: se aplica ANTES de pintar la página (evita el parpadeo de claro->oscuro al cargar).
+try{
+  const t = localStorage.getItem('primemx_tema');
+  if(t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+}catch(e){}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap" rel="stylesheet">
@@ -106,7 +113,7 @@ input,select{font-family:inherit;}
   border:1px solid var(--line);
   border-radius:8px;
   font-size:14px;
-  background:#FAFBFB;
+  background:var(--field-bg);
   color:var(--ink);
 }
 .field input:focus, .field select:focus{
@@ -126,7 +133,7 @@ input,select{font-family:inherit;}
 .btn-primary{background:var(--signal);color:#fff;width:100%;}
 .btn-primary:hover{background:var(--signal-dark);}
 .btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line);}
-.btn-ghost:hover{background:#F0F2F1;}
+.btn-ghost:hover{background:var(--ghost-hover-bg);}
 .btn-danger{background:var(--warn);color:#fff;}
 .btn-danger:hover{opacity:.9;}
 .login-error{
@@ -205,7 +212,56 @@ main{flex:1;padding:20px 32px;width:100%;}
     --ink:#1A1A1F; --sub:#6B7280; --line:#E5E7EB;
     --crit:#C00000; --med:#B8860B; --good:#00B050;
     --bg:#FFFFFF;
+    /* Superficies de tarjetas/paneles/botones (sept. 2026, modo oscuro) — antes eran gradientes/hex
+       fijos (#FFFFFF, #fff, etc.) directo en cada regla; con variable se puede repintar todo junto
+       al cambiar de tema sin tocar cada regla una por una. */
+    --surface-a:#FFFFFF; --surface-b:#F2F4F6; --panel-a:#FFFFFF; --panel-b:#F5F7F8;
+    --surface-btn:#FFFFFF; --surface-btn-hover:#F7F7F8;
+    --badge-crit-bg:#FDECEC; --badge-warn-bg:#FFF3D6; --badge-med-bg:#FFF9DB; --badge-good-bg:#E7F7EC;
+    --uploadbar-bg:#FAFAFB; --menu-bg:#FFFFFF; --field-bg:#FAFBFB; --ghost-hover-bg:#F0F2F1;
+    --guardia-actual-bg:#F0FDFA; --guardia-proxima-bg:#F8FAFC;
+    /* Paleta categórica validada (skill dataviz) — usada en el ranking de ingenieros de Tickets
+       Soporte; --sprime es el tono neutro para la fila "Soporte Prime" (no es una persona). */
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+    --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948; --sprime:#8B93A0;
     font-family:'Segoe UI','Inter',system-ui,-apple-system,sans-serif;
+  }
+  /* ===== Modo oscuro (sept. 2026) — toggle manual (botón junto a "Salir"), guardado en
+     localStorage('primemx_tema') para que se recuerde entre sesiones. Solo redefine variables:
+     el resto del CSS ya las usa (var(--ink), var(--line), etc.), así que no hay que tocar cada
+     regla — excepto los pocos fondos que estaban en hex fijo, ver --surface-a, --badge-crit-bg
+     y demás variables nuevas de arriba, ahora también con su versión oscura aquí abajo. */
+  :root[data-theme="dark"]{
+    --bg:#12161A; --panel:#1B2126; --ink:#EDF1F3; --ink-soft:#9FB2BE; --line:#2B3238;
+    --signal:#22B8CF; --signal-dark:#1A94A8; --signal-soft:rgba(34,184,207,.16);
+    --ok:#2ECC71; --ok-soft:rgba(46,204,113,.14); --warn:#F2704A; --warn-soft:rgba(242,112,74,.14);
+    --sub:#8B93A0; --crit:#EF5350; --med:#E0A800; --good:#2ECC71;
+    --tp:#A375F0; --tm:#3EC6F0; --mg:#9FD66A; --st:#EDF1F3;
+    --surface-a:#1C2126; --surface-b:#171B1F; --panel-a:#1C2126; --panel-b:#171B1F;
+    --surface-btn:#1C2126; --surface-btn-hover:#242A30;
+    --badge-crit-bg:rgba(239,83,80,.18); --badge-warn-bg:rgba(224,168,0,.18); --badge-med-bg:rgba(224,168,0,.14); --badge-good-bg:rgba(46,204,113,.16);
+    --uploadbar-bg:#181C20; --menu-bg:#1C2126; --field-bg:#12161A; --ghost-hover-bg:#20262B;
+    --guardia-actual-bg:rgba(13,148,136,.20); --guardia-proxima-bg:rgba(148,163,184,.14);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767; --sprime:#8B93A0;
+    color-scheme:dark;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#12161A; --panel:#1B2126; --ink:#EDF1F3; --ink-soft:#9FB2BE; --line:#2B3238;
+      --signal:#22B8CF; --signal-dark:#1A94A8; --signal-soft:rgba(34,184,207,.16);
+      --ok:#2ECC71; --ok-soft:rgba(46,204,113,.14); --warn:#F2704A; --warn-soft:rgba(242,112,74,.14);
+      --sub:#8B93A0; --crit:#EF5350; --med:#E0A800; --good:#2ECC71;
+      --tp:#A375F0; --tm:#3EC6F0; --mg:#9FD66A; --st:#EDF1F3;
+      --surface-a:#1C2126; --surface-b:#171B1F; --panel-a:#1C2126; --panel-b:#171B1F;
+      --surface-btn:#1C2126; --surface-btn-hover:#242A30;
+      --badge-crit-bg:rgba(239,83,80,.18); --badge-warn-bg:rgba(224,168,0,.18); --badge-med-bg:rgba(224,168,0,.14); --badge-good-bg:rgba(46,204,113,.16);
+      --uploadbar-bg:#181C20; --menu-bg:#1C2126; --field-bg:#12161A; --ghost-hover-bg:#20262B;
+      --guardia-actual-bg:rgba(13,148,136,.20); --guardia-proxima-bg:rgba(148,163,184,.14);
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+      --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767; --sprime:#8B93A0;
+      color-scheme:dark;
+    }
   }
   *{box-sizing:border-box;}
   html,body{overflow-x:hidden;}
@@ -275,7 +331,7 @@ main{flex:1;padding:20px 32px;width:100%;}
   @media (max-width:1100px){ .cards.cards-5{grid-template-columns:repeat(3,minmax(0,1fr));} }
   @media (max-width:560px){ .cards.cards-5{grid-template-columns:repeat(2,minmax(0,1fr));} }
   @media (max-width:380px){ .cards.cards-5{grid-template-columns:1fr;} }
-  .card{border:1px solid var(--line); border-radius:14px; overflow:hidden; background:linear-gradient(145deg,#FFFFFF,#F2F4F6); box-shadow:0 8px 20px rgba(26,26,31,0.08), 0 2px 6px rgba(26,26,31,0.05); min-width:0;}
+  .card{border:1px solid var(--line); border-radius:14px; overflow:hidden; background:linear-gradient(145deg,var(--surface-a),var(--surface-b)); box-shadow:0 8px 20px rgba(26,26,31,0.08), 0 2px 6px rgba(26,26,31,0.05); min-width:0;}
   .card .head{padding:9px 14px; font-weight:700; color:#fff; font-size:14px;}
   .card .body{padding:14px;}
   .card .big{font-size:27px; font-weight:800; line-height:1;}
@@ -286,15 +342,15 @@ main{flex:1;padding:20px 32px;width:100%;}
   .pill.med{color:var(--med); border-color:var(--med);}
   .pill.good{color:var(--good); border-color:var(--good);}
 
-  .panel{border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin-bottom:18px; max-width:100%; overflow-x:hidden; background:linear-gradient(160deg,#FFFFFF,#F5F7F8); box-shadow:0 8px 20px rgba(26,26,31,0.07), 0 2px 6px rgba(26,26,31,0.05);}
+  .panel{border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin-bottom:18px; max-width:100%; overflow-x:hidden; background:linear-gradient(160deg,var(--panel-a),var(--panel-b)); box-shadow:0 8px 20px rgba(26,26,31,0.07), 0 2px 6px rgba(26,26,31,0.05);}
   .panel h3{margin:0 0 10px; font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--sub);}
   canvas{max-height:320px;}
 
   .editbar{display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px;}
-  #caidas-root button{font-family:inherit; font-size:13px; font-weight:600; padding:7px 14px; border-radius:7px; border:1px solid var(--line); background:#fff; cursor:pointer; color:var(--ink);}
+  #caidas-root button{font-family:inherit; font-size:13px; font-weight:600; padding:7px 14px; border-radius:7px; border:1px solid var(--line); background:var(--surface-btn); cursor:pointer; color:var(--ink);}
   button.primary{background:var(--tp); color:#fff; border-color:var(--tp);}
   button.primary:hover{background:#5400a8;}
-  button:hover{background:#f7f7f8;}
+  button:hover{background:var(--surface-btn-hover);}
 
   #caidas-root table{width:100%; border-collapse:collapse; font-size:12.5px;}
   #caidas-root th, #caidas-root td{padding:6px 7px; text-align:center; border-bottom:1px solid var(--line);}
@@ -303,10 +359,10 @@ main{flex:1;padding:20px 32px;width:100%;}
   input[type=number],input[type=text]{width:56px; padding:4px; border:1px solid var(--line); border-radius:5px; text-align:center; font-size:12.5px;}
   input[type=text]{width:190px; text-align:left;}
   .status-badge{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:10px;}
-  .status-badge.critica{background:#FDECEC; color:var(--crit);}
-  .status-badge.alerta{background:#FFF3D6; color:#A15C00;}
-  .status-badge.atencion{background:#FFF9DB; color:var(--med);}
-  .status-badge.estable{background:#E7F7EC; color:var(--good);}
+  .status-badge.critica{background:var(--badge-crit-bg); color:var(--crit);}
+  .status-badge.alerta{background:var(--badge-warn-bg); color:var(--warn);}
+  .status-badge.atencion{background:var(--badge-med-bg); color:var(--med);}
+  .status-badge.estable{background:var(--badge-good-bg); color:var(--good);}
 
   .servicios-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:6px;}
   @media (max-width:560px){ .servicios-grid{grid-template-columns:repeat(2,1fr);} }
@@ -337,7 +393,7 @@ main{flex:1;padding:20px 32px;width:100%;}
     #caidas-root table{font-size:11.5px;}
   }
 
-  .uploadbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin-bottom:16px; background:#FAFAFB;}
+  .uploadbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin-bottom:16px; background:var(--uploadbar-bg);}
   .uploadbar .txt{font-size:12px; color:var(--sub); flex:1; min-width:220px;}
   .uploadbar .txt b{color:var(--ink);}
   button.upload{background:var(--tm); color:#fff; border-color:var(--tm);}
@@ -345,6 +401,65 @@ main{flex:1;padding:20px 32px;width:100%;}
   button.upload:disabled{opacity:.55; cursor:default;}
   .upload-summary{font-size:11.5px; color:var(--good); margin-top:2px;}
   .upload-error{font-size:11.5px; color:var(--crit); margin-top:2px;}
+
+  /* ===== Checador (Soporte IT, sept. 2026) — todo acotado a .chk para no chocar con los estilos
+     globales de #caidas-root (botones, inputs de 56px, tablas centradas, .foot oculto a no-admin).
+     Solo usa variables del tema, así que el modo oscuro funciona sin reglas extra. ===== */
+  #caidas-root .chk{--chk-meal:#D97706; --chk-guard:#0D9488;}
+  #caidas-root .chk .chk-h2{font-size:18px; font-weight:700; color:var(--ink);}
+  #caidas-root .chk .chk-h3{font-size:14px; font-weight:700; color:var(--ink);}
+  #caidas-root .chk .chk-sub, #caidas-root .chk .chk-muted{color:var(--sub);}
+  #caidas-root .chk .chk-sub{font-size:13px;}
+  #caidas-root .chk input{width:100%; text-align:left; padding:9px 11px; font-size:14px; border:1px solid var(--line); border-radius:8px; background:var(--field-bg); color:var(--ink);}
+  #caidas-root .chk button.chk-btn{background:var(--tp); color:#fff; border-color:var(--tp); padding:10px 16px;}
+  #caidas-root .chk button.chk-btn:hover{filter:brightness(1.08);}
+  #caidas-root .chk button.chk-btn.alt{background:var(--surface-btn); color:var(--ink); border-color:var(--line);}
+  #caidas-root .chk button.chk-btn.meal{background:var(--chk-meal); border-color:var(--chk-meal);}
+  #caidas-root .chk button.chk-btn:disabled{opacity:.4; cursor:not-allowed; filter:none;}
+  #caidas-root .chk button.chk-full{width:100%; margin-top:16px;}
+  #caidas-root .chk button.chk-link{background:none; border:0; padding:4px 6px; color:var(--sub); font-weight:500; text-decoration:underline;}
+  .chk-gate{display:grid; place-items:center; padding:24px 0;}
+  .chk-box{width:100%; max-width:400px; padding:22px; border:1px solid var(--line); border-radius:14px; background:linear-gradient(145deg,var(--surface-a),var(--surface-b)); box-shadow:0 8px 20px rgba(26,26,31,.08);}
+  .chk-box label{display:block; margin:13px 0 5px; font-size:12px; color:var(--sub); font-weight:600;}
+  .chk-lock{display:inline-grid; place-items:center; width:34px; height:34px; border-radius:9px; background:rgba(102,0,204,.12); font-size:17px; margin-bottom:8px;}
+  .chk-err{color:var(--crit); font-size:12.5px; min-height:18px; margin-top:8px;}
+  .chk-note{font-size:12px; color:var(--sub); margin-top:12px; padding:9px 11px; border-radius:8px; background:var(--uploadbar-bg); border:1px solid var(--line);}
+  .chk-head{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  .chk-headacts{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .chk-subtabs{display:flex; gap:4px; background:var(--uploadbar-bg); border:1px solid var(--line); padding:3px; border-radius:9px;}
+  #caidas-root .chk .chk-subtabs button{padding:6px 12px; border:0; background:transparent; color:var(--sub);}
+  #caidas-root .chk .chk-subtabs button.on{background:var(--surface-btn); color:var(--tp); font-weight:700; box-shadow:0 1px 3px rgba(0,0,0,.15);}
+  .chk-clockcard{display:grid; grid-template-columns:1fr auto; gap:18px; align-items:center;}
+  .chk-clock{font-size:44px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.1; color:var(--ink);}
+  .chk-pill{display:inline-block; padding:4px 10px; border-radius:99px; font-size:12.5px; font-weight:700; background:var(--uploadbar-bg); color:var(--sub); border:1px solid var(--line);}
+  .chk-pill.in{background:rgba(0,176,80,.14); color:var(--good); border-color:transparent;}
+  .chk-pill.meal{background:rgba(217,119,6,.15); color:var(--chk-meal); border-color:transparent;}
+  .chk-pill.guard{background:var(--guardia-actual-bg); color:var(--chk-guard); border-color:transparent;}
+  .chk-steps{display:flex; gap:6px; margin-top:12px; flex-wrap:wrap;}
+  .chk-step{font-size:12px; padding:5px 9px; border-radius:7px; border:1px solid var(--line); color:var(--sub); font-variant-numeric:tabular-nums;}
+  .chk-step.done{border-color:var(--tp); color:var(--tp); font-weight:600;}
+  .chk-actions{display:flex; flex-direction:column; gap:8px; min-width:220px;}
+  #caidas-root .chk .chk-actions button.chk-btn{padding:12px;}
+  .chk-guard{margin-top:12px; font-size:12.5px; padding:8px 11px; border-radius:8px; background:var(--guardia-actual-bg); color:var(--chk-guard); border:1px solid rgba(13,148,136,.35);}
+  .chk-weekbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px;}
+  .chk-tbl{overflow-x:auto;}
+  #caidas-root .chk table{font-variant-numeric:tabular-nums; font-size:13px;}
+  #caidas-root .chk th, #caidas-root .chk td{text-align:left; padding:8px; white-space:nowrap;}
+  #caidas-root .chk th.n, #caidas-root .chk td.n{text-align:right;}
+  #caidas-root .chk tfoot td{font-weight:700; border-bottom:0;}
+  #caidas-root .chk tr.chk-today td{background:rgba(102,0,204,.06);}
+  #caidas-root .chk tr.chk-wkd td:first-child{color:var(--chk-guard);}
+  #caidas-root .chk tr.chk-click{cursor:pointer;}
+  #caidas-root .chk tr.chk-click:hover td, #caidas-root .chk tr.chk-sel td{background:rgba(0,176,240,.08);}
+  .chk-tag{font-size:10.5px; padding:2px 8px; border-radius:99px; font-weight:700; background:var(--guardia-actual-bg); color:var(--chk-guard);}
+  .chk-alert{color:var(--crit); font-size:12px;}
+  .chk-foot{font-size:11.5px; color:var(--sub); margin-top:8px;}
+  .chk-salcard{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.6fr); gap:18px; align-items:center;}
+  .chk-salrow{display:flex; gap:8px; align-items:center; margin-top:8px; max-width:340px;}
+  .chk-cur{font-size:22px; font-weight:700; color:var(--sub);}
+  #caidas-root .chk .chk-salrow input{font-size:20px; font-weight:700; padding:8px 10px;}
+  @media (max-width:900px){ .chk-salcard{grid-template-columns:1fr;} }
+  @media (max-width:760px){ .chk-clockcard{grid-template-columns:1fr;} .chk-clock{font-size:36px;} }
 
   /* ===== Guardias (Soporte IT) — agosto 2026: rotación de sábado y domingo por ingeniero ===== */
   .guardia-hero{border-radius:14px; padding:14px 16px; color:#fff; min-width:0; box-shadow:0 8px 18px rgba(26,26,31,0.18), 0 2px 6px rgba(26,26,31,0.08);}
@@ -354,8 +469,8 @@ main{flex:1;padding:20px 32px;width:100%;}
   .guardia-mes{margin-bottom:16px;}
   .guardia-mes h4{font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--sub); margin:0 0 8px; font-weight:700;}
   .guardia-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; font-size:13px; flex-wrap:wrap;}
-  .guardia-row.es-actual{border-color:#0D9488; background:#F0FDFA;}
-  .guardia-row.es-proxima{border-color:#94A3B8; background:#F8FAFC;}
+  .guardia-row.es-actual{border-color:#0D9488; background:var(--guardia-actual-bg);}
+  .guardia-row.es-proxima{border-color:#94A3B8; background:var(--guardia-proxima-bg);}
   .guardia-row .fecha{color:var(--ink); display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
   .guardia-row .fecha .tagmini{font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:20px; color:#fff;}
   .guardia-row .fecha .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
@@ -542,6 +657,7 @@ main{flex:1;padding:20px 32px;width:100%;}
     <div class="user-chip">
       <span id="user-label"></span>
       <span class="role-tag" id="role-tag">consulta</span>
+      <button class="btn btn-ghost" id="theme-toggle-btn" title="Cambiar a modo oscuro/claro" style="padding:7px 10px;font-size:14px;line-height:1;">🌙</button>
       <button class="btn btn-ghost" id="logout-btn" style="padding:7px 12px;font-size:12.5px;">Salir</button>
     </div>
   </header>
@@ -603,6 +719,24 @@ document.getElementById('login-form').addEventListener('submit', async function(
 document.getElementById('logout-btn').addEventListener('click', function(){
   localStorage.removeItem('primemx_sesion_inicio');
   auth.signOut();
+});
+
+// Modo oscuro (sept. 2026): toggle manual junto a "Salir", aplica a TODO el dashboard (no solo a un
+// apartado). Se guarda en localStorage('primemx_tema') — mismo storage/origen que usan Directorio y
+// Consumibles, así que si algún día se activa ahí también se podría compartir la preferencia.
+// window.__primemxOnTemaCambiado lo define el propio dashboard de caídas (más abajo, dentro de su
+// IIFE) para volver a pintar sus gráficas Chart.js con los colores del tema nuevo; si esa parte del
+// script todavía no cargó (o la sesión de caídas no está abierta) simplemente no hace nada más.
+const btnTema = document.getElementById('theme-toggle-btn');
+function temaActual(){ return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
+function pintarBotonTema(){ btnTema.textContent = temaActual()==='dark' ? '☀️' : '🌙'; }
+pintarBotonTema();
+btnTema.addEventListener('click', function(){
+  const nuevo = temaActual()==='dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', nuevo);
+  try{ localStorage.setItem('primemx_tema', nuevo); }catch(e){}
+  pintarBotonTema();
+  if(window.__primemxOnTemaCambiado) window.__primemxOnTemaCambiado();
 });
 
 // Caducidad de sesión (agosto 2026, pedido explícito del cliente — reemplaza la nota anterior de que
@@ -706,6 +840,8 @@ auth.onAuthStateChanged(async function(user){
     if(enlaceConsumibles) enlaceConsumibles.style.display = (currentUser.username === 'marafic') ? 'none' : '';
   } else {
     currentUser = null;
+    // Checador (Soporte IT): su sesión es aparte, pero al salir del dashboard también se cierra.
+    if(window.__chkSignOut) window.__chkSignOut();
     document.getElementById('app').classList.remove('show');
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('login-pass').value = '';
@@ -1353,7 +1489,7 @@ auth.onAuthStateChanged(async function(user){
       {nombre:'Ingrid Rodriguez Nuñez', meses:[245,112,313,499,457,445,543,52], promedio:2},
       {nombre:'Leon Gustavo Rivera Arriaga', meses:[125,436,568,353,387,422,300,52], promedio:1.4},
       {nombre:'Josafath setzafel Pacheco Zamorano', meses:[660,349,357,455,334,427,285,32], promedio:2.9}
-    ], yoy_2025: [5101,4400,4202,3382,3413,4215,3675,4045,4155,3800,5536,4100] },
+    ], yoy_2025: null, categorias: [], total_cerrados: 0 },
     ticketsmc: { mesa_control: [956,887,1042,777,886,973,829,94,0,0,0,0], por_dia_semana: [0,0,0,0,0,0,0], por_hora_dia: new Array(24).fill(0), agentes: [
       {nombre:'MC PPM', meses:[593,390,387,302,337,357,299,21], promedio:2.3},
       {nombre:'MESA CONTROL', meses:[305,144,59,24,19,31,39,0], promedio:5.4},
@@ -1548,7 +1684,8 @@ auth.onAuthStateChanged(async function(user){
     {id:'biometricos', label:'Biométricos'},
     {id:'pin_pad', label:'Pin Pad'},
     {id:'hub', label:'HUB'},
-    {id:'guardias', label:'Guardias'}
+    {id:'guardias', label:'Guardias'},
+    {id:'checador', label:'Checador'}
   ];
   const TABS = [
     {id:'ticketsmc', label:'Tickets Mesa de control'},
@@ -1755,6 +1892,25 @@ auth.onAuthStateChanged(async function(user){
     if(internetMenuAbierto || soporteMenuAbierto){ internetMenuAbierto = false; soporteMenuAbierto = false; render(); }
   });
   let charts = {};
+  // Modo oscuro / Chart.js (sept. 2026): Chart.js dibuja en <canvas>, no en el DOM, así que no lee las
+  // variables CSS del tema solo — hay que decirle el color de ejes/texto/rejilla a mano. Se hace una
+  // sola vez aquí (color por defecto para TODAS las gráficas) en vez de tocar cada `new Chart(...)` de
+  // este archivo uno por uno. Los colores de cada serie (COLOR_SOPORTE, etc.) se quedan igual en los
+  // dos temas: son acentos saturados, se siguen viendo bien sobre fondo oscuro.
+  function aplicarTemaChartJS(){
+    if(typeof Chart === 'undefined') return;
+    const oscuro = document.documentElement.getAttribute('data-theme') === 'dark';
+    Chart.defaults.color = oscuro ? '#9FB2BE' : '#6B7280';
+    Chart.defaults.borderColor = oscuro ? '#2B3238' : '#E5E7EB';
+  }
+  aplicarTemaChartJS();
+  // El botón de modo oscuro vive fuera de este IIFE (junto a "Salir", ver <script> de arriba) porque
+  // ese botón también debe funcionar en la pantalla de login. Este gancho global es la única forma en
+  // que ese botón le avisa a ESTE apartado que repinte sus gráficas con el color del tema nuevo.
+  window.__primemxOnTemaCambiado = function(){
+    aplicarTemaChartJS();
+    if(document.getElementById('app').classList.contains('show')) render();
+  };
   let canEdit = false;
   // Inventario de Equipo: además del admin, estos dos usuarios específicos pueden editar
   // esta pestaña aunque su rol general sea "consulta".
@@ -2280,6 +2436,15 @@ auth.onAuthStateChanged(async function(user){
       if(!state.top_velocidad_telmex) state.top_velocidad_telmex = clone(DEFAULTS.top_velocidad_telmex);
       if(!state.ingenieros) state.ingenieros = clone(DEFAULTS.ingenieros);
       if(!state.ingenieros.yoy_2025) state.ingenieros.yoy_2025 = clone(DEFAULTS.ingenieros.yoy_2025);
+      // Migración (sept. 2026): el comparativo "Año 2025" mostraba una serie que en realidad nunca
+      // vino de un Excel real (era un default fijo puesto a modo de relleno) — se quita para no seguir
+      // mostrando números 2025 como si fueran reales. Solo borra la serie si es EXACTAMENTE ese default
+      // viejo (no toca datos 2025 reales que alguien haya cargado después).
+      if(JSON.stringify(state.ingenieros.yoy_2025) === JSON.stringify([5101,4400,4202,3382,3413,4215,3675,4045,4155,3800,5536,4100])){
+        state.ingenieros.yoy_2025 = null;
+      }
+      if(!Array.isArray(state.ingenieros.categorias)) state.ingenieros.categorias = [];
+      if(typeof state.ingenieros.total_cerrados !== 'number') state.ingenieros.total_cerrados = 0;
       if(!Array.isArray(state.ingenieros.por_dia_semana)) state.ingenieros.por_dia_semana = clone(DEFAULTS.ingenieros.por_dia_semana);
       if(!Array.isArray(state.ingenieros.por_hora_dia)) state.ingenieros.por_hora_dia = clone(DEFAULTS.ingenieros.por_hora_dia);
       if(!state.ticketsmc) state.ticketsmc = clone(DEFAULTS.ticketsmc);
@@ -2574,6 +2739,13 @@ auth.onAuthStateChanged(async function(user){
     const agenteDuracionesMC = {};
     const catMonth = {};
     const catAgente = {};
+    // Top categorías de Tickets Soporte (sept. 2026, para el ranking del nuevo apartado) — mismo
+    // universo/filtro que mesaSoporteIT de arriba (todo excepto las 4 categorías de Mesa de Control),
+    // agrupado por el último tramo de la categoría (ej. "Hardware > ... > Fallas con la Impresora"
+    // se guarda como "Fallas con la Impresora"). soporteCerrados cuenta cuántos de esos tickets
+    // terminaron Cerrado, para el KPI de "% cerrados".
+    const catMonthSoporte = {};
+    let soporteCerrados = 0;
     let rechazoCancelMC = 0;
     let maxMonthIdx = -1, totalCaidas = 0;
 
@@ -2672,6 +2844,23 @@ auth.onAuthStateChanged(async function(user){
         mesaSoporteIT[mIdx]++;
         mesaSoporteDia[(fc.getDay()+6)%7]++;
         mesaSoporteHora[fc.getHours()]++;
+        if(String(row['Estado']).trim()==='Cerrado') soporteCerrados++;
+        // Se usan los ÚLTIMOS DOS tramos de la categoría, no solo el último: varias categorías
+        // distintas terminan en la misma palabra ("Hardware > Biometricos > Fallas" y "Hardware >
+        // PIN Pad > Fallas" ambas terminan en "Fallas") y con un solo tramo se mezclaban en un único
+        // renglón "Fallas" que no cuadraba con las cifras ya validadas (Biométricos Fallas 5,171 vs
+        // PIN Pad Fallas 2,061). Para "Reset de Token VPN" (la única compartida con Mesa de Control,
+        // ver CATEGORIA_COMPARTIDA_SOPORTE) se quita el prefijo "Mesa de Control >" porque aquí se ve
+        // del lado de Soporte.
+        const catCortaSoporte = (function(){
+          const partes = categoriaTicket.split('>').map(p=>p.trim()).filter(Boolean);
+          if(partes.length === 0) return 'Sin categoría';
+          if(partes.length === 1) return partes[0];
+          const ultimasDos = partes.slice(-2);
+          return ultimasDos[0] === 'Mesa de Control' ? ultimasDos[1] : ultimasDos.join(' > ');
+        })();
+        if(!catMonthSoporte[catCortaSoporte]) catMonthSoporte[catCortaSoporte] = new Array(12).fill(0);
+        catMonthSoporte[catCortaSoporte][mIdx]++;
         const agenteSoporte = (!agente || AGENTES_EXCLUIDOS.includes(agente)) ? 'Soporte Prime' : agente;
         if(!agenteMonth[agenteSoporte]) agenteMonth[agenteSoporte] = new Array(12).fill(0);
         agenteMonth[agenteSoporte][mIdx]++;
@@ -2837,6 +3026,13 @@ auth.onAuthStateChanged(async function(user){
     const mcCategorias = Object.entries(catMonth).map(([categoria,meses])=>({
       categoria, meses: meses.slice(0,hasta+1)
     }));
+    const soporteCategorias = Object.entries(catMonthSoporte)
+      .map(([categoria,meses])=>{
+        const mesesCortados = meses.slice(0,hasta+1);
+        return { categoria, meses: mesesCortados, total: mesesCortados.reduce((a,b)=>a+b,0) };
+      })
+      .sort((a,b)=>b.total-a.total)
+      .slice(0,8);
     const mcCategoriaAgente = Object.entries(catAgente).map(([categoria,porAgente])=>{
       const fila = { categoria };
       Object.entries(porAgente).forEach(([ag,d])=>{
@@ -2860,6 +3056,8 @@ auth.onAuthStateChanged(async function(user){
       mesa_soporte_it: mesaSoporteIT,
       mesa_soporte_por_dia_semana: mesaSoporteDia,
       mesa_soporte_por_hora_dia: mesaSoporteHora,
+      mesa_soporte_cerrados: soporteCerrados,
+      mesa_soporte_categorias: soporteCategorias,
       mesa_control: mesaControl,
       mesa_control_por_dia_semana: mesaControlDia,
       mesa_control_por_hora_dia: mesaControlHora,
@@ -2909,6 +3107,8 @@ auth.onAuthStateChanged(async function(user){
     state.ingenieros.por_dia_semana = datos.mesa_soporte_por_dia_semana;
     state.ingenieros.por_hora_dia = datos.mesa_soporte_por_hora_dia;
     state.ingenieros.agentes = datos.ingenieros;
+    state.ingenieros.total_cerrados = datos.mesa_soporte_cerrados;
+    state.ingenieros.categorias = datos.mesa_soporte_categorias;
     if(!state.ticketsmc) state.ticketsmc = {};
     state.ticketsmc.mesa_control = datos.mesa_control;
     state.ticketsmc.por_dia_semana = datos.mesa_control_por_dia_semana;
@@ -3136,10 +3336,10 @@ auth.onAuthStateChanged(async function(user){
             <div class="tab ${SOPORTE_IT_TABS.some(t=>t.id===tab)?'active':''}" id="tabSoporteBtn" style="display:inline-flex; align-items:center; gap:4px;">Soporte IT <span style="font-size:10px;">▾</span></div>
             ${TABS.filter(t=> !TABS_RESTRINGIDOS_BUDGET.includes(t.id) || puedeVerBudgetIT()).map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}
           </div>
-          ${internetMenuAbierto ? `<div id="menuInternet" style="position:absolute; top:100%; left:0; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:200px; z-index:50;">
+          ${internetMenuAbierto ? `<div id="menuInternet" style="position:absolute; top:100%; left:0; background:var(--menu-bg); border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:200px; z-index:50;">
             ${INTERNET_TABS.map(t=>`<div class="tab-sub" data-tab="${t.id}" style="padding:8px 12px; font-size:13px; font-weight:${t.id===tab?'700':'500'}; color:${t.id===tab?'var(--tp)':'var(--ink)'}; cursor:pointer; border-radius:6px; white-space:nowrap;">${t.label}</div>`).join('')}
           </div>` : ''}
-          ${soporteMenuAbierto ? `<div id="menuSoporte" style="position:absolute; top:100%; left:110px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:220px; z-index:50;">
+          ${soporteMenuAbierto ? `<div id="menuSoporte" style="position:absolute; top:100%; left:110px; background:var(--menu-bg); border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:220px; z-index:50;">
             ${SOPORTE_IT_TABS.map(t=>`<div class="tab-sub" data-tab="${t.id}" style="padding:8px 12px; font-size:13px; font-weight:${t.id===tab?'700':'500'}; color:${t.id===tab?'var(--tp)':'var(--ink)'}; cursor:pointer; border-radius:6px; white-space:nowrap;">${t.label}</div>`).join('')}
           </div>` : ''}
         </div>
@@ -3224,6 +3424,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='pin_pad') return renderPinPad(c);
     if(tab==='hub') return renderHub(c);
     if(tab==='guardias') return renderGuardias(c);
+    if(tab==='checador') return renderChecador(c);
     if(tab==='expansion') return renderExpansion(c);
     if(tab==='budget_it') return renderBudgetIT(c);
     if(tab==='actualizaciones') return renderActualizaciones(c);
@@ -4829,6 +5030,528 @@ auth.onAuthStateChanged(async function(user){
     if(btnToggle) btnToggle.onclick = ()=>{ guardiaOtrosMesesAbiertos = !guardiaOtrosMesesAbiertos; render(); };
   }
 
+  // ---------- 9. Checador (Soporte IT) — sept. 2026 ----------
+  // Registro de jornada del equipo de Soporte IT (basado en Control_Horas_Octubre_2026_PrimeMX.xlsx).
+  // Acceso (decisión final del cliente, sept. 2026): usa la MISMA cuenta y sesión del Dashboard, sin
+  // segundo login. La primera vez que cada persona abre el Checador se le obliga a cambiar su
+  // contraseña (actual + nueva) — la nueva queda para Dashboard, Checador, Directorio y Consumibles
+  // (es la misma cuenta de Firebase Auth) y nadie más la conoce, ni el administrador.
+  // checador_perfiles/{u}.passwordCambiada marca que ya la cambió. Si la olvida: "¿Olvidaste tu
+  // contraseña?" del login del Dashboard (correo de restablecimiento), sin intervención de IT.
+  // - Solo los 6 de CHK_USUARIOS usan el Checador (el resto de usuarios del dashboard ve un aviso);
+  //   lalzaga y mgiron además ven al equipo (vista "Equipo"). El candado real está en las reglas de
+  //   Firestore, no solo en la pantalla.
+  // - Horas: Entrada → Inicio comida → Fin comida → Salida, con hora del SERVIDOR (serverTimestamp), no
+  //   la de la PC, para que no se pueda adelantar/atrasar el reloj. Un documento por persona por día:
+  //   checador_registros/{usuario}_{YYYY-MM-DD}.
+  // - Sábado y domingo = guardia: solo checa quien tiene la guardia según la rotación de la pestaña
+  //   Guardias (GUARDIA_ORDEN). La guardia de Javier Marafic la checa Luis Alzaga.
+  // - "Mi pago": salario diario privado (checador_salarios/{u}, solo lo lee su dueño — ni supervisores).
+  //   Reglas del Excel: cuota hora = salario/8; sábado es día normal; extra = lo que pase de 8 h en el
+  //   día (lun-sáb); al DOBLE hasta 9 h por semana (lun-dom), al TRIPLE lo que exceda; domingo = descanso
+  //   con salario doble adicional + prima dominical 25%; sueldo base = días del mes × salario diario.
+  const CHK_USUARIOS = [
+    {u:'ecastillo', nombre:'Eder Castillo'},
+    {u:'amartinez', nombre:'Alfredo Martínez'},
+    {u:'mgiron',    nombre:'Mauricio Girón'},
+    {u:'lalzaga',   nombre:'Luis Alzaga'},
+    {u:'daguilar',  nombre:'Daniel Aguilar'},
+    {u:'asanchez',  nombre:'Ariadna Sanchez'},
+  ];
+  const CHK_SUPERVISORES = ['lalzaga','mgiron'];
+  const CHK_GUARDIA_USER = {'Daniel Aguilar':'daguilar','Alfredo Martinez':'amartinez','Ariadna Sanchez':'asanchez','Eder Castillo':'ecastillo','Javier Marafic':'lalzaga'};
+  const CHK_JORNADA_H = 8, CHK_ORD_SEM = 48, CHK_TOPE_EXTRA_SEM = 9, CHK_MAX_EXTRA_DIA = 4, CHK_MAX_DIAS_EXTRA = 4, CHK_MAX_DIA = 12;
+  const CHK_F_DOBLE = 2, CHK_F_TRIPLE = 3, CHK_F_DESCANSO = 2, CHK_PRIMA_DOM = 0.25;
+  const CHK_DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const CHK_DIAS_L = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const CHK_MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const chk = {
+    username:null, perfilListo:false, debeCambiar:false, cambiando:false, vista:'mio', semana:null, equipoSemana:null,
+    equipoDetalle:null, pagoMes:null, pagoSel:null, regs:{}, equipoRegs:{}, salario:0, unsubMio:null, unsubEquipo:null,
+    equipoKey:'', ocupado:false, inputs:{}, msg:{}, timer:null, carga:0
+  };
+
+  // ----- Fechas -----
+  const chkPad = n => String(n).padStart(2,'0');
+  const chkYmd = d => d.getFullYear()+'-'+chkPad(d.getMonth()+1)+'-'+chkPad(d.getDate());
+  const chkAdd = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+  const chkLunes = d => { const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); return chkAdd(x,-((x.getDay()+6)%7)); };
+  const chkHM = d => chkPad(d.getHours())+':'+chkPad(d.getMinutes());
+  const chkMin = s => { const [h,m]=s.split(':').map(Number); return h*60+m; };
+  const chkH = h => { if(!h) return '0'; const r=Math.round(h*10)/10; return String(r%1===0?r:r.toFixed(1)); };
+  const chkFecha = d => d.getDate()+' '+CHK_MESES[d.getMonth()];
+  const chkMoney = n => '$'+(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const chkNombre = u => (CHK_USUARIOS.find(x=>x.u===u)||{nombre:u}).nombre;
+  const chkEsSup = () => CHK_SUPERVISORES.includes(chk.username);
+  // Rotación de guardias: misma función que usa la pestaña Guardias (sábado en UTC medianoche).
+  function chkGuardiaEn(sab){ return guardiaIngenieroEn(Date.UTC(sab.getFullYear(), sab.getMonth(), sab.getDate())); }
+  const chkGuardiaTxt = g => g==='Javier Marafic' ? 'Javier Marafic (la checa Luis Alzaga)' : g;
+
+  // ----- Sesión: la misma del dashboard (currentUser / auth / db) -----
+  // Se llama cada vez que se pinta la pestaña: si cambió el usuario del dashboard (o salió), reinicia.
+  function chkSincronizarUsuario(u){
+    if(chk.username===u) return;
+    chkReset(u);
+    if(u) chkCargarSesion();
+  }
+  function chkReset(u){
+    chkDesuscribir();
+    Object.assign(chk, { username:u||null, perfilListo:false, debeCambiar:false, cambiando:false, vista:'mio', equipoDetalle:null,
+      pagoSel:null, regs:{}, equipoRegs:{}, equipoKey:'', salario:0, ocupado:false, inputs:{}, msg:{} });
+    chk.carga++;
+  }
+  async function chkCargarSesion(){
+    const carga = chk.carga, u = chk.username;
+    let debe = true, sal = 0;
+    try{
+      const p = await db.collection('checador_perfiles').doc(u).get();
+      debe = !(p.exists && p.data().passwordCambiada);
+    }catch(err){ console.error('Checador: perfil', err); }
+    try{
+      const s = await db.collection('checador_salarios').doc(u).get();
+      sal = s.exists ? Number(s.data().salarioDiario||0) : 0;
+    }catch(err){ console.error('Checador: salario', err); }
+    if(carga!==chk.carga) return; // cambió el usuario mientras cargaba
+    chk.debeCambiar = debe; chk.salario = sal; chk.perfilListo = true;
+    chkSuscribirMio();
+    chkRepintar();
+  }
+  // Al salir del dashboard (o si caduca su sesión) se sueltan los listeners del checador — ver
+  // onAuthStateChanged del login principal.
+  window.__chkSignOut = function(){ chkReset(null); };
+  function chkDesuscribir(){
+    if(chk.unsubMio){ chk.unsubMio(); chk.unsubMio = null; }
+    if(chk.unsubEquipo){ chk.unsubEquipo(); chk.unsubEquipo = null; }
+  }
+  function chkDeDoc(d){
+    const x = d.data({serverTimestamps:'estimate'});
+    const t = ts => (ts && ts.toDate) ? chkHM(ts.toDate()) : null;
+    return {username:x.username, fecha:x.fecha, entrada:t(x.entrada), comidaInicio:t(x.comidaInicio), comidaFin:t(x.comidaFin), salida:t(x.salida), esGuardia:!!x.esGuardia};
+  }
+  function chkSuscribirMio(){
+    if(chk.unsubMio) chk.unsubMio();
+    chk.unsubMio = db.collection('checador_registros').where('username','==',chk.username).onSnapshot(snap=>{
+      const o = {}; snap.forEach(d=>{ const r = chkDeDoc(d); o[r.fecha] = r; });
+      chk.regs = o; chkRepintar();
+    }, err=>{ console.error('Checador: registros', err); toast('No se pudieron leer tus registros ('+(err.code||err.message)+')', 'error'); });
+  }
+  function chkSuscribirEquipo(desde, hasta){
+    const key = desde+'|'+hasta;
+    if(chk.equipoKey===key && chk.unsubEquipo) return;
+    if(chk.unsubEquipo) chk.unsubEquipo();
+    chk.equipoKey = key; chk.equipoRegs = {};
+    chk.unsubEquipo = db.collection('checador_registros').where('fecha','>=',desde).where('fecha','<=',hasta).onSnapshot(snap=>{
+      const o = {}; snap.forEach(d=>{ const r = chkDeDoc(d); o[r.username+'_'+r.fecha] = r; });
+      chk.equipoRegs = o; chkRepintar();
+    }, err=>{ console.error('Checador: equipo', err); toast('No se pudo leer el equipo ('+(err.code||err.message)+')', 'error'); });
+  }
+  function chkReg(u, f){ return u===chk.username ? (chk.regs[f]||null) : (chk.equipoRegs[u+'_'+f]||null); }
+
+  // Repinta solo el contenido de la pestaña (no toda la barra) cuando llegan datos nuevos.
+  function chkRepintar(){
+    if(tab!=='checador') return;
+    const c = document.getElementById('tabContent');
+    if(c) renderChecador(c);
+  }
+  function chkTick(){
+    const el = document.getElementById('chkClock');
+    if(!el) return;
+    const d = new Date();
+    el.textContent = chkPad(d.getHours())+':'+chkPad(d.getMinutes())+':'+chkPad(d.getSeconds());
+    // Cada minuto se recalculan las horas "en curso" — salvo que el usuario esté escribiendo en un campo.
+    if(d.getSeconds()===0 && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.chk input'))) chkRepintar();
+  }
+
+  // ----- Cálculo de horas (hojas Captura / Resumen Semanal) -----
+  function chkCalc(r){
+    if(!r || !r.entrada) return {h:0, comida:0, ext:0, abierto:false, alerta:''};
+    const hoy = r.fecha===chkYmd(new Date());
+    const fin = r.salida || (hoy ? chkHM(new Date()) : null);
+    if(!fin) return {h:0, comida:0, ext:0, abierto:false, alerta:'Sin salida registrada'};
+    let bruto = chkMin(fin)-chkMin(r.entrada); if(bruto<0) bruto += 1440;
+    let comida = 0;
+    if(r.comidaInicio){
+      const cf = r.comidaFin || (hoy && !r.salida ? chkHM(new Date()) : r.comidaInicio);
+      comida = Math.max(0, chkMin(cf)-chkMin(r.comidaInicio));
+    }
+    const h = Math.max(0, (bruto-comida)/60);
+    const esDom = new Date(r.fecha+'T12:00').getDay()===0;
+    const ext = esDom ? 0 : Math.max(0, h-CHK_JORNADA_H);
+    let alerta = '';
+    if(h>CHK_MAX_DIA) alerta = 'Más de '+CHK_MAX_DIA+' h en el día';
+    else if(ext>CHK_MAX_EXTRA_DIA) alerta = 'Más de '+CHK_MAX_EXTRA_DIA+' h extra';
+    return {h, comida:comida/60, ext, abierto:!r.salida && hoy, alerta};
+  }
+  function chkResumenSemana(u, lun){
+    const R = {dias:0, hSem:0, ext:0, sab:0, dom:0};
+    for(let i=0;i<7;i++){
+      const c = chkCalc(chkReg(u, chkYmd(chkAdd(lun,i))));
+      if(i<5){ if(c.h>0) R.dias++; R.hSem += c.h; }
+      if(i<6) R.ext += c.ext;
+      if(i===5) R.sab = c.h;
+      if(i===6) R.dom = c.h;
+    }
+    R.guardia = R.sab + R.dom;
+    return R;
+  }
+  function chkEstadoHoy(u){
+    const r = chkReg(u, chkYmd(new Date()));
+    if(!r || !r.entrada) return {txt:'Sin registro hoy', cls:''};
+    if(r.salida) return {txt:'Salida '+r.salida, cls:''};
+    if(r.comidaInicio && !r.comidaFin) return {txt:'En comida desde '+r.comidaInicio, cls:'meal'};
+    return {txt:(r.esGuardia?'En guardia':'Trabajando')+' desde '+r.entrada, cls:r.esGuardia?'guard':'in'};
+  }
+  function chkHoyInfo(){
+    const d = new Date(), f = chkYmd(d), w = d.getDay(), finde = (w===0||w===6);
+    const g = finde ? chkGuardiaEn(w===6 ? d : chkAdd(d,-1)) : null;
+    return {f, finde, guardia:g, soyGuardia: !!g && CHK_GUARDIA_USER[g]===chk.username};
+  }
+  function chkProximaGuardia(u){
+    const sab = chkAdd(chkLunes(new Date()),5);
+    for(let i=0;i<20;i++){ const s = chkAdd(sab,i*7); if(CHK_GUARDIA_USER[chkGuardiaEn(s)]===u) return s; }
+    return null;
+  }
+
+  // ----- Acciones -----
+  // Cambio de contraseña de la cuenta del dashboard (misma para las 4 apps). Firebase exige volver a
+  // autenticarse con la contraseña actual para cambiarla — además confirma que es el dueño de la cuenta.
+  async function chkGuardarPass(){
+    const actual = chk.inputs.chkActual||'', a = chk.inputs.chkNew1||'', b = chk.inputs.chkNew2||'';
+    chk.msg = {};
+    if(!actual){ chk.msg.pass = 'Escribe tu contraseña actual'; return chkRepintar(); }
+    if(a.length<8){ chk.msg.pass = 'La nueva contraseña debe tener mínimo 8 caracteres'; return chkRepintar(); }
+    if(a===actual){ chk.msg.pass = 'La nueva contraseña debe ser distinta a la actual'; return chkRepintar(); }
+    if(a!==b){ chk.msg.pass = 'Las contraseñas nuevas no coinciden'; return chkRepintar(); }
+    chk.ocupado = true; chkRepintar();
+    try{
+      const usr = auth.currentUser;
+      await usr.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(usr.email, actual));
+      await usr.updatePassword(a);
+      await db.collection('checador_perfiles').doc(chk.username).set({ passwordCambiada:true, cambiadaEn: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+      chk.debeCambiar = false; chk.cambiando = false;
+      chk.inputs.chkActual = ''; chk.inputs.chkNew1 = ''; chk.inputs.chkNew2 = '';
+      toast('Contraseña actualizada. Úsala también para entrar al Dashboard.', 'ok');
+    }catch(err){
+      console.error('Checador: cambio de contraseña', err);
+      chk.msg.pass = ['auth/wrong-password','auth/invalid-credential','auth/invalid-login-credentials'].includes(err.code) ? 'Tu contraseña actual no es correcta'
+        : err.code==='auth/too-many-requests' ? 'Demasiados intentos. Espera unos minutos.'
+        : err.code==='auth/weak-password' ? 'La contraseña nueva es muy débil'
+        : 'No se pudo cambiar ('+(err.code||err.message)+')';
+    }
+    chk.ocupado = false; chkRepintar();
+  }
+  async function chkChecar(campo){
+    const info = chkHoyInfo();
+    const etiquetas = {entrada:'Entrada', comidaInicio:'Inicio de comida', comidaFin:'Fin de comida', salida:'Salida'};
+    if(campo==='salida' && !confirm('¿Registrar tu salida a las '+chkHM(new Date())+'? Ya no podrás checar más hoy.')) return;
+    const ref = db.collection('checador_registros').doc(chk.username+'_'+info.f);
+    const TS = firebase.firestore.FieldValue.serverTimestamp();
+    chk.ocupado = true; chkRepintar();
+    try{
+      if(campo==='entrada') await ref.set({ username:chk.username, fecha:info.f, entrada:TS, comidaInicio:null, comidaFin:null, salida:null, esGuardia:info.finde });
+      else await ref.update({ [campo]: TS });
+      toast(etiquetas[campo]+' registrada: '+chkHM(new Date()), 'ok');
+    }catch(err){
+      console.error('Checador: checar', err);
+      toast('No se pudo registrar ('+(err.code||err.message)+')', 'error');
+    }
+    chk.ocupado = false; chkRepintar();
+  }
+  async function chkGuardarSalario(){
+    const v = parseFloat(chk.inputs.chkSal);
+    chk.msg = {};
+    if(!(v>0)){ chk.msg.sal = 'Escribe un salario diario válido'; return chkRepintar(); }
+    try{
+      const val = Math.round(v*100)/100;
+      await db.collection('checador_salarios').doc(chk.username).set({ salarioDiario: val, actualizado: firebase.firestore.FieldValue.serverTimestamp() });
+      chk.salario = val; delete chk.inputs.chkSal;
+      toast('Salario guardado', 'ok');
+    }catch(err){
+      console.error('Checador: salario', err);
+      chk.msg.sal = 'No se pudo guardar ('+(err.code||err.message)+')';
+    }
+    chkRepintar();
+  }
+
+  // ----- Pago (hojas Resumen Semanal / Resumen Mensual) -----
+  function chkPagoSemana(u, lun, desde, hasta, sal){
+    const R = {dias:0, diasNat:0, h:0, ord:0, ext:0, desc:0, domingos:0, sabGuardia:0, alertas:[]};
+    let diasExt = 0;
+    for(let i=0;i<7;i++){
+      const d = chkAdd(lun,i); if(d<desde || d>hasta) continue;
+      R.diasNat++;
+      const c = chkCalc(chkReg(u, chkYmd(d))); if(!c.h) continue;
+      R.dias++; R.h += c.h;
+      if(d.getDay()===0){ R.desc += c.h; R.domingos++; }
+      else { R.ord += Math.min(c.h,CHK_JORNADA_H); const e = Math.max(0,c.h-CHK_JORNADA_H); R.ext += e; if(e>0) diasExt++; if(d.getDay()===6) R.sabGuardia += c.h; }
+    }
+    R.doble = Math.min(R.ext,CHK_TOPE_EXTRA_SEM); R.triple = Math.max(0,R.ext-CHK_TOPE_EXTRA_SEM);
+    R.cuota = sal/CHK_JORNADA_H;
+    R.base = sal*R.diasNat;
+    R.pDoble = R.cuota*R.doble*CHK_F_DOBLE; R.pTriple = R.cuota*R.triple*CHK_F_TRIPLE;
+    R.pDesc = R.cuota*R.desc*CHK_F_DESCANSO; R.prima = sal*CHK_PRIMA_DOM*R.domingos;
+    R.adicional = R.pDoble+R.pTriple+R.pDesc+R.prima; R.total = R.base+R.adicional;
+    if(R.triple>0) R.alertas.push('Rebasa el tope de '+CHK_TOPE_EXTRA_SEM+' h extra');
+    if(diasExt>CHK_MAX_DIAS_EXTRA) R.alertas.push('Extra en más de '+CHK_MAX_DIAS_EXTRA+' días');
+    if(R.ord>CHK_ORD_SEM) R.alertas.push('Más de '+CHK_ORD_SEM+' h ordinarias');
+    return R;
+  }
+  function chkSemanasDelMes(m){
+    const ini = new Date(m.getFullYear(),m.getMonth(),1), fin = new Date(m.getFullYear(),m.getMonth()+1,0);
+    const out = []; let lun = chkLunes(ini), n = 1;
+    while(lun<=fin){ const hasta = chkAdd(lun,6)<fin ? chkAdd(lun,6) : fin; out.push({n:n++, lun, desde:lun<ini?ini:lun, hasta}); lun = chkAdd(lun,7); }
+    return {ini, fin, semanas:out};
+  }
+
+  // ----- Render -----
+  function renderChecador(c){
+    const u = currentUser && currentUser.username;
+    if(!CHK_USUARIOS.some(x=>x.u===u)){
+      c.innerHTML = `<div class="chk"><div class="placeholder"><h3>Checador de Soporte IT</h3><p>Esta sección es solo para el equipo de Soporte IT.</p></div></div>`;
+      return;
+    }
+    chkSincronizarUsuario(u);
+    if(!chk.timer) chk.timer = setInterval(chkTick, 1000);
+    if(!chk.semana) chk.semana = chkLunes(new Date());
+    if(!chk.equipoSemana) chk.equipoSemana = chkLunes(new Date());
+    if(!chk.pagoMes) chk.pagoMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    // Conserva lo que el usuario llevaba escrito y el foco si el dashboard repinta mientras escribe.
+    const foco = document.activeElement && document.activeElement.id;
+    let html;
+    if(!chk.perfilListo) html = `<div class="chk"><div class="placeholder">Cargando checador…</div></div>`;
+    else if(chk.debeCambiar || chk.cambiando) html = chkHtmlPass(chk.debeCambiar);
+    else html = chkHtmlApp();
+    c.innerHTML = html;
+    c.querySelectorAll('.chk input[id]').forEach(inp=>{
+      if(chk.inputs[inp.id]!==undefined) inp.value = chk.inputs[inp.id];
+      inp.oninput = ()=>{ chk.inputs[inp.id] = inp.value; };
+    });
+    if(foco){ const el = document.getElementById(foco); if(el && el.closest('.chk')) el.focus(); }
+    chkBind(c);
+  }
+  function chkHtmlPass(primera){
+    return `<div class="chk"><div class="chk-gate"><div class="chk-box">
+      <div class="chk-lock">🔑</div>
+      <div class="chk-h2">${primera?'Crea tu contraseña':'Cambiar contraseña'}</div>
+      <div class="chk-sub">${primera?'Hola '+chkNombre(chk.username)+', antes de usar el Checador crea tu propia contraseña. Será la nueva para entrar al Dashboard y al Checador.':chkNombre(chk.username)+' · la nueva contraseña aplica también al Dashboard.'}</div>
+      <label for="chkActual">Contraseña actual</label><input id="chkActual" type="password" autocomplete="current-password">
+      <label for="chkNew1">Nueva contraseña</label><input id="chkNew1" type="password" autocomplete="new-password" placeholder="mínimo 8 caracteres">
+      <label for="chkNew2">Confirmar nueva contraseña</label><input id="chkNew2" type="password" autocomplete="new-password">
+      <button class="chk-btn chk-full" data-chk="pass" ${chk.ocupado?'disabled':''}>${chk.ocupado?'Guardando…':'Guardar'}</button>
+      ${primera?'':`<button class="chk-btn alt chk-full" data-chk="cancelarPass" style="margin-top:8px">Cancelar</button>`}
+      <div class="chk-err">${chk.msg.pass||''}</div>
+      <div class="chk-note">Solo tú la conocerás: no la ve IT ni nadie más. Tus registros solo los ves tú, y además Luis Alzaga y Mauricio Girón.</div>
+    </div></div></div>`;
+  }
+  function chkHtmlApp(){
+    const sup = chkEsSup();
+    if(chk.vista==='equipo' && !sup) chk.vista = 'mio';
+    const cuerpo = chk.vista==='pago' ? chkHtmlPago() : chk.vista==='equipo' ? chkHtmlEquipo() : chkHtmlMio();
+    return `<div class="chk">
+      <div class="chk-head">
+        <div><div class="chk-h2">${chkNombre(chk.username)}</div><div class="chk-sub">${chk.username} · Soporte IT${sup?' · Supervisor (ve a todo el equipo)':''}</div></div>
+        <div class="chk-headacts">
+          <div class="chk-subtabs">
+            <button data-chkv="mio" class="${chk.vista==='mio'?'on':''}">Mi registro</button>
+            <button data-chkv="pago" class="${chk.vista==='pago'?'on':''}">Mi pago</button>
+            ${sup?`<button data-chkv="equipo" class="${chk.vista==='equipo'?'on':''}">Equipo</button>`:''}
+          </div>
+          <button class="chk-link" data-chk="cambiarPass">Cambiar contraseña</button>
+        </div>
+      </div>
+      ${cuerpo}
+    </div>`;
+  }
+  function chkKpi(color, titulo, valor, sub){
+    return `<div class="card"><div class="head" style="background:${cardGrad(color)}">${titulo}</div><div class="body"><div class="big">${valor}</div><div class="lbl">${sub}</div></div></div>`;
+  }
+  function chkHtmlMio(){
+    const info = chkHoyInfo(), r = chkReg(chk.username, info.f), st = chkEstadoHoy(chk.username), d = new Date();
+    const P = [['entrada','Entrada'],['comidaInicio','Inicio comida'],['comidaFin','Fin comida'],['salida','Salida']];
+    const dis = chk.ocupado ? 'disabled' : '';
+    let acts;
+    if(info.finde && !info.soyGuardia) acts = `<button class="chk-btn" disabled>Registrar entrada</button>`;
+    else if(!r || !r.entrada) acts = `<button class="chk-btn" data-chkc="entrada" ${dis}>${info.finde?'Entrada de guardia':'Registrar entrada'}</button>`;
+    else if(r.salida) acts = `<button class="chk-btn" disabled>Jornada cerrada</button>`;
+    else if(r.comidaInicio && !r.comidaFin) acts = `<button class="chk-btn meal" data-chkc="comidaFin" ${dis}>Fin de comida</button>`;
+    else acts = (!r.comidaInicio ? `<button class="chk-btn meal" data-chkc="comidaInicio" ${dis}>Inicio de comida</button>` : '') + `<button class="chk-btn alt" data-chkc="salida" ${dis}>Registrar salida</button>`;
+    let banner = '';
+    if(info.finde){
+      banner = info.soyGuardia
+        ? (info.guardia==='Javier Marafic' ? 'Esta es la guardia de Javier Marafic y te toca checarla a ti. Tus horas de hoy cuentan como guardia.' : 'Este fin de semana te toca la guardia. Tus horas de hoy cuentan como guardia.')
+        : 'Hoy es fin de semana: la guardia le toca a '+chkGuardiaTxt(info.guardia)+'. Solo quien está de guardia puede checar.';
+    }
+    const lun = chk.semana, R = chkResumenSemana(chk.username, lun), g = chkGuardiaEn(chkAdd(lun,5)), suya = CHK_GUARDIA_USER[g]===chk.username;
+    let gVal = '—', gSub;
+    if(suya){ gVal = chkH(R.guardia)+' h'; gSub = 'sáb '+chkH(R.sab)+' h · dom '+chkH(R.dom)+' h'; }
+    else { const p = chkProximaGuardia(chk.username); gSub = 'Esta semana: '+chkGuardiaTxt(g)+(p?' · tu próxima: sáb '+chkFecha(p):''); }
+    return `
+      <div class="panel chk-clockcard">
+        <div>
+          <div class="chk-sub">${CHK_DIAS_L[d.getDay()]} ${d.getDate()} de ${CHK_MESES[d.getMonth()]} ${d.getFullYear()}</div>
+          <div class="chk-clock" id="chkClock">${chkPad(d.getHours())}:${chkPad(d.getMinutes())}:${chkPad(d.getSeconds())}</div>
+          <div style="margin-top:8px"><span class="chk-pill ${st.cls}">${st.txt}</span></div>
+          <div class="chk-steps">${P.map(([k,l])=>`<span class="chk-step ${r&&r[k]?'done':''}">${l} ${r&&r[k]?r[k]:'--:--'}</span>`).join('')}</div>
+          ${banner?`<div class="chk-guard">${banner}</div>`:''}
+        </div>
+        <div class="chk-actions">${acts}</div>
+      </div>
+      <div class="cards">
+        ${chkKpi('#6600CC','Días trabajados', R.dias+' / 5', 'lunes a viernes')}
+        ${chkKpi('#00B0F0','Horas entre semana', chkH(R.hSem)+' h', 'sin contar tiempo de comida')}
+        ${chkKpi('#0D9488','Guardia fin de semana', gVal, gSub)}
+        ${chkKpi('#D97706','Horas extra', chkH(R.ext)+' h', 'tope '+CHK_TOPE_EXTRA_SEM+' h por semana')}
+      </div>
+      <div class="panel">${chkHtmlSemana(chk.username, lun, true)}</div>`;
+  }
+  function chkHtmlSemana(u, lun, conNav){
+    const fin = chkAdd(lun,6), hoyF = chkYmd(new Date()), esActual = chkYmd(lun)===chkYmd(chkLunes(new Date()));
+    const g = chkGuardiaEn(chkAdd(lun,5)), suya = CHK_GUARDIA_USER[g]===u;
+    let rows = '', T = {h:0, c:0, e:0}, alertas = [];
+    for(let i=0;i<7;i++){
+      const d = chkAdd(lun,i), f = chkYmd(d), r = chkReg(u,f), c = chkCalc(r), finde = i>=5;
+      const cls = (f===hoyF?'chk-today ':'')+(finde?'chk-wkd':'');
+      const lab = CHK_DIAS[d.getDay()]+' '+d.getDate();
+      if(!r || !r.entrada){
+        const txt = d>new Date() ? '' : finde ? (suya?'Guardia sin registro':'Guardia de '+chkGuardiaTxt(g)) : 'Sin registro';
+        rows += `<tr class="${cls}"><td>${lab}</td><td colspan="8" class="chk-muted">${txt}</td></tr>`; continue;
+      }
+      T.h += c.h; T.c += c.comida; if(i<6) T.e += c.ext; if(c.alerta) alertas.push(lab+': '+c.alerta);
+      const v = x => x || '<span class="chk-muted">·</span>';
+      rows += `<tr class="${cls}"><td>${lab}</td><td>${r.entrada}</td><td>${v(r.comidaInicio)}</td><td>${v(r.comidaFin)}</td>
+        <td>${r.salida || (c.abierto?'<i class="chk-muted">en curso</i>':'<span class="chk-alert">sin salida</span>')}</td>
+        <td class="n">${c.comida?Math.round(c.comida*60)+' min':''}</td><td class="n"><b>${chkH(c.h)}</b></td><td class="n">${c.ext?chkH(c.ext):''}</td>
+        <td>${finde?'<span class="chk-tag">Guardia</span>':''}${c.alerta?' <span class="chk-alert">⚠ '+c.alerta+'</span>':''}</td></tr>`;
+    }
+    if(T.e>CHK_TOPE_EXTRA_SEM) alertas.push(chkH(T.e-CHK_TOPE_EXTRA_SEM)+' h extra rebasan el tope semanal de '+CHK_TOPE_EXTRA_SEM+' h');
+    return `
+      <div class="chk-weekbar">
+        ${conNav?'<button class="chk-btn alt" data-chkw="-1">‹</button>':'<span></span>'}
+        <div class="chk-h3">${conNav?'':chkNombre(u)+' · '}Semana ${chkFecha(lun)} – ${chkFecha(fin)} ${fin.getFullYear()}</div>
+        ${conNav?`<button class="chk-btn alt" data-chkw="1" ${esActual?'disabled':''}>›</button>`:'<span></span>'}
+      </div>
+      <div class="chk-tbl"><table>
+        <thead><tr><th>Día</th><th>Entrada</th><th>Inicio comida</th><th>Fin comida</th><th>Salida</th><th class="n">Comida</th><th class="n">Horas</th><th class="n">Extra</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td colspan="5">Total semana</td><td class="n">${T.c?Math.round(T.c*60)+' min':''}</td><td class="n"><b>${chkH(T.h)}</b></td><td class="n">${chkH(T.e)}</td><td></td></tr></tfoot>
+      </table></div>
+      ${alertas.length?'<div class="chk-foot chk-alert">⚠ '+alertas.join(' · ')+'</div>':''}
+      <div class="chk-foot">Horas = (salida − entrada) − tiempo de comida · extra = lo que pase de ${CHK_JORNADA_H} h en el día · sábado y domingo = guardia (1 persona por semana, según la pestaña Guardias).</div>`;
+  }
+  function chkHtmlPago(){
+    const sal = chk.salario, M = chkSemanasDelMes(chk.pagoMes);
+    const semanas = M.semanas.map(w=>({...w, R:chkPagoSemana(chk.username, w.lun, w.desde, w.hasta, sal)}));
+    const T = semanas.reduce((a,w)=>{ ['dias','h','ext','doble','triple','desc','base','adicional','total'].forEach(k=>a[k]=(a[k]||0)+w.R[k]); return a; }, {});
+    const hoy = new Date(), esActual = M.ini.getFullYear()===hoy.getFullYear() && M.ini.getMonth()===hoy.getMonth();
+    const cel = v => sal ? chkMoney(v) : '<span class="chk-muted">—</span>';
+    const rows = semanas.map(w=>{
+      const R = w.R;
+      return `<tr class="chk-click ${chk.pagoSel===w.n?'chk-sel':''}" data-chks="${w.n}">
+        <td>S${w.n} · ${chkFecha(w.desde)} – ${chkFecha(w.hasta)}${R.diasNat<7?' <span class="chk-muted">(parcial)</span>':''}${R.alertas.length?'<div class="chk-alert">⚠ '+R.alertas.join(' · ')+'</div>':''}</td>
+        <td class="n">${R.dias}</td><td class="n">${chkH(R.h)}</td><td class="n">${chkH(R.ext)}</td><td class="n">${chkH(R.doble)}</td>
+        <td class="n" ${R.triple?'style="color:var(--crit);font-weight:700"':''}>${chkH(R.triple)}</td><td class="n">${chkH(R.desc)}</td>
+        <td class="n">${cel(R.adicional)}</td><td class="n"><b>${cel(R.total)}</b></td></tr>`;
+    }).join('');
+    let detalle = '';
+    const w = semanas.find(x=>x.n===chk.pagoSel);
+    if(w){
+      const R = w.R, cu = R.cuota;
+      const fila = (con,cant,cuo,imp,nota)=>`<tr><td>${con}<div class="chk-muted" style="font-size:11.5px;font-weight:400">${nota}</div></td><td class="n">${cant}</td><td class="n">${sal?cuo:'—'}</td><td class="n">${cel(imp)}</td></tr>`;
+      detalle = `<div class="panel"><div class="chk-weekbar"><span></span><div class="chk-h3">Desglose S${w.n} · ${chkFecha(w.desde)} – ${chkFecha(w.hasta)}</div><span></span></div>
+        <div class="chk-tbl"><table>
+          <thead><tr><th>Concepto</th><th class="n">Cantidad</th><th class="n">Cuota</th><th class="n">Importe</th></tr></thead>
+          <tbody>
+            ${fila('Sueldo base', R.diasNat+' días', chkMoney(sal), R.base, R.dias+' días trabajados · '+chkH(R.ord)+' h ordinarias'+(R.sabGuardia?' (incluye '+chkH(R.sabGuardia)+' h de sábado de guardia)':''))}
+            ${fila('Horas extra al doble', chkH(R.doble)+' h', chkMoney(cu*CHK_F_DOBLE), R.pDoble, 'hasta '+CHK_TOPE_EXTRA_SEM+' h por semana · Art. 67 LFT')}
+            ${fila('Horas extra al triple', chkH(R.triple)+' h', chkMoney(cu*CHK_F_TRIPLE), R.pTriple, 'lo que rebasa '+CHK_TOPE_EXTRA_SEM+' h · Art. 68 LFT')}
+            ${fila('Horas en domingo (guardia)', chkH(R.desc)+' h', chkMoney(cu*CHK_F_DESCANSO), R.pDesc, 'día de descanso, salario doble adicional · Art. 73 LFT')}
+            ${fila('Prima dominical', R.domingos+(R.domingos===1?' domingo':' domingos'), chkMoney(sal*CHK_PRIMA_DOM), R.prima, '25% del salario diario · Art. 71 LFT')}
+          </tbody>
+          <tfoot><tr><td>Total de la semana</td><td></td><td></td><td class="n"><b>${cel(R.total)}</b></td></tr></tfoot>
+        </table></div></div>`;
+    }
+    return `
+      <div class="panel chk-salcard">
+        <div>
+          <div class="chk-h3">Mi salario diario</div>
+          <div class="chk-salrow"><span class="chk-cur">$</span><input id="chkSal" type="number" min="0" step="0.01" placeholder="0.00" value="${sal||''}"><button class="chk-btn" data-chk="salario">Guardar</button></div>
+          <div class="${chk.msg.sal?'chk-err':'chk-muted'}" style="font-size:12px;margin-top:6px">${chk.msg.sal || 'Solo tú ves este dato. Nadie más del equipo, ni los supervisores, puede consultarlo.'}</div>
+        </div>
+        <div class="cards cards-3" style="margin:0">
+          ${sal ? `${chkKpi('#6600CC','Sueldo base '+CHK_MESES[M.ini.getMonth()], chkMoney(T.base), M.fin.getDate()+' días × '+chkMoney(sal))}
+                   ${chkKpi('#D97706','Adicional', chkMoney(T.adicional), 'extras, domingos y prima')}
+                   ${chkKpi('#00B050','Total estimado', chkMoney(T.total), 'cuota hora '+chkMoney(sal/CHK_JORNADA_H))}`
+                : `<div class="chk-note" style="grid-column:1/-1;margin:0">Captura tu salario diario para ver cuánto llevas ganado en el mes, tus horas extra pagadas al doble o al triple y tus guardias.</div>`}
+        </div>
+      </div>
+      <div class="panel">
+        <div class="chk-weekbar">
+          <button class="chk-btn alt" data-chkm="-1">‹</button>
+          <div class="chk-h3">Mi jornada y pago · ${MESES12[M.ini.getMonth()].toLowerCase()} ${M.ini.getFullYear()}</div>
+          <button class="chk-btn alt" data-chkm="1" ${esActual?'disabled':''}>›</button>
+        </div>
+        <div class="chk-tbl"><table>
+          <thead><tr><th>Semana</th><th class="n">Días trab.</th><th class="n">Horas</th><th class="n">Extra</th><th class="n">Al doble</th><th class="n">Al triple</th><th class="n">Domingo</th><th class="n">Adicional</th><th class="n">Total</th></tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr><td>Total del mes</td><td class="n">${T.dias}</td><td class="n">${chkH(T.h)}</td><td class="n">${chkH(T.ext)}</td><td class="n">${chkH(T.doble)}</td><td class="n">${chkH(T.triple)}</td><td class="n">${chkH(T.desc)}</td><td class="n">${cel(T.adicional)}</td><td class="n"><b>${cel(T.total)}</b></td></tr></tfoot>
+        </table></div>
+        <div class="chk-foot">Da clic en una semana para ver el desglose. El tope de extras al doble (${CHK_TOPE_EXTRA_SEM} h) se corta por semana de lunes a domingo, como en el Excel. Estimación de control interno, no sustituye el cálculo de nómina.</div>
+      </div>
+      ${detalle}`;
+  }
+  function chkHtmlEquipo(){
+    const lun = chk.equipoSemana, fin = chkAdd(lun,6), esActual = chkYmd(lun)===chkYmd(chkLunes(new Date()));
+    // La consulta cubre la semana seleccionada y siempre "hoy" (para la columna de estado actual).
+    const hoyF = chkYmd(new Date()), desde = chkYmd(lun), hasta = chkYmd(fin) > hoyF ? chkYmd(fin) : hoyF;
+    chkSuscribirEquipo(desde < hoyF ? desde : hoyF, hasta);
+    const g = chkGuardiaEn(chkAdd(lun,5));
+    const hayDatos = Object.keys(chk.equipoRegs).length>0;
+    const rows = CHK_USUARIOS.map(x=>{
+      const R = chkResumenSemana(x.u, lun), st = chkEstadoHoy(x.u), suya = CHK_GUARDIA_USER[g]===x.u;
+      return `<tr class="chk-click ${chk.equipoDetalle===x.u?'chk-sel':''}" data-chku="${x.u}"><td>${x.nombre}<div class="chk-muted" style="font-size:11.5px;font-weight:400">${x.u}</div></td>
+        <td>${esActual?`<span class="chk-pill ${st.cls}">${st.txt}</span>`:''}</td>
+        <td class="n">${R.dias} / 5</td><td class="n">${chkH(R.hSem)}</td>
+        <td class="n" ${R.ext>CHK_TOPE_EXTRA_SEM?'style="color:var(--crit);font-weight:700"':''}>${chkH(R.ext)}</td>
+        <td class="n">${suya?'<span class="chk-tag">Guardia</span> '+chkH(R.guardia)+' h':'—'}</td></tr>`;
+    }).join('');
+    return `
+      <div class="panel">
+        <div class="chk-weekbar">
+          <button class="chk-btn alt" data-chkew="-1">‹</button>
+          <div class="chk-h3">Equipo Soporte IT · ${chkFecha(lun)} – ${chkFecha(fin)} ${fin.getFullYear()}</div>
+          <button class="chk-btn alt" data-chkew="1" ${esActual?'disabled':''}>›</button>
+        </div>
+        <div class="chk-guard" style="margin:0 0 10px">Guardia del fin de semana (sáb ${chkFecha(chkAdd(lun,5))} y dom ${chkFecha(fin)}): <b>${chkGuardiaTxt(g)}</b></div>
+        <div class="chk-tbl"><table>
+          <thead><tr><th>Colaborador</th><th>${esActual?'Estado hoy':''}</th><th class="n">Días L–V</th><th class="n">Horas L–V</th><th class="n">Extra</th><th class="n">Guardia</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+        ${hayDatos?'':'<div class="chk-muted" style="text-align:center;padding:18px">Todavía no hay registros en esta semana.</div>'}
+        <div class="chk-foot">Da clic en un colaborador para ver su detalle de la semana. Solo lalzaga y mgiron ven esta vista.</div>
+      </div>
+      ${chk.equipoDetalle ? `<div class="panel">${chkHtmlSemana(chk.equipoDetalle, lun, false)}</div>` : ''}`;
+  }
+  function chkBind(c){
+    const q = (sel, fn) => c.querySelectorAll(sel).forEach(el=>el.onclick = ()=>fn(el));
+    q('[data-chk="pass"]', ()=>chkGuardarPass());
+    q('[data-chk="cambiarPass"]', ()=>{ chk.cambiando = true; chk.msg = {}; chkRepintar(); });
+    q('[data-chk="cancelarPass"]', ()=>{ chk.cambiando = false; chk.msg = {}; chk.inputs.chkActual = ''; chk.inputs.chkNew1 = ''; chk.inputs.chkNew2 = ''; chkRepintar(); });
+    q('[data-chk="salario"]', ()=>chkGuardarSalario());
+    q('[data-chkv]', el=>{ chk.vista = el.dataset.chkv; chk.msg = {}; chkRepintar(); });
+    q('[data-chkc]', el=>chkChecar(el.dataset.chkc));
+    q('[data-chkw]', el=>{ chk.semana = chkAdd(chk.semana, 7*Number(el.dataset.chkw)); chkRepintar(); });
+    q('[data-chkew]', el=>{ chk.equipoSemana = chkAdd(chk.equipoSemana, 7*Number(el.dataset.chkew)); chkRepintar(); });
+    q('[data-chkm]', el=>{ chk.pagoMes = new Date(chk.pagoMes.getFullYear(), chk.pagoMes.getMonth()+Number(el.dataset.chkm), 1); chk.pagoSel = null; chkRepintar(); });
+    q('[data-chks]', el=>{ const n = Number(el.dataset.chks); chk.pagoSel = chk.pagoSel===n ? null : n; chkRepintar(); });
+    q('[data-chku]', el=>{ chk.equipoDetalle = chk.equipoDetalle===el.dataset.chku ? null : el.dataset.chku; chkRepintar(); });
+    // Enter en los campos de contraseña / salario.
+    c.querySelectorAll('.chk input').forEach(inp=>inp.onkeydown = e=>{
+      if(e.key!=='Enter') return;
+      if(['chkActual','chkNew1','chkNew2'].includes(inp.id)) chkGuardarPass();
+      else if(inp.id==='chkSal') chkGuardarSalario();
+    });
+  }
+
   // ---------- Tendencia mensual ----------
   function renderTendencia(c){
     const tp=cumulativo('TotalPlay'), tm=cumulativo('Telmex'), mc=cumulativo('Metrocarrier');
@@ -5899,106 +6622,160 @@ auth.onAuthStateChanged(async function(user){
     });
   }
   // ---------- Ingenieros IT ----------
+  // Rediseño "Pulso de Soporte IT" (sept. 2026) — reemplaza la vista anterior (tarjetas YoY con datos
+  // 2025 inventados + tabla larga por ingeniero) a petición explícita del cliente, portando el diseño
+  // ya validado en el Artifact publicado. Mientras no se cargue un Excel real de ${'2025'} el
+  // comparativo se deja como pendiente (banner), nunca con números de relleno.
   function renderIngenieros(c){
     const hasta = idxMes(state.periodo_actual);
     const mesesCortos = MESES.slice(0,hasta+1);
     const ing = state.ingenieros || {};
     const mesaSoporteIT = (ing.mesa_soporte_it || new Array(12).fill(0)).slice(0,hasta+1);
-    const agentes = (ing.agentes || []).map(a=>({...a, total: a.meses.reduce((x,y)=>x+Number(y||0),0)}))
-      .sort((a,b)=> a.nombre==='Soporte Prime' ? 1 : b.nombre==='Soporte Prime' ? -1 : b.total-a.total);
     const totalMesa = mesaSoporteIT.reduce((a,b)=>a+Number(b||0),0);
     const promedioMesa = mesaSoporteIT.length ? Math.round(totalMesa/mesaSoporteIT.length) : 0;
-    const yoy2025 = (ing.yoy_2025 || new Array(12).fill(0)).slice(0,hasta+1);
-    const cum2025 = yoy2025.reduce((a,b)=>a+Number(b||0),0);
+    const cerrados = Number(ing.total_cerrados||0);
+    const pctCerrados = totalMesa ? Math.round((cerrados/totalMesa)*1000)/10 : 0;
+    // yoy2025 = null significa "todavía no se cargó el Excel 2025" (ver migración en load()) — a
+    // propósito NO se rellena con new Array(12).fill(0), para no confundir "sin datos" con "0 tickets".
+    const yoy2025 = Array.isArray(ing.yoy_2025) ? ing.yoy_2025.slice(0,hasta+1) : null;
 
-    // Tickets Soporte por día de la semana (agosto 2026) — mismo universo que `mesaSoporteIT` de
-    // arriba (todo el archivo, excepto las 4 categorías de Mesa de Control), agrupados por el día
-    // de la semana de su fecha de creación. Se calcula solo al cargar el archivo de tickets, igual
-    // que el resto de esta pestaña.
     const DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
     const soportePorDiaSemana = ing.por_dia_semana || new Array(7).fill(0);
     const totalSoportePorDia = soportePorDiaSemana.reduce((a,b)=>a+Number(b||0),0);
     const idxDiaPicoSoporte = soportePorDiaSemana.reduce((iMax,v,i,arr)=> v>arr[iMax] ? i : iMax, 0);
 
-    // Tickets Soporte por hora del día (agosto 2026) — mismo universo que soportePorDiaSemana de
-    // arriba, agrupado por la hora de creación (0-23) en vez del día de la semana.
     const HORAS_DIA = Array.from({length:24}, (_,i)=> i+'h');
     const soportePorHoraDia = ing.por_hora_dia || new Array(24).fill(0);
     const totalSoportePorHora = soportePorHoraDia.reduce((a,b)=>a+Number(b||0),0);
     const idxHoraPicoSoporte = soportePorHoraDia.reduce((iMax,v,i,arr)=> v>arr[iMax] ? i : iMax, 0);
     const horaAcotadaSoporte = acotarPorHora(HORAS_DIA, soportePorHoraDia);
 
+    const agentes = (ing.agentes || []).map(a=>({...a, total: a.meses.reduce((x,y)=>x+Number(y||0),0)}))
+      .sort((a,b)=> a.nombre==='Soporte Prime' ? 1 : b.nombre==='Soporte Prime' ? -1 : b.total-a.total);
+    const maxAgenteTotal = Math.max(1, ...agentes.map(a=>a.total), 1);
+    // Paleta categórica validada (skill dataviz) — un color fijo por ingeniero, "Soporte Prime" aparte
+    // en gris neutro (no es una persona, no debe competir visualmente con los ingenieros reales).
+    const PALETA_ING = ['var(--s1)','var(--s2)','var(--s3)','var(--s4)','var(--s5)','var(--s6)','var(--s7)','var(--s8)'];
+
+    const categorias = (ing.categorias || []).slice(0,8);
+    const maxCatTotal = Math.max(1, ...categorias.map(cat=>cat.total), 1);
+
+    // Mini-gráfica de tendencia por ingeniero (sept. 2026) — SVG a mano en vez de Chart.js por fila
+    // (serían 9 gráficas más). El color se pasa por "style" y no por el atributo stroke/fill: un
+    // atributo SVG plano no resuelve var(--token), solo lo hace la propiedad CSS (mismo bug que se
+    // encontró y corrigió en el Artifact "Pulso de Soporte IT").
+    function sparkline(meses, color){
+      const w=90, h=24;
+      const max = Math.max(1, ...meses);
+      const pts = meses.map((v,i)=> `${(meses.length>1 ? (i/(meses.length-1))*w : 0).toFixed(1)},${(h-(Number(v||0)/max)*h).toFixed(1)}`).join(' ');
+      return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;"><polyline points="${pts}" fill="none" style="stroke:${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+    }
+
     c.innerHTML = `
       <div class="title">Tickets Soporte</div>
 
-      <div class="carrusel-slide activo">
-      <h3>Tickets de Soporte IT — ${state.anio-1} vs ${state.anio}</h3>
-      <div class="cards cards-3" style="margin-bottom:16px;">
-        <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE_CLARO)}">Año ${state.anio-1} (Ene-${state.periodo_actual})</div>
-          <div class="body"><div class="big">${cum2025.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Año ${state.anio} (Ene-${state.periodo_actual})</div>
+      ${!yoy2025 ? `
+      <div class="placeholder" style="text-align:left; display:flex; align-items:center; gap:14px; padding:16px 20px;">
+        <span style="font-size:22px;">⏳</span>
+        <div><b style="color:var(--ink);">Comparativo ${state.anio-1} pendiente.</b> En cuanto se cargue el Excel de ${state.anio-1} aquí aparece el YoY completo — por ahora no se muestran cifras de ${state.anio-1} para no inventar datos.</div>
+      </div>` : `
+      <div class="panel">
+        <h3>Tickets de Soporte IT — ${state.anio-1} vs ${state.anio}</h3>
+        <div style="height:260px; position:relative;"><canvas id="chartIngenierosYoy"></canvas></div>
+      </div>`}
+
+      <div class="cards" style="margin-bottom:16px;">
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Total ${state.anio} (Ene-${state.periodo_actual})</div>
           <div class="body"><div class="big">${totalMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets de Soporte</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Promedio mensual ${state.anio}</div>
-          <div class="body"><div class="big">${promedioMesa.toLocaleString('es-MX')}</div><div class="lbl">tickets por mes</div></div></div>
-      </div>
-      <div class="panel"><div style="height:280px; position:relative;"><canvas id="chartIngenierosYoy"></canvas></div></div>
-      </div>
-
-      <div class="carrusel-slide">
-      <h3 style="margin-top:24px;">Tickets atendidos por ingeniero, por mes</h3>
-      <div class="panel"><div style="overflow-x:auto;"><table>
-        <thead><tr><th style="text-align:left;">Ingeniero</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
-        <tbody>${agentes.map(a=>`
-          <tr>
-            <td style="text-align:left;">${a.nombre}</td>
-            ${mesesCortos.map((m,mi)=>`<td>${a.meses[mi]||'-'}</td>`).join('')}
-            <td><b>${a.total}</b></td>
-            <td>${a.nombre==='Soporte Prime' ? '' : (a.promedio!==null && a.promedio!==undefined ? a.promedio+'h' : 's/d')}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div>
-      </div>
-      </div>
-
-      <div class="carrusel-slide">
-      <h3 style="margin-top:24px;">Tickets Soporte por día de la semana</h3>
-      ${totalSoportePorDia===0 ? `
-      <div class="placeholder">
-        <h3>Todavía no hay datos</h3>
-        <p>Se calcula solo al cargar un archivo de tickets desde "Resumen 2026".</p>
-      </div>` : `
-      <div class="cards cards-2" style="margin-bottom:16px;">
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Cerrados</div>
+          <div class="body"><div class="big">${totalMesa?pctCerrados+'%':'—'}</div><div class="lbl">${cerrados.toLocaleString('es-MX')} de ${totalMesa.toLocaleString('es-MX')}</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Día con más tickets</div>
-          <div class="body"><div class="big">${DIAS_SEMANA[idxDiaPicoSoporte]}</div><div class="lbl">${soportePorDiaSemana[idxDiaPicoSoporte].toLocaleString('es-MX')} tickets creados</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Promedio por día</div>
-          <div class="body"><div class="big">${Math.round(totalSoportePorDia/7).toLocaleString('es-MX')}</div><div class="lbl">tickets · los 7 días</div></div></div>
-      </div>
-      <div class="panel"><canvas id="chartIngenierosDia"></canvas></div>
-      `}
+          <div class="body"><div class="big">${totalSoportePorDia ? DIAS_SEMANA[idxDiaPicoSoporte] : '—'}</div><div class="lbl">${totalSoportePorDia ? soportePorDiaSemana[idxDiaPicoSoporte].toLocaleString('es-MX')+' tickets creados' : 'sin datos'}</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Hora pico</div>
+          <div class="body"><div class="big">${totalSoportePorHora ? idxHoraPicoSoporte+':00' : '—'}</div><div class="lbl">${totalSoportePorHora ? soportePorHoraDia[idxHoraPicoSoporte].toLocaleString('es-MX')+' tickets creados' : 'sin datos'}</div></div></div>
       </div>
 
-      <div class="carrusel-slide">
-      <h3 style="margin-top:24px;">Tickets Soporte por hora</h3>
-      ${totalSoportePorHora===0 ? `
-      <div class="placeholder">
-        <h3>Todavía no hay datos</h3>
-        <p>Se calcula solo al cargar un archivo de tickets desde "Resumen 2026".</p>
-      </div>` : `
-      <div class="card" style="max-width:260px; margin-bottom:16px;"><div class="head" style="background:${cardGrad(COLOR_SOPORTE)}">Hora con más tickets</div>
-        <div class="body"><div class="big">${idxHoraPicoSoporte}:00</div><div class="lbl">${soportePorHoraDia[idxHoraPicoSoporte].toLocaleString('es-MX')} tickets creados</div></div></div>
-      <div class="panel"><canvas id="chartIngenierosHora"></canvas></div>
-      `}
+      <div class="panel"><h3>Tickets por mes</h3><div style="height:240px; position:relative;"><canvas id="chartIngenierosMes"></canvas></div></div>
+
+      <div class="cards cards-2">
+        <div class="panel"><h3>Por día de la semana</h3>
+          ${totalSoportePorDia===0 ? `<div class="placeholder"><p>Se calcula al cargar un archivo de tickets desde "Resumen 2026".</p></div>` : `<canvas id="chartIngenierosDia"></canvas>`}
+        </div>
+        <div class="panel"><h3>Por hora del día</h3>
+          ${totalSoportePorHora===0 ? `<div class="placeholder"><p>Se calcula al cargar un archivo de tickets desde "Resumen 2026".</p></div>` : `<canvas id="chartIngenierosHora"></canvas>`}
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Ranking de ingenieros (Ene-${state.periodo_actual})</h3>
+        ${agentes.length===0 ? `<div class="placeholder"><p>Se calcula al cargar un archivo de tickets desde "Resumen 2026".</p></div>` : `
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          ${agentes.map((a,i)=>{
+            const esPrime = a.nombre==='Soporte Prime';
+            const color = esPrime ? 'var(--sprime)' : PALETA_ING[i % PALETA_ING.length];
+            const pct = Math.round((a.total/maxAgenteTotal)*100);
+            return `
+            <div style="display:grid; grid-template-columns:minmax(0,1fr) 90px 95px 70px; align-items:center; gap:12px;">
+              <div style="min-width:0; display:flex; align-items:center; gap:8px;">
+                <span style="width:9px; height:9px; border-radius:50%; background:${color}; flex:none;"></span>
+                <div style="min-width:0;">
+                  <div style="font-size:13px; font-weight:600; color:var(--ink); ${esPrime?'font-style:italic;':''} white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${a.nombre}</div>
+                  <div style="height:6px; border-radius:4px; background:var(--line); margin-top:4px; overflow:hidden;">
+                    <div style="height:100%; width:${pct}%; background:${color}; ${esPrime?'opacity:.55;':''}"></div>
+                  </div>
+                </div>
+              </div>
+              <div>${sparkline(a.meses, color)}</div>
+              <div style="text-align:right; font-family:var(--font-mono); font-size:14px; font-weight:700; color:var(--ink);">${a.total.toLocaleString('es-MX')}</div>
+              <div style="text-align:right; font-size:11px; color:var(--sub);">${esPrime ? '' : (a.promedio!==null && a.promedio!==undefined ? a.promedio+'h prom.' : 's/d')}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="foot" style="margin-top:12px;">"Soporte Prime" agrupa a quienes no se miden de forma individual (líderes/Mesa de Control) y los tickets sin agente asignado.</div>
+        `}
+      </div>
+
+      <div class="panel">
+        <h3>Categorías más atendidas (Ene-${state.periodo_actual})</h3>
+        ${categorias.length===0 ? `<div class="placeholder"><p>Se calcula al cargar un archivo de tickets desde "Resumen 2026".</p></div>` : `
+        <div style="display:flex; flex-direction:column; gap:9px;">
+          ${categorias.map((cat,i)=>{
+            const pct = Math.round((cat.total/maxCatTotal)*100);
+            return `
+            <div style="display:grid; grid-template-columns:minmax(0,1fr) 80px; align-items:center; gap:12px;">
+              <div style="min-width:0;">
+                <div style="font-size:13px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cat.categoria}${cat.categoria==='Reset de Token VPN' ? ' <span style="color:var(--sub); font-weight:400;">(ambas mesas)</span>' : ''}</div>
+                <div style="height:6px; border-radius:4px; background:var(--line); margin-top:4px; overflow:hidden;">
+                  <div style="height:100%; width:${pct}%; background:${PALETA_ING[i % PALETA_ING.length]};"></div>
+                </div>
+              </div>
+              <div style="text-align:right; font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--ink);">${cat.total.toLocaleString('es-MX')}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        `}
       </div>
     `;
 
     if(charts.ingenierosYoy) charts.ingenierosYoy.destroy();
-    charts.ingenierosYoy = new Chart(document.getElementById('chartIngenierosYoy'), {
+    if(yoy2025){
+      charts.ingenierosYoy = new Chart(document.getElementById('chartIngenierosYoy'), {
+        type:'bar',
+        data:{ labels: mesesCortos, datasets:[
+          { label:String(state.anio-1), data: yoy2025, backgroundColor:COLOR_SOPORTE_CLARO, borderRadius:4 },
+          { label:String(state.anio), data: mesaSoporteIT, backgroundColor: COLOR_SOPORTE, borderRadius:4 }
+        ]},
+        options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
+      });
+    }
+
+    if(charts.ingenierosMes) charts.ingenierosMes.destroy();
+    charts.ingenierosMes = new Chart(document.getElementById('chartIngenierosMes'), {
       type:'bar',
       data:{ labels: mesesCortos, datasets:[
-        { label:String(state.anio-1), data: yoy2025, backgroundColor:COLOR_SOPORTE_CLARO, borderRadius:4 },
-        { label:String(state.anio), data: mesaSoporteIT, backgroundColor: COLOR_SOPORTE, borderRadius:4 }
+        { label:'Tickets Soporte', data: mesaSoporteIT, backgroundColor: COLOR_SOPORTE, borderRadius:4 }
       ]},
-      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
     });
 
     if(charts.ingenierosDia) charts.ingenierosDia.destroy();
