@@ -458,6 +458,8 @@ main{flex:1;padding:20px 32px;width:100%;}
   #caidas-root .chk tr.chk-click:hover td, #caidas-root .chk tr.chk-sel td{background:rgba(0,176,240,.08);}
   .chk-tag{font-size:10.5px; padding:2px 8px; border-radius:99px; font-weight:700; background:var(--guardia-actual-bg); color:var(--chk-guard);}
   .chk-alert{color:var(--crit); font-size:12px;}
+  #caidas-root .chk tr.chk-seccion td{background:var(--uploadbar-bg); color:var(--tp); font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:.06em; padding:9px 8px; border-top:2px solid var(--tp);}
+  #caidas-root .chk tr.chk-seccion td span{color:var(--sub); font-weight:600; text-transform:none; letter-spacing:0;}
   .chk-pill.falta{background:var(--crit); color:#fff; border-color:transparent;}
   .chk-estado{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
   .chk-resumen{display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:12.5px; color:var(--sub); margin:0 0 10px;}
@@ -1707,11 +1709,11 @@ auth.onAuthStateChanged(async function(user){
     {id:'biometricos', label:'Biométricos'},
     {id:'pin_pad', label:'Pin Pad'},
     {id:'hub', label:'HUB'},
-    {id:'guardias', label:'Guardias'},
-    {id:'checador', label:'Checador'}
+    {id:'guardias', label:'Guardias'}
   ];
   const TABS = [
     {id:'ticketsmc', label:'Tickets Mesa de control'},
+    {id:'checador', label:'Checador'},
     {id:'inventario', label:'Adquisición de Equipo'},
     {id:'migracion_win11', label:'Migración Win11'},
     {id:'expansion', label:'Plan de expansión'},
@@ -1723,6 +1725,16 @@ auth.onAuthStateChanged(async function(user){
   // no está en USUARIOS_BUDGET_EDITAR/USUARIOS_BUDGET_LECTURA (ver puedeVerBudgetIT()). "Accesos" (log
   // de quién inicia sesión) se agregó a este mismo grupo porque son exactamente los mismos 3 usuarios.
   const TABS_RESTRINGIDOS_BUDGET = ['budget_it','actualizaciones','log_accesos'];
+  // Mesa de Control (Flor Zaldívar y Pilar Pérez, 28-sep-2026): solo ven Tickets Mesa de control, el
+  // Checador y Plan de expansión (solo lectura: editar es de admin/mgiron, ver canEditExpansion) — ni los
+  // menús Internet / Soporte IT ni ninguna otra pestaña del dashboard.
+  const USUARIOS_SOLO_MESA = ['fzaldivar','pperez'];
+  function esUsuarioSoloMesa(){ return !!(typeof currentUser!=='undefined' && currentUser && USUARIOS_SOLO_MESA.includes(currentUser.username)); }
+  function tabPermitida(id){
+    if(TABS_RESTRINGIDOS_BUDGET.includes(id) && !puedeVerBudgetIT()) return false;
+    if(esUsuarioSoloMesa()) return id==='ticketsmc' || id==='checador' || id==='expansion';
+    return true;
+  }
   // Apartados nuevos de agosto 2026 (envios_recolecciones...pin_pad): nacieron como indicadores
   // recreados a mano (tarjetas + gráfica Chart.js) a partir de 7 láminas de un PowerPoint que envió el
   // cliente. Desde entonces, uno por uno, se fueron convirtiendo a carga de Excel real conforme el
@@ -3362,9 +3374,9 @@ auth.onAuthStateChanged(async function(user){
         <div class="status-line" style="margin-bottom:14px;"><span class="dot"></span> Última actualización: ${fmtFecha(state.updated_at)}</div>
         <div class="tabs-wrap" style="position:relative;">
           <div class="tabs">
-            <div class="tab ${INTERNET_TABS.some(t=>t.id===tab)?'active':''}" id="tabInternetBtn" style="display:inline-flex; align-items:center; gap:4px;">Internet <span style="font-size:10px;">▾</span></div>
-            <div class="tab ${SOPORTE_IT_TABS.some(t=>t.id===tab)?'active':''}" id="tabSoporteBtn" style="display:inline-flex; align-items:center; gap:4px;">Soporte IT <span style="font-size:10px;">▾</span></div>
-            ${TABS.filter(t=> !TABS_RESTRINGIDOS_BUDGET.includes(t.id) || puedeVerBudgetIT()).map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}
+            ${esUsuarioSoloMesa() ? '' : `<div class="tab ${INTERNET_TABS.some(t=>t.id===tab)?'active':''}" id="tabInternetBtn" style="display:inline-flex; align-items:center; gap:4px;">Internet <span style="font-size:10px;">▾</span></div>`}
+            ${esUsuarioSoloMesa() ? '' : `<div class="tab ${SOPORTE_IT_TABS.some(t=>t.id===tab)?'active':''}" id="tabSoporteBtn" style="display:inline-flex; align-items:center; gap:4px;">Soporte IT <span style="font-size:10px;">▾</span></div>`}
+            ${TABS.filter(t=> tabPermitida(t.id)).map(t=>`<div class="tab ${t.id===tab?'active':''}" data-tab="${t.id}">${t.label}</div>`).join('')}
           </div>
           ${internetMenuAbierto ? `<div id="menuInternet" style="position:absolute; top:100%; left:0; background:var(--menu-bg); border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.14); padding:6px; min-width:200px; z-index:50;">
             ${INTERNET_TABS.map(t=>`<div class="tab-sub" data-tab="${t.id}" style="padding:8px 12px; font-size:13px; font-weight:${t.id===tab?'700':'500'}; color:${t.id===tab?'var(--tp)':'var(--ink)'}; cursor:pointer; border-radius:6px; white-space:nowrap;">${t.label}</div>`).join('')}
@@ -3391,13 +3403,13 @@ auth.onAuthStateChanged(async function(user){
     if(headerEl) document.documentElement.style.setProperty('--header-h', headerEl.offsetHeight + 'px');
     const btnDetenerCarrusel = document.getElementById('btnDetenerCarrusel');
     if(btnDetenerCarrusel) btnDetenerCarrusel.onclick = detenerCarrusel;
-    document.getElementById('tabInternetBtn').onclick = (e) => {
+    if(document.getElementById('tabInternetBtn')) document.getElementById('tabInternetBtn').onclick = (e) => {
       e.stopPropagation();
       internetMenuAbierto = !internetMenuAbierto;
       soporteMenuAbierto = false;
       render();
     };
-    document.getElementById('tabSoporteBtn').onclick = (e) => {
+    if(document.getElementById('tabSoporteBtn')) document.getElementById('tabSoporteBtn').onclick = (e) => {
       e.stopPropagation();
       soporteMenuAbierto = !soporteMenuAbierto;
       internetMenuAbierto = false;
@@ -3427,6 +3439,7 @@ auth.onAuthStateChanged(async function(user){
     // Salvaguarda: si por alguna razón `tab` queda apuntando a una pestaña restringida (ej. cambio de
     // usuario sin recargar la página) y el usuario actual no tiene permiso, se regresa a "resumen".
     if(TABS_RESTRINGIDOS_BUDGET.includes(tab) && !puedeVerBudgetIT()){ tab = 'resumen'; }
+    if(!tabPermitida(tab)){ tab = esUsuarioSoloMesa() ? 'checador' : 'estatus_servicio'; }
     // Catálogo en vivo (agosto 2026, homologación): estas 5 pestañas dependen de catalogoVivo (Carrier/
     // Tecnología por tienda, o el conteo de tiendas activas por proveedor) — al entrar a cualquiera de
     // ellas se revisa si el dato ya tiene más de 60s y, si sí, se refresca en silencio contra Directorio.
@@ -5061,7 +5074,8 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ---------- 9. Checador (Soporte IT) — sept. 2026 ----------
-  // Registro de jornada del equipo de Soporte IT (basado en Control_Horas_Octubre_2026_PrimeMX.xlsx).
+  // Registro de jornada de Soporte IT y Mesa de Control (basado en Control_Horas_Octubre_2026_PrimeMX.xlsx).
+  // Desde el 28-sep-2026 es una pestaña propia de la barra principal (antes vivía en el menú Soporte IT).
   // Acceso (decisión final del cliente, sept. 2026): usa la MISMA cuenta y sesión del Dashboard, sin
   // segundo login. La primera vez que cada persona abre el Checador se le obliga a cambiar su
   // contraseña (actual + nueva) — la nueva queda para Dashboard, Checador, Directorio y Consumibles
@@ -5088,11 +5102,20 @@ auth.onAuthStateChanged(async function(user){
     {u:'lalzaga',   nombre:'Luis Alzaga',      horario:['10:00','19:00']},
     {u:'ecastillo', nombre:'Eder Castillo',    horario:['10:00','19:00']},
     {u:'daguilar',  nombre:'Daniel Aguilar',   horario:['10:00','19:00']},
+    // Mesa de Control (28-sep-2026)
+    {u:'fzaldivar', nombre:'Flor Zaldívar',    horario:['09:00','18:00'], area:'mesa'},
+    {u:'pperez',    nombre:'Pilar Pérez',      horario:['09:00','18:00'], area:'mesa'},
   ];
-  const CHK_SUPERVISORES = ['lalzaga','mgiron'];
+  const CHK_SUPERVISORES = ['lalzaga','mgiron','fzaldivar'];
+  // Qué áreas ve cada quien en "Equipo": Luis solo Soporte IT, Mauricio ambas, Flor solo Mesa de Control.
+  const CHK_AREAS = { soporte:'Soporte IT', mesa:'Mesa de Control' };
+  const CHK_AREAS_VISIBLES = { lalzaga:['soporte'], mgiron:['soporte','mesa'], fzaldivar:['mesa'] };
+  const chkArea = u => (CHK_USUARIOS.find(x=>x.u===u)||{}).area || 'soporte';
+  // Leen registros de todos (consulta por fecha); Flor solo los de Mesa (consulta por persona).
+  const CHK_LEEN_TODO = ['lalzaga','mgiron'];
   // Justificación de faltas (pedido del cliente, 28-sep-2026): Luis justifica a su equipo y Mauricio a Luis.
   // Queda en checador_justificaciones/{usuario}_{fecha}; es informativa (no cambia el cálculo de pago).
-  const CHK_JEFE = {ecastillo:'lalzaga', daguilar:'lalzaga', asanchez:'lalzaga', amartinez:'lalzaga', lalzaga:'mgiron'};
+  const CHK_JEFE = {ecastillo:'lalzaga', daguilar:'lalzaga', asanchez:'lalzaga', amartinez:'lalzaga', lalzaga:'mgiron', pperez:'fzaldivar', fzaldivar:'mgiron'};
   const CHK_JUST_TIPOS = {vacaciones:'Vacaciones', salud:'Salud', personal:'Personal'};
   const CHK_GUARDIA_USER = {'Daniel Aguilar':'daguilar','Alfredo Martinez':'amartinez','Ariadna Sanchez':'asanchez','Eder Castillo':'ecastillo','Javier Marafic':'lalzaga'};
   const CHK_JORNADA_H = 8, CHK_ORD_SEM = 48, CHK_TOPE_EXTRA_SEM = 9, CHK_MAX_EXTRA_DIA = 4, CHK_MAX_DIAS_EXTRA = 4, CHK_MAX_DIA = 12;
@@ -5184,6 +5207,7 @@ auth.onAuthStateChanged(async function(user){
     if(chk.equipoKey===key && chk.unsubEquipo) return;
     if(chk.unsubEquipo) chk.unsubEquipo();
     chk.equipoKey = key; chk.equipoRegs = {};
+    if(!CHK_LEEN_TODO.includes(chk.username)){ chkSuscribirEquipoPorPersona(); return; }
     chk.unsubEquipo = db.collection('checador_registros').where('fecha','>=',desde).where('fecha','<=',hasta).onSnapshot(snap=>{
       const o = {}; snap.forEach(d=>{ const r = chkDeDoc(d); o[r.username+'_'+r.fecha] = r; });
       chk.equipoRegs = o; chkRepintar();
@@ -5194,6 +5218,26 @@ auth.onAuthStateChanged(async function(user){
       const o = {}; snap.forEach(d=>{ const j = chkDeJust(d); o[j.username+'_'+j.fecha] = j; });
       chk.justsEquipo = o; chkRepintar();
     }, err=>console.error('Checador: justificaciones equipo', err));
+  }
+  // Para quien solo ve su área (Flor): una consulta por colaborador, por usuario — así las reglas de
+  // Firestore pueden garantizar que solo lee lo de Mesa de Control.
+  function chkSuscribirEquipoPorPersona(){
+    const us = CHK_USUARIOS.filter(x=>(CHK_AREAS_VISIBLES[chk.username]||[]).includes(chkArea(x.u)) && x.u!==chk.username).map(x=>x.u);
+    const regs = {}, justs = {}, subs = [];
+    us.forEach(u=>{
+      subs.push(db.collection('checador_registros').where('username','==',u).onSnapshot(snap=>{
+        Object.keys(regs).forEach(k=>{ if(k.startsWith(u+'_')) delete regs[k]; });
+        snap.forEach(d=>{ const r = chkDeDoc(d); regs[r.username+'_'+r.fecha] = r; });
+        chk.equipoRegs = Object.assign({}, regs); chkRepintar();
+      }, err=>console.error('Checador: equipo '+u, err)));
+      subs.push(db.collection('checador_justificaciones').where('username','==',u).onSnapshot(snap=>{
+        Object.keys(justs).forEach(k=>{ if(k.startsWith(u+'_')) delete justs[k]; });
+        snap.forEach(d=>{ const j = chkDeJust(d); justs[j.username+'_'+j.fecha] = j; });
+        chk.justsEquipo = Object.assign({}, justs); chkRepintar();
+      }, err=>console.error('Checador: justificaciones '+u, err)));
+    });
+    chk.unsubEquipo = ()=>subs.forEach(f=>f());
+    chk.unsubJEquipo = null;
   }
   function chkReg(u, f){ return u===chk.username ? (chk.regs[f]||null) : (chk.equipoRegs[u+'_'+f]||null); }
   function chkJust(u, f){ return u===chk.username ? (chk.justsMias[f]||null) : (chk.justsEquipo[u+'_'+f]||null); }
@@ -5213,6 +5257,7 @@ auth.onAuthStateChanged(async function(user){
     if(j) return {tipo:'just', html:`<span class="chk-pill just">Justificado: ${CHK_JUST_TIPOS[j.tipo]||j.tipo}</span>`};
     if(finde){
       const g = chkGuardiaEn(w===6 ? new Date() : chkAdd(new Date(),-1));
+      if(chkArea(u)==='mesa') return {tipo:'descanso', html:`<span class="chk-pill">Descanso</span>`};
       return CHK_GUARDIA_USER[g]===u ? {tipo:'guardia', html:`<span class="chk-pill">Guardia · sin registro</span>`} : {tipo:'descanso', html:`<span class="chk-pill">Descanso</span>`};
     }
     const ini = chkMin(x.horario[0]), fin = chkMin(x.horario[1]);
@@ -5284,7 +5329,8 @@ auth.onAuthStateChanged(async function(user){
   function chkHoyInfo(){
     const d = new Date(), f = chkYmd(d), w = d.getDay(), finde = (w===0||w===6);
     const g = finde ? chkGuardiaEn(w===6 ? d : chkAdd(d,-1)) : null;
-    return {f, finde, guardia:g, soyGuardia: !!g && CHK_GUARDIA_USER[g]===chk.username};
+    const mesa = chkArea(chk.username)==='mesa';
+    return {f, finde, guardia:g, mesa, soyGuardia: finde && (mesa || (!!g && CHK_GUARDIA_USER[g]===chk.username))};
   }
   function chkProximaGuardia(u){
     const sab = chkAdd(chkLunes(new Date()),5);
@@ -5406,7 +5452,7 @@ auth.onAuthStateChanged(async function(user){
   function renderChecador(c){
     const u = currentUser && currentUser.username;
     if(!CHK_USUARIOS.some(x=>x.u===u)){
-      c.innerHTML = `<div class="chk"><div class="placeholder"><h3>Checador de Soporte IT</h3><p>Esta sección es solo para el equipo de Soporte IT.</p></div></div>`;
+      c.innerHTML = `<div class="chk"><div class="placeholder"><h3>Checador</h3><p>Esta sección es solo para el equipo de Soporte IT y Mesa de Control.</p></div></div>`;
       return;
     }
     chkSincronizarUsuario(u);
@@ -5475,14 +5521,17 @@ auth.onAuthStateChanged(async function(user){
     else if(r.comidaInicio && !r.comidaFin) acts = `<button class="chk-btn meal" data-chkc="comidaFin" ${dis}>Fin de comida</button>`;
     else acts = (!r.comidaInicio ? `<button class="chk-btn meal" data-chkc="comidaInicio" ${dis}>Inicio de comida</button>` : '') + `<button class="chk-btn alt" data-chkc="salida" ${dis}>Registrar salida</button>`;
     let banner = '';
-    if(info.finde){
+    if(info.finde && info.mesa){
+      banner = 'Fin de semana: si hoy te toca guardia de Mesa de Control, registra tu entrada. Tus horas cuentan como guardia.';
+    } else if(info.finde){
       banner = info.soyGuardia
         ? (info.guardia==='Javier Marafic' ? 'Esta es la guardia de Javier Marafic y te toca checarla a ti. Tus horas de hoy cuentan como guardia.' : 'Este fin de semana te toca la guardia. Tus horas de hoy cuentan como guardia.')
         : 'Hoy es fin de semana: la guardia le toca a '+chkGuardiaTxt(info.guardia)+'. Solo quien está de guardia puede checar.';
     }
     const lun = chk.semana, R = chkResumenSemana(chk.username, lun), g = chkGuardiaEn(chkAdd(lun,5)), suya = CHK_GUARDIA_USER[g]===chk.username;
     let gVal = '—', gSub;
-    if(suya){ gVal = chkH(R.guardia)+' h'; gSub = 'sáb '+chkH(R.sab)+' h · dom '+chkH(R.dom)+' h'; }
+    if(chkArea(chk.username)==='mesa'){ gVal = chkH(R.guardia)+' h'; gSub = 'sáb '+chkH(R.sab)+' h · dom '+chkH(R.dom)+' h · guardia de Mesa de Control'; }
+    else if(suya){ gVal = chkH(R.guardia)+' h'; gSub = 'sáb '+chkH(R.sab)+' h · dom '+chkH(R.dom)+' h'; }
     else { const p = chkProximaGuardia(chk.username); gSub = 'Esta semana: '+chkGuardiaTxt(g)+(p?' · tu próxima: sáb '+chkFecha(p):''); }
     return `
       <div class="panel chk-clockcard">
@@ -5620,8 +5669,10 @@ auth.onAuthStateChanged(async function(user){
     chkSuscribirEquipo(desde < hoyF ? desde : hoyF, hasta);
     const g = chkGuardiaEn(chkAdd(lun,5));
     const hayDatos = Object.keys(chk.equipoRegs).length>0;
-    const rows = CHK_USUARIOS.map(x=>{
-      const R = chkResumenSemana(x.u, lun), st = chkEstadoHoy(x.u), suya = CHK_GUARDIA_USER[g]===x.u;
+    const areas = CHK_AREAS_VISIBLES[chk.username] || ['soporte'];
+    const visibles = CHK_USUARIOS.filter(x=>areas.includes(chkArea(x.u)));
+    const fila = x=>{
+      const R = chkResumenSemana(x.u, lun), st = chkEstadoHoy(x.u), suya = chkArea(x.u)==='mesa' ? R.guardia>0 : CHK_GUARDIA_USER[g]===x.u;
       const E = chkEstadoEquipo(x.u);
       const btnJ = (['sinchecar','falta'].includes(E.tipo) && chkPuedeJustificar(x.u)) ? `<button class="chk-btn alt chk-mini" data-chkjhoy="${x.u}">Justificar</button>` : '';
       const estado = `<div class="chk-estado">${E.html}${btnJ}</div>`;
@@ -5631,27 +5682,32 @@ auth.onAuthStateChanged(async function(user){
         <td class="n">${R.dias} / 5</td><td class="n">${R.justif?`<span class="chk-tag just">${R.justif}</span>`:'—'}</td><td class="n">${chkH(R.hSem)}</td>
         <td class="n" ${R.ext>CHK_TOPE_EXTRA_SEM?'style="color:var(--crit);font-weight:700"':''}>${chkH(R.ext)}</td>
         <td class="n">${suya?'<span class="chk-tag">Guardia</span> '+chkH(R.guardia)+' h':'—'}</td></tr>`;
+    };
+    // Con más de un área (Mauricio) cada una lleva su encabezado: Soporte IT arriba, Mesa de Control abajo.
+    const rows = areas.map(a=>{
+      const us = visibles.filter(x=>chkArea(x.u)===a);
+      return (areas.length>1 ? `<tr class="chk-seccion"><td colspan="8">${CHK_AREAS[a]} <span>· ${us.length} ${us.length===1?'persona':'personas'}</span></td></tr>` : '') + us.map(fila).join('');
     }).join('');
     return `
       <div class="panel">
         <div class="chk-weekbar">
           <button class="chk-btn alt" data-chkew="-1">‹</button>
-          <div class="chk-h3">Equipo Soporte IT · ${chkFecha(lun)} – ${chkFecha(fin)} ${fin.getFullYear()}</div>
+          <div class="chk-h3">Equipo ${areas.length>1 ? 'Soporte IT y Mesa de Control' : CHK_AREAS[areas[0]]} · ${chkFecha(lun)} – ${chkFecha(fin)} ${fin.getFullYear()}</div>
           <button class="chk-btn alt" data-chkew="1" ${esActual?'disabled':''}>›</button>
         </div>
         ${esActual ? (()=>{
           const n = {ok:0, tarde:0, sinchecar:0, falta:0, just:0, pendiente:0};
-          CHK_USUARIOS.forEach(x=>{ const t = chkEstadoEquipo(x.u).tipo; if(n[t]!==undefined) n[t]++; });
+          visibles.forEach(x=>{ const t = chkEstadoEquipo(x.u).tipo; if(n[t]!==undefined) n[t]++; });
           const it = (cls, num, txt) => `<span class="chk-resumen-it ${cls}"><b>${num}</b> ${txt}</span>`;
           return `<div class="chk-resumen">Hoy: ${it('ok', n.ok, 'a tiempo')}${it('tarde', n.tarde, 'con retardo')}${it('tarde', n.sinchecar, 'sin checar')}${n.falta?it('falta', n.falta, 'falta'):''}${it('just', n.just, 'justificados')}${n.pendiente?it('', n.pendiente, 'por entrar'):''}</div>`;
         })() : ''}
-        ${chk.username!=='mgiron' ? `<div class="chk-guard" style="margin:0 0 10px">Guardia del fin de semana (sáb ${chkFecha(chkAdd(lun,5))} y dom ${chkFecha(fin)}): <b>${chkGuardiaTxt(g)}</b></div>` : ''}
+        ${chk.username==='lalzaga' ? `<div class="chk-guard" style="margin:0 0 10px">Guardia del fin de semana (sáb ${chkFecha(chkAdd(lun,5))} y dom ${chkFecha(fin)}): <b>${chkGuardiaTxt(g)}</b></div>` : ''}
         <div class="chk-tbl"><table>
           <thead><tr><th>Colaborador</th><th>Horario</th><th>${esActual?'Estado hoy':''}</th><th class="n">Días L–V</th><th class="n">Justificados</th><th class="n">Horas L–V</th><th class="n">Extra</th><th class="n">Guardia</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
         ${hayDatos?'':'<div class="chk-muted" style="text-align:center;padding:18px">Todavía no hay registros en esta semana.</div>'}
-        ${chk.username!=='mgiron' ? `<div class="chk-foot">Da clic en un colaborador para ver su detalle de la semana y justificar los días que no checó (vacaciones, salud o personal). Solo lalzaga y mgiron ven esta vista.</div>` : ''}
+        ${chk.username!=='mgiron' ? `<div class="chk-foot">Da clic en un colaborador para ver su detalle de la semana y justificar los días que no checó (vacaciones, salud o personal).</div>` : ''}
       </div>
       ${chk.equipoDetalle ? `<div class="panel">${chkHtmlSemana(chk.equipoDetalle, lun, false)}</div>` : ''}`;
   }
