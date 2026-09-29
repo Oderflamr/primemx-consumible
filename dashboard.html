@@ -862,7 +862,8 @@ auth.onAuthStateChanged(async function(user){
     roleTag.className = 'role-tag' + (currentUser.role === 'admin' ? ' admin' : '');
     window.initCaidasApp(currentUser.role);
     const enlaceConsumibles = document.getElementById('link-a-consumibles');
-    if(enlaceConsumibles) enlaceConsumibles.style.display = (currentUser.username === 'marafic') ? 'none' : '';
+    // Sin acceso a Consumibles: marafic y Mesa de Control (Flor y Pilar, 28-sep-2026 — solo Dashboard y Directorio).
+    if(enlaceConsumibles) enlaceConsumibles.style.display = ['marafic','fzaldivar','pperez'].includes(currentUser.username) ? 'none' : '';
   } else {
     currentUser = null;
     // Checador (Soporte IT): su sesión es aparte, pero al salir del dashboard también se cierra.
