@@ -528,6 +528,29 @@ setInterval(()=>{
   }
 }, 5 * 60 * 1000);
 
+// Usuarios SIN acceso a Consumibles (28-sep-2026, pedido del cliente): Mesa de Control (Flor Zaldívar y
+// Pilar Pérez) solo usan Dashboard IT y Directorio. Si llegan aquí (con la sesión compartida o escribiendo
+// la dirección) ven un aviso en vez de la app — NO se cierra su sesión, para no sacarlas del Dashboard.
+const SIN_ACCESO_CONSUMIBLES = ['fzaldivar','pperez'];
+function mostrarSinAccesoConsumibles(mostrar){
+  let aviso = document.getElementById('sin-acceso-consumibles');
+  if(!mostrar){ if(aviso) aviso.style.display = 'none'; return; }
+  if(!aviso){
+    aviso = document.createElement('div');
+    aviso.id = 'sin-acceso-consumibles';
+    aviso.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:#F4F6F5;z-index:50;';
+    aviso.innerHTML = '<div style="max-width:420px;width:100%;text-align:center;background:#fff;border:1px solid #DCE3E2;border-radius:14px;padding:28px 24px;box-shadow:0 8px 20px rgba(0,0,0,.06)">'
+      + '<div style="font-size:30px;margin-bottom:6px">🔒</div>'
+      + '<h2 style="margin:0 0 8px;font-size:19px;color:#122031">Sin acceso a Consumibles</h2>'
+      + '<p style="margin:0 0 18px;color:#4B5A6B;font-size:14px">Tu usuario no tiene acceso a esta aplicación.</p>'
+      + '<a href="dashboard.html" style="display:inline-block;background:#0C8599;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">Ir al Dashboard IT →</a>'
+      + '<div style="margin-top:14px"><a href="#" id="sin-acceso-otro-usuario" style="color:#4B5A6B;font-size:12.5px">Entrar con otro usuario</a></div></div>';
+    document.body.appendChild(aviso);
+    document.getElementById('sin-acceso-otro-usuario').addEventListener('click', e=>{ e.preventDefault(); localStorage.removeItem('primemx_sesion_inicio'); auth.signOut(); });
+  }
+  aviso.style.display = 'flex';
+}
+
 // Se dispara solo al cargar la página si ya había una sesión de Firebase activa (venir de Dashboard
 // IT o Directorio de Tiendas, o haber entrado antes aquí mismo) — así ya no se vuelve a pedir login.
 auth.onAuthStateChanged(async function(user){
@@ -542,6 +565,14 @@ auth.onAuthStateChanged(async function(user){
   }
   if(user){
     const username = (user.email || '').split('@')[0];
+    if(SIN_ACCESO_CONSUMIBLES.includes(username)){
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("app-screen").classList.remove("visible");
+      if(btn) btn.disabled = false;
+      mostrarSinAccesoConsumibles(true);
+      return;
+    }
+    mostrarSinAccesoConsumibles(false);
     let roleInfo = { role: 'consulta', display: username };
     try{
       const doc = await db.collection(ROLES_COLLECTION).doc(username).get();
@@ -555,6 +586,7 @@ auth.onAuthStateChanged(async function(user){
     if(btn) btn.disabled = false;
     startApp();
   } else {
+    mostrarSinAccesoConsumibles(false);
     currentUser = null;
     tickets = [];
     if(unsubscribe) unsubscribe();
