@@ -157,7 +157,9 @@ input,select{font-family:inherit;}
 #app{display:none;min-height:100vh;flex-direction:column;}
 #app.show{display:flex;}
 header.topbar{
-  background:var(--panel);
+  /* Fondo sólido (29-sep-2026): --panel no está definido en modo claro y el encabezado quedaba transparente
+     — al quedarse fijo arriba se veía el contenido a través de él. Modo oscuro sigue usando su --panel. */
+  background:var(--panel, #FFFFFF);
   border-bottom:1px solid var(--line);
   padding:14px 22px;
   display:flex;
