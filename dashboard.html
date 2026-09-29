@@ -264,7 +264,10 @@ main{flex:1;padding:20px 32px;width:100%;}
     }
   }
   *{box-sizing:border-box;}
-  html,body{overflow-x:hidden;}
+  /* overflow-x:clip (no hidden): hidden en html/body rompe position:sticky y el encabezado + la barra de
+     pestañas se iban con el scroll. clip igual evita el scroll horizontal pero deja que se queden fijos
+     (29-sep-2026, pedido del cliente: la cintilla superior no se debe mover al hacer scroll). */
+  html,body{overflow-x:clip;}
   #caidas-root{background:var(--bg); color:var(--ink);}
   .topbar{display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:16px;}
   .brand{font-weight:800; font-size:22px;}
