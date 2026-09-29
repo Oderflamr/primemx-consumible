@@ -464,6 +464,22 @@ main{flex:1;padding:20px 32px;width:100%;}
   .chk-step.guard{border-color:var(--chk-guard); color:var(--chk-guard); font-weight:600;}
   .chk-semana-meta{margin-top:10px; padding:9px 12px; border-radius:8px; background:var(--uploadbar-bg); border:1px solid var(--line); font-size:13px; color:var(--ink);}
   .chk-horavale{margin-top:8px; font-size:13px; color:var(--ink);} .chk-horavale span{color:var(--sub); font-size:12px;}
+  .chk-rs table{font-size:12px;}
+  .chk-rs-bar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:10px;}
+  .chk-rs-bar .chk-h3{flex:1; min-width:220px;}
+  .chk-rs-nav{display:flex; align-items:center; gap:8px;}
+  #caidas-root .chk .chk-rs-nav button.chk-btn{padding:5px 11px;}
+  #caidas-root .chk .chk-rs th.chk-rs-d, #caidas-root .chk .chk-rs td.chk-rs-d{text-align:center; min-width:92px; white-space:nowrap; padding:6px 5px; border-left:1px solid var(--line);}
+  #caidas-root .chk .chk-rs th.hoy, #caidas-root .chk .chk-rs td.hoy{background:rgba(102,0,204,.06);}
+  #caidas-root .chk .chk-rs td.chk-rs-nom{min-width:140px;}
+  #caidas-root .chk .chk-rs td.chk-rs-tot{border-left:1px solid var(--line);}
+  .chk-rs-hora{font-variant-numeric:tabular-nums;}
+  .chk-rs-h{margin-top:2px; font-size:11.5px;}
+  .chk-rs-tarde{color:var(--crit); font-weight:700;}
+  .chk-rs-falta{color:#fff; background:var(--crit); border-radius:6px; padding:0 5px; font-weight:700;}
+  .chk-rs-just{color:var(--s1); font-weight:700;}
+  .chk-rs-warn{color:var(--med); font-weight:700;}
+  main.carrusel-zoom .chk-rs{ display:none; }
   .chk-pill.falta{background:var(--crit); color:#fff; border-color:transparent;}
   .chk-estado{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
   .chk-resumen{display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:12.5px; color:var(--sub); margin:0 0 10px;}
@@ -5108,8 +5124,8 @@ auth.onAuthStateChanged(async function(user){
     {u:'ecastillo', nombre:'Eder Castillo',    horario:['10:00','19:00']},
     {u:'daguilar',  nombre:'Daniel Aguilar',   horario:['10:00','19:00']},
     // Mesa de Control (28-sep-2026)
-    {u:'fzaldivar', nombre:'Flor Zaldívar',    horario:['09:00','18:00'], area:'mesa'},
-    {u:'pperez',    nombre:'Pilar Pérez',      horario:['09:00','18:00'], area:'mesa'},
+    {u:'fzaldivar', nombre:'Flor Zaldívar',    horario:['09:00','18:00'], area:'mesa', alta:'2026-09-29'},
+    {u:'pperez',    nombre:'Pilar Pérez',      horario:['11:00','20:00'], area:'mesa', alta:'2026-09-29'},
   ];
   const CHK_SUPERVISORES = ['lalzaga','mgiron','fzaldivar'];
   // Qué áreas ve cada quien en "Equipo": Luis solo Soporte IT, Mauricio ambas, Flor solo Mesa de Control.
@@ -5130,7 +5146,7 @@ auth.onAuthStateChanged(async function(user){
   const CHK_MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const chk = {
     username:null, perfilListo:false, debeCambiar:false, cambiando:false, vista:'mio', semana:null, equipoSemana:null,
-    equipoDetalle:null, pagoMes:null, pagoSel:null, regs:{}, equipoRegs:{}, justsMias:{}, justsEquipo:{}, justEdit:null, salario:0, unsubMio:null, unsubEquipo:null, unsubJMio:null, unsubJEquipo:null,
+    equipoDetalle:null, pagoMes:null, pagoSel:null, regs:{}, equipoRegs:{}, justsMias:{}, justsEquipo:{}, justEdit:null, resModo:'semana', resSemana:null, resMes:null, resRegs:{}, resJusts:{}, resKey:'', unsubRes:null, salario:0, unsubMio:null, unsubEquipo:null, unsubJMio:null, unsubJEquipo:null,
     equipoKey:'', ocupado:false, inputs:{}, msg:{}, timer:null, carga:0
   };
 
@@ -5145,6 +5161,9 @@ auth.onAuthStateChanged(async function(user){
   const chkFecha = d => d.getDate()+' '+CHK_MESES[d.getMonth()];
   const chkMoney = n => '$'+(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
   const chkNombre = u => (CHK_USUARIOS.find(x=>x.u===u)||{nombre:u}).nombre;
+  // Desde cuándo usa el Checador cada persona: antes de esa fecha no se cuentan faltas ni "Sin registro".
+  const CHK_INICIO = '2026-09-28';
+  const chkAlta = u => (CHK_USUARIOS.find(x=>x.u===u)||{}).alta || CHK_INICIO;
   const chkHorario = u => { const x = CHK_USUARIOS.find(y=>y.u===u); return x && x.horario ? x.horario[0]+' – '+x.horario[1] : ''; };
   const chkEsSup = () => CHK_SUPERVISORES.includes(chk.username);
   // Rotación de guardias: misma función que usa la pestaña Guardias (sábado en UTC medianoche).
@@ -5161,7 +5180,7 @@ auth.onAuthStateChanged(async function(user){
   function chkReset(u){
     chkDesuscribir();
     Object.assign(chk, { username:u||null, perfilListo:false, debeCambiar:false, cambiando:false, vista:CHK_SUPERVISORES.includes(u)?'equipo':'mio', equipoDetalle:null,
-      pagoSel:null, regs:{}, equipoRegs:{}, justsMias:{}, justsEquipo:{}, justEdit:null, equipoKey:'', salario:0, ocupado:false, inputs:{}, msg:{} });
+      pagoSel:null, regs:{}, equipoRegs:{}, justsMias:{}, justsEquipo:{}, justEdit:null, equipoKey:'', resRegs:{}, resJusts:{}, resKey:'', salario:0, ocupado:false, inputs:{}, msg:{} });
     chk.carga++;
   }
   async function chkCargarSesion(){
@@ -5188,6 +5207,7 @@ auth.onAuthStateChanged(async function(user){
     if(chk.unsubEquipo){ chk.unsubEquipo(); chk.unsubEquipo = null; }
     if(chk.unsubJMio){ chk.unsubJMio(); chk.unsubJMio = null; }
     if(chk.unsubJEquipo){ chk.unsubJEquipo(); chk.unsubJEquipo = null; }
+    if(chk.unsubRes){ chk.unsubRes(); chk.unsubRes = null; }
   }
   function chkDeJust(d){ const x = d.data(); return {username:x.username, fecha:x.fecha, tipo:x.tipo, nota:x.nota||'', por:x.justificadoPor||''}; }
   function chkDeDoc(d){
@@ -5245,8 +5265,22 @@ auth.onAuthStateChanged(async function(user){
     chk.unsubEquipo = ()=>subs.forEach(f=>f());
     chk.unsubJEquipo = null;
   }
-  function chkReg(u, f){ return u===chk.username ? (chk.regs[f]||null) : (chk.equipoRegs[u+'_'+f]||null); }
-  function chkJust(u, f){ return u===chk.username ? (chk.justsMias[f]||null) : (chk.justsEquipo[u+'_'+f]||null); }
+  function chkReg(u, f){ return u===chk.username ? (chk.regs[f]||null) : (chk.equipoRegs[u+'_'+f]||chk.resRegs[u+'_'+f]||null); }
+  function chkJust(u, f){ return u===chk.username ? (chk.justsMias[f]||null) : (chk.justsEquipo[u+'_'+f]||chk.resJusts[u+'_'+f]||null); }
+  // Consulta propia del Resumen (semana o mes completo) — solo la usa quien lee todo (Mauricio).
+  function chkSuscribirResumen(desde, hasta){
+    const key = desde+'|'+hasta;
+    if(chk.resKey===key && chk.unsubRes) return;
+    if(chk.unsubRes) chk.unsubRes();
+    chk.resKey = key; chk.resRegs = {}; chk.resJusts = {};
+    const u1 = db.collection('checador_registros').where('fecha','>=',desde).where('fecha','<=',hasta).onSnapshot(snap=>{
+      const o = {}; snap.forEach(d=>{ const r = chkDeDoc(d); o[r.username+'_'+r.fecha] = r; }); chk.resRegs = o; chkRepintar();
+    }, err=>console.error('Checador: resumen', err));
+    const u2 = db.collection('checador_justificaciones').where('fecha','>=',desde).where('fecha','<=',hasta).onSnapshot(snap=>{
+      const o = {}; snap.forEach(d=>{ const j = chkDeJust(d); o[j.username+'_'+j.fecha] = j; }); chk.resJusts = o; chkRepintar();
+    }, err=>console.error('Checador: resumen justificaciones', err));
+    chk.unsubRes = ()=>{ u1(); u2(); };
+  }
   const chkPuedeJustificar = u => CHK_JEFE[u]===chk.username;
   const chkDur = m => m<60 ? m+' min' : Math.floor(m/60)+' h'+(m%60?' '+(m%60)+' min':'');
   // Estado de hoy para la vista Equipo. tipo: ok | tarde | pendiente | sinchecar | falta | just | descanso | guardia
@@ -5298,7 +5332,8 @@ auth.onAuthStateChanged(async function(user){
     if(!r || !r.entrada) return {h:0, comida:0, ext:0, abierto:false, alerta:''};
     const hoy = r.fecha===chkYmd(new Date());
     const fin = r.salida || (hoy ? chkHM(new Date()) : null);
-    if(!fin) return {h:0, comida:0, ext:0, abierto:false, alerta:'Sin salida registrada'};
+    // Sin salida y el día ya terminó (23:59:59): se consideran 8 h de trabajo, porque sí tiene entrada.
+    if(!fin) return {h:CHK_JORNADA_H, comida:0, ext:0, abierto:false, alerta:'', sinSalida:true};
     let bruto = chkMin(fin)-chkMin(r.entrada); if(bruto<0) bruto += 1440;
     let comida = 0;
     if(r.comidaInicio){
@@ -5313,9 +5348,9 @@ auth.onAuthStateChanged(async function(user){
     return {h, comida:comida/60, ext, abierto:!r.salida && hoy, alerta};
   }
   // Guardia después de la jornada: se inicia desde la hora de salida de su horario y dura como máximo hasta
-  // las 23:30. Si no marcan "Terminar guardia", se cierra sola a las 23:30 (las horas sí cuentan) y se marca
-  // "No checó salida de guardia".
-  const CHK_HORAS_SEMANA = 48, CHK_GUARDIA_FIN = '23:30';
+  // las 23:59:59 (29-sep-2026; antes 23:30). Si no marcan "Terminar guardia", se cierra sola a esa hora (las
+  // horas sí cuentan) y se marca "No checó salida de guardia".
+  const CHK_HORAS_SEMANA = 48, CHK_GUARDIA_FIN = '24:00', CHK_GUARDIA_FIN_TXT = '23:59:59';
   const chkHoraSalida = u => ((CHK_USUARIOS.find(x=>x.u===u)||{}).horario||['09:00','18:00'])[1];
   function chkGuardiaTurno(r){
     if(!r || !r.guardiaInicio) return {h:0, abierta:false, sinSalida:false};
@@ -5356,7 +5391,7 @@ auth.onAuthStateChanged(async function(user){
     const r = chkReg(u, chkYmd(new Date())), ra = chkReg(u, chkYmd(chkAdd(new Date(),-1)));
     if(r && r.guardiaInicio && !r.guardiaFin){
       const gt = chkGuardiaTurno(r);
-      return gt.sinSalida ? {txt:'No checó salida de guardia · cerrada a las '+CHK_GUARDIA_FIN, cls:'late'} : {txt:'En guardia desde '+r.guardiaInicio, cls:'guard'};
+      return gt.sinSalida ? {txt:'No checó salida de guardia · cerrada a las '+CHK_GUARDIA_FIN_TXT, cls:'late'} : {txt:'En guardia desde '+r.guardiaInicio, cls:'guard'};
     }
     if(r && r.guardiaFin) return {txt:'Salida '+r.salida+' · guardia '+chkH(chkGuardiaTurno(r).h)+' h', cls:''};
     if(!r || !r.entrada){ const j = chkJust(u, chkYmd(new Date())); return j ? {txt:'Justificado: '+CHK_JUST_TIPOS[j.tipo], cls:'just'} : {txt:'Sin registro hoy', cls:''}; }
@@ -5530,13 +5565,17 @@ auth.onAuthStateChanged(async function(user){
   function chkHtmlApp(){
     const sup = chkEsSup();
     if(chk.vista==='equipo' && !sup) chk.vista = 'mio';
+    if(chk.vista==='resumen' && chk.username!=='mgiron') chk.vista = 'mio';
     if(carruselActivo && sup){ chk.vista = 'equipo'; chk.equipoSemana = chkLunes(new Date()); chk.equipoDetalle = null; chk.justEdit = null; }
-    const cuerpo = chk.vista==='pago' ? chkHtmlPago() : chk.vista==='equipo' ? chkHtmlEquipo() : chkHtmlMio();
+    const cuerpo = chk.vista==='pago' ? chkHtmlPago() : chk.vista==='equipo' ? chkHtmlEquipo()
+      : chk.vista==='resumen' ? (()=>{ const areas = CHK_AREAS_VISIBLES[chk.username]||['soporte']; return chkHtmlResumen(areas, CHK_USUARIOS.filter(x=>areas.includes(chkArea(x.u)))); })()
+      : chkHtmlMio();
     return `<div class="chk">
       <div class="chk-head">
         <div class="chk-headacts">
           <div class="chk-subtabs">
             ${sup?`<button data-chkv="equipo" class="${chk.vista==='equipo'?'on':''}">Equipo</button>`:''}
+            ${chk.username==='mgiron'?`<button data-chkv="resumen" class="${chk.vista==='resumen'?'on':''}">Resumen</button>`:''}
             <button data-chkv="mio" class="${chk.vista==='mio'?'on':''}">Mi registro</button>
             <button data-chkv="pago" class="${chk.vista==='pago'?'on':''}">Operaciones</button>
           </div>
@@ -5562,11 +5601,11 @@ auth.onAuthStateChanged(async function(user){
       const hSal = chkHoraSalida(chk.username), ahora = chkHM(new Date()), gt = chkGuardiaTurno(r);
       const nota = t => `<div class="chk-sub" style="font-size:12px;text-align:center">${t}</div>`;
       if(!r.guardiaInicio){
-        if(ahora >= CHK_GUARDIA_FIN) acts = `<button class="chk-btn" disabled>Jornada cerrada</button>`+nota('El horario de guardia terminó ('+CHK_GUARDIA_FIN+')');
+        if(ahora >= CHK_GUARDIA_FIN) acts = `<button class="chk-btn" disabled>Jornada cerrada</button>`+nota('El horario de guardia terminó ('+CHK_GUARDIA_FIN_TXT+')');
         else if(ahora < hSal) acts = `<button class="chk-btn guard" disabled>Iniciar guardia</button>`+nota('Jornada cerrada · la guardia se puede iniciar desde las '+hSal);
-        else acts = `<button class="chk-btn guard" data-chkc="guardiaInicio" ${dis}>Iniciar guardia</button>`+nota('Jornada cerrada · guardia de '+hSal+' a '+CHK_GUARDIA_FIN+' como máximo');
+        else acts = `<button class="chk-btn guard" data-chkc="guardiaInicio" ${dis}>Iniciar guardia</button>`+nota('Jornada cerrada · guardia de '+hSal+' a '+CHK_GUARDIA_FIN_TXT+' como máximo');
       }
-      else if(!r.guardiaFin && !gt.sinSalida) acts = `<button class="chk-btn guard" data-chkc="guardiaFin" ${dis}>Terminar guardia</button>`+nota('Si no la terminas, se cierra sola a las '+CHK_GUARDIA_FIN);
+      else if(!r.guardiaFin && !gt.sinSalida) acts = `<button class="chk-btn guard" data-chkc="guardiaFin" ${dis}>Terminar guardia</button>`+nota('Si no la terminas, se cierra sola a las '+CHK_GUARDIA_FIN_TXT);
       else acts = `<button class="chk-btn" disabled>Jornada y guardia cerradas</button>`+(gt.sinSalida ? `<div class="chk-alert" style="text-align:center">No checó salida de guardia</div>` : '');
     }
     else if(r.comidaInicio && !r.comidaFin) acts = `<button class="chk-btn meal" data-chkc="comidaFin" ${dis}>Fin de comida</button>`;
@@ -5596,7 +5635,7 @@ auth.onAuthStateChanged(async function(user){
           <div class="chk-clock" id="chkClock">${chkPad(d.getHours())}:${chkPad(d.getMinutes())}:${chkPad(d.getSeconds())}</div>
           <div style="margin-top:8px"><span class="chk-pill ${st.cls}">${st.txt}</span></div>
           <div class="chk-steps">${P.map(([k,l])=>`<span class="chk-step ${r&&r[k]?'done':''}">${l} ${r&&r[k]?r[k]:'--:--'}</span>`).join('')}${
-            gAyer ? `<span class="chk-step guard">Guardia (ayer) ${rAyer.guardiaInicio} – …</span>` : (r && r.guardiaInicio ? `<span class="chk-step guard">Guardia ${r.guardiaInicio} – ${r.guardiaFin || (chkGuardiaTurno(r).sinSalida ? CHK_GUARDIA_FIN+' (sin checar)' : '…')}</span>` : '')}</div>
+            gAyer ? `<span class="chk-step guard">Guardia (ayer) ${rAyer.guardiaInicio} – …</span>` : (r && r.guardiaInicio ? `<span class="chk-step guard">Guardia ${r.guardiaInicio} – ${r.guardiaFin || (chkGuardiaTurno(r).sinSalida ? CHK_GUARDIA_FIN_TXT+' (sin checar)' : '…')}</span>` : '')}</div>
           ${banner?`<div class="chk-guard">${banner}</div>`:''}
         </div>
         <div class="chk-quien"><div class="chk-lbl">Nombre</div><div class="chk-dato">${chkNombre(chk.username)}</div><div class="chk-sub">${chk.username} · Soporte IT${chkEsSup()?' · Supervisor':''}</div></div>
@@ -5620,7 +5659,7 @@ auth.onAuthStateChanged(async function(user){
       const cls = (f===hoyF?'chk-today ':'')+(finde?'chk-wkd':'');
       const lab = CHK_DIAS[d.getDay()]+' '+d.getDate();
       if(!r || !r.entrada){
-        const j = !finde ? chkJust(u, f) : null, puede = !finde && chkPuedeJustificar(u), key = u+'|'+f;
+        const j = !finde ? chkJust(u, f) : null, puede = !finde && f >= chkAlta(u) && chkPuedeJustificar(u), key = u+'|'+f;
         if(puede && chk.justEdit===key){
           rows += `<tr class="${cls}"><td>${lab}</td><td colspan="9"><div class="chk-justform">
             <select id="chkJustTipo">${Object.entries(CHK_JUST_TIPOS).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select>
@@ -5631,7 +5670,7 @@ auth.onAuthStateChanged(async function(user){
         }
         let txt;
         if(j) txt = `<span class="chk-tag just">${CHK_JUST_TIPOS[j.tipo]||j.tipo}</span> ${j.nota?escEsv(j.nota)+' · ':''}<span class="chk-muted">justificó ${chkNombre(j.por)}</span>`;
-        else txt = `<span class="chk-muted">${d>new Date() ? '' : finde ? (suya?'Guardia sin registro':'Guardia de '+chkGuardiaTxt(g)) : 'Sin registro'}</span>`;
+        else txt = `<span class="chk-muted">${(d>new Date() || f < chkAlta(u)) ? '' : finde ? (suya?'Guardia sin registro':'Guardia de '+chkGuardiaTxt(g)) : 'Sin registro'}</span>`;
         const btns = puede ? (j ? `<button class="chk-btn alt chk-mini" data-chkj="${key}">Editar</button><button class="chk-btn alt chk-mini" data-chkjq="${key}">Quitar</button>`
                                 : `<button class="chk-btn alt chk-mini" data-chkj="${key}">Justificar</button>`) : '';
         rows += `<tr class="${cls}"><td>${lab}</td><td colspan="9"><div class="chk-justrow"><div>${txt}</div><div class="chk-justbtns">${btns}</div></div></td></tr>`; continue;
@@ -5640,7 +5679,7 @@ auth.onAuthStateChanged(async function(user){
       T.h += c.h; T.c += c.comida; T.g = (T.g||0) + gt.h; if(i<6) T.e += c.ext; if(c.alerta) alertas.push(lab+': '+c.alerta); if(gt.alerta) alertas.push(lab+': '+gt.alerta);
       const v = x => x || '<span class="chk-muted">·</span>';
       rows += `<tr class="${cls}"><td>${lab}</td><td>${r.entrada}</td><td>${v(r.comidaInicio)}</td><td>${v(r.comidaFin)}</td>
-        <td>${r.salida || (c.abierto?'<i class="chk-muted">en curso</i>':'<span class="chk-alert">sin salida</span>')}</td>
+        <td>${r.salida || (c.abierto?'<i class="chk-muted">en curso</i>':'<span class="chk-alert">No checó salida · se consideran '+CHK_JORNADA_H+' h</span>')}</td>
         <td class="n">${c.comida?Math.round(c.comida*60)+' min':''}</td><td class="n"><b>${chkH(c.h)}</b></td><td class="n"></td>
         <td class="n">${gt.h ? `<span class="chk-tag" title="${r.guardiaInicio} – ${r.guardiaFin||'en curso'}">${chkH(gt.h)} h${gt.abierta?' …':''}</span>${gt.sinSalida?'<div class="chk-alert">No checó salida de guardia</div>':''}` : ''}</td>
         <td>${finde?'<span class="chk-tag">Guardia</span>':''}${c.alerta?' <span class="chk-alert">⚠ '+c.alerta+'</span>':''}</td></tr>`;
@@ -5660,7 +5699,7 @@ auth.onAuthStateChanged(async function(user){
       </table></div>
       ${alertas.length?'<div class="chk-foot chk-alert">⚠ '+alertas.join(' · ')+'</div>':''}
       <div class="chk-semana-meta">Semana (lunes a sábado): jornada <b>${chkH(SW.jornada)} h</b> + guardia <b>${chkH(SW.guardia)} h</b> = <b>${chkH(SW.h)} h</b> de ${CHK_HORAS_SEMANA} h · ${SW.ext ? `<span class="chk-alert" style="font-size:inherit">tiempo extra ${chkH(SW.ext)} h</span>` : 'faltan '+chkH(SW.falta)+' h'}${SW.dom ? ' · domingo '+chkH(SW.dom)+' h (se paga aparte)' : ''}</div>
-      <div class="chk-foot">Horas = (salida − entrada) − comida · Guardia = de su hora de salida a las ${CHK_GUARDIA_FIN} como máximo · La guardia completa las ${CHK_HORAS_SEMANA} h de la semana; desde ${CHK_HORAS_SEMANA}:01 h es tiempo extra · extra = lo que pase de ${CHK_JORNADA_H} h en el día · sábado y domingo = guardia (1 persona por semana, según la pestaña Guardias).</div>`;
+      <div class="chk-foot">Horas = (salida − entrada) − comida · Guardia = de su hora de salida a las ${CHK_GUARDIA_FIN_TXT} como máximo · Sin salida checada = ${CHK_JORNADA_H} h de trabajo (si tiene entrada) · La guardia completa las ${CHK_HORAS_SEMANA} h de la semana; desde ${CHK_HORAS_SEMANA}:01 h es tiempo extra · extra = lo que pase de ${CHK_JORNADA_H} h en el día · sábado y domingo = guardia (1 persona por semana, según la pestaña Guardias).</div>`;
   }
   function chkHtmlPago(){
     const sal = chk.salario, M = chkSemanasDelMes(chk.pagoMes);
@@ -5773,7 +5812,103 @@ auth.onAuthStateChanged(async function(user){
         ${hayDatos?'':'<div class="chk-muted" style="text-align:center;padding:18px">Todavía no hay registros en esta semana.</div>'}
         ${chk.username!=='mgiron' ? `<div class="chk-foot">Da clic en un colaborador para ver su detalle de la semana y justificar los días que no checó (vacaciones, salud o personal).</div>` : ''}
       </div>
-      ${chk.equipoDetalle ? `<div class="panel">${chkHtmlSemana(chk.equipoDetalle, lun, false)}</div>` : ''}`;
+      ${chk.equipoDetalle ? `<div class="panel">${chkHtmlSemana(chk.equipoDetalle, lun, false)}</div>` : ''}
+`;
+  }
+  // Resumen (29-sep-2026, solo Mauricio): pestaña propia del Checador con filtro Semana | Mes y todo
+  // Soporte IT y Mesa de Control.
+  function chkHtmlResumen(areas, visibles){
+    const hoy = new Date(), hoyF = chkYmd(hoy), modo = chk.resModo;
+    if(!chk.resSemana) chk.resSemana = chkLunes(hoy);
+    if(!chk.resMes) chk.resMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    let titulo, puedeAvanzar, cuerpo;
+    const seccion = (a, n, cols) => `<tr class="chk-seccion"><td colspan="${cols}">${CHK_AREAS[a]} <span>· ${n} ${n===1?'persona':'personas'}</span></td></tr>`;
+    // Conteo de un rango de días: días trabajados, retardos, faltas y justificados (faltas solo lun-vie ya pasados)
+    const conteo = (u, desde, hasta)=>{
+      const t = {dias:0, ret:0, fal:0, jus:0};
+      for(let d = new Date(desde); d<=hasta; d = chkAdd(d,1)){
+        const f = chkYmd(d), r = chkReg(u, f), w = d.getDay();
+        if(f < chkAlta(u)) continue;
+        if(r && r.entrada){ t.dias++; if(chkRetardo(u, r)) t.ret++; }
+        else if(w>=1 && w<=5 && f<hoyF){ if(chkJust(u, f)) t.jus++; else t.fal++; }
+      }
+      return t;
+    };
+    const marcas = t => [t.ret?`<span class="chk-rs-tarde" title="Retardos">R${t.ret}</span>`:'', t.fal?`<span class="chk-rs-falta" title="Faltas">F${t.fal}</span>`:'', t.jus?`<span class="chk-rs-just" title="Justificados">J${t.jus}</span>`:''].filter(Boolean).join(' ');
+    if(modo==='semana'){
+      const lun = chk.resSemana, dom = chkAdd(lun,6), dias = [0,1,2,3,4,5,6].map(i=>chkAdd(lun,i)), ahora = chkHM(hoy);
+      chkSuscribirResumen(chkYmd(lun), chkYmd(dom));
+      titulo = `Semana ${chkFecha(lun)} – ${chkFecha(dom)} ${dom.getFullYear()}`; puedeAvanzar = chkYmd(lun) < chkYmd(chkLunes(hoy));
+      const celda = (u, d, i)=>{
+        const f = chkYmd(d), r = chkReg(u, f), futuro = f > hoyF, finde = i>=5, x = CHK_USUARIOS.find(y=>y.u===u), cls = f===hoyF?'hoy':'';
+        if(f < chkAlta(u) && !(r && r.entrada)) return `<td class="chk-rs-d chk-muted ${cls}" title="Antes de empezar a usar el Checador">·</td>`;
+        if(r && r.entrada){
+          const c = chkCalc(r), gt = chkGuardiaTurno(r), tarde = chkRetardo(u, r);
+          const sal = r.salida ? r.salida : (c.abierto ? '…' : '<span class="chk-rs-warn">s/salida</span>');
+          return `<td class="chk-rs-d ${cls}"><div class="chk-rs-hora"><span class="${tarde?'chk-rs-tarde':''}" title="${tarde?chkDur(tarde)+' tarde':''}">${r.entrada}</span> – ${sal}</div>
+            <div class="chk-rs-h"><b>${chkH(c.h)} h</b>${c.sinSalida?' <span class="chk-rs-warn">(8 h)</span>':''}${gt.h?` <span class="chk-tag" title="Guardia ${r.guardiaInicio} – ${r.guardiaFin||(gt.sinSalida?'sin checar':'en curso')}">G ${chkH(gt.h)}</span>`:''}${finde?' <span class="chk-tag">Guardia</span>':''}</div></td>`;
+        }
+        const j = !finde ? chkJust(u, f) : null;
+        if(j) return `<td class="chk-rs-d ${cls}"><span class="chk-tag just">${CHK_JUST_TIPOS[j.tipo]||j.tipo}</span></td>`;
+        if(futuro || finde) return `<td class="chk-rs-d chk-muted ${cls}">${finde && !futuro ? 'Descanso' : ''}</td>`;
+        if(f===hoyF && x && ahora < x.horario[0]) return `<td class="chk-rs-d hoy chk-muted">Entra ${x.horario[0]}</td>`;
+        if(f===hoyF && x && ahora < x.horario[1]) return `<td class="chk-rs-d hoy"><span class="chk-rs-tarde">No ha checado</span></td>`;
+        return `<td class="chk-rs-d ${cls}"><span class="chk-pill falta" style="font-size:11px;padding:2px 8px">Falta</span></td>`;
+      };
+      const fila = x=>{
+        const S = chkSemanaHoras(x.u, lun), t = conteo(x.u, lun, dom);
+        return `<tr><td class="chk-rs-nom">${x.nombre}<div class="chk-muted" style="font-size:11px;font-weight:400">${chkHorario(x.u)}</div></td>
+          ${dias.map((d,i)=>celda(x.u, d, i)).join('')}
+          <td class="n chk-rs-tot"><b>${chkH(S.h)}</b><span class="chk-muted" style="font-size:11px"> / ${CHK_HORAS_SEMANA}</span></td>
+          <td class="n chk-rs-tot" ${S.ext?'style="color:var(--crit);font-weight:700"':''}>${chkH(S.ext)}</td>
+          <td class="n chk-rs-tot">${S.guardia?chkH(S.guardia):'—'}</td>
+          <td class="n chk-rs-tot" ${t.ret?'style="color:var(--crit);font-weight:700"':''}>${t.ret||'—'}</td>
+          <td class="n chk-rs-tot" ${t.fal?'style="color:var(--crit);font-weight:700"':''}>${t.fal||'—'}</td></tr>`;
+      };
+      cuerpo = `<table><thead><tr><th>Colaborador</th>${dias.map(d=>`<th class="chk-rs-d ${chkYmd(d)===hoyF?'hoy':''}">${CHK_DIAS[d.getDay()]} ${d.getDate()}</th>`).join('')}
+          <th class="n">Horas</th><th class="n">Extra</th><th class="n">Guardia</th><th class="n">Retardos</th><th class="n">Faltas</th></tr></thead>
+        <tbody>${areas.map(a=>{ const us = visibles.filter(x=>chkArea(x.u)===a); return seccion(a, us.length, 13)+us.map(fila).join(''); }).join('')}</tbody></table>`;
+    } else {
+      const M = chkSemanasDelMes(chk.resMes), sems = M.semanas;
+      chkSuscribirResumen(chkYmd(sems[0].lun), chkYmd(chkAdd(sems[sems.length-1].lun,6)));
+      titulo = `${MESES12[M.ini.getMonth()]} ${M.ini.getFullYear()}`; puedeAvanzar = M.ini < new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      const fila = x=>{
+        const T = {dias:0, h:0, ext:0, g:0, ret:0, fal:0, jus:0};
+        const celdas = sems.map(w=>{
+          if(chkYmd(w.desde) > hoyF) return `<td class="chk-rs-d chk-muted"></td>`;
+          if(chkYmd(w.hasta) < chkAlta(x.u)) return `<td class="chk-rs-d chk-muted" title="Antes de empezar a usar el Checador">·</td>`;
+          const t = conteo(x.u, w.desde, w.hasta), dom = chkAdd(w.lun,6), aqui = dom>=M.ini && dom<=M.fin, S = chkSemanaHoras(x.u, w.lun);
+          T.dias += t.dias; T.ret += t.ret; T.fal += t.fal; T.jus += t.jus;
+          if(aqui){ T.h += S.h; T.ext += S.ext; T.g += S.guardia; }
+          const horas = aqui ? `<b>${chkH(S.h)}</b><span class="chk-muted" style="font-size:11px"> / ${CHK_HORAS_SEMANA}</span>${S.ext?` <span class="chk-rs-tarde">+${chkH(S.ext)}</span>`:''}`
+                             : `<span class="chk-muted" title="Horas y extras de esta semana se cuentan en ${MESES12[dom.getMonth()].toLowerCase()}">en ${MESES12[dom.getMonth()].toLowerCase()}</span>`;
+          return `<td class="chk-rs-d chk-click" data-chkrsw="${chkYmd(w.lun)}" title="Ver la semana"><div>${horas}</div><div class="chk-rs-h">${marcas(t)||'<span class="chk-muted">—</span>'}</div></td>`;
+        }).join('');
+        return `<tr><td class="chk-rs-nom">${x.nombre}<div class="chk-muted" style="font-size:11px;font-weight:400">${chkHorario(x.u)}</div></td>${celdas}
+          <td class="n chk-rs-tot">${T.dias}</td>
+          <td class="n chk-rs-tot"><b>${chkH(T.h)}</b></td>
+          <td class="n chk-rs-tot" ${T.ext?'style="color:var(--crit);font-weight:700"':''}>${chkH(T.ext)}</td>
+          <td class="n chk-rs-tot">${T.g?chkH(T.g):'—'}</td>
+          <td class="n chk-rs-tot" ${T.ret?'style="color:var(--crit);font-weight:700"':''}>${T.ret||'—'}</td>
+          <td class="n chk-rs-tot" ${T.fal?'style="color:var(--crit);font-weight:700"':''}>${T.fal||'—'}</td>
+          <td class="n chk-rs-tot">${T.jus||'—'}</td></tr>`;
+      };
+      const cols = sems.length + 8;
+      cuerpo = `<table><thead><tr><th>Colaborador</th>${sems.map(w=>`<th class="chk-rs-d">S${w.n}<div class="chk-muted" style="font-size:10.5px;font-weight:500;text-transform:none">${chkFecha(w.desde)} – ${chkFecha(w.hasta)}</div></th>`).join('')}
+          <th class="n">Días trab.</th><th class="n">Horas</th><th class="n">Extra</th><th class="n">Guardia</th><th class="n">Retardos</th><th class="n">Faltas</th><th class="n">Justif.</th></tr></thead>
+        <tbody>${areas.map(a=>{ const us = visibles.filter(x=>chkArea(x.u)===a); return seccion(a, us.length, cols)+us.map(fila).join(''); }).join('')}</tbody></table>`;
+    }
+    return `<div class="panel chk-rs">
+      <div class="chk-rs-bar">
+        <div class="chk-h3">Resumen · Soporte IT y Mesa de Control</div>
+        <div class="chk-subtabs"><button data-chkrsm="semana" class="${modo==='semana'?'on':''}">Semana</button><button data-chkrsm="mes" class="${modo==='mes'?'on':''}">Mes</button></div>
+        <div class="chk-rs-nav"><button class="chk-btn alt" data-chkrsn="-1">‹</button><b>${titulo}</b><button class="chk-btn alt" data-chkrsn="1" ${puedeAvanzar?'':'disabled'}>›</button></div>
+      </div>
+      <div class="chk-tbl">${cuerpo}</div>
+      <div class="chk-foot">${modo==='semana'
+        ? 'Hora de entrada en <span class="chk-rs-tarde">rojo</span> = llegó después de su horario · "s/salida (8 h)" = no checó salida, se consideran 8 h · G = guardia después de la jornada · Horas = jornada + guardia de lunes a sábado contra la meta de '+CHK_HORAS_SEMANA+' h.'
+        : 'Cada columna es una semana (clic para verla día por día): horas contra la meta de '+CHK_HORAS_SEMANA+' h, <span class="chk-rs-tarde">+extra</span>, <span class="chk-rs-tarde">R</span> retardos, <span class="chk-rs-falta">F</span> faltas, <span class="chk-rs-just">J</span> justificados. Las semanas que cruzan de mes cuentan sus horas en el mes de su domingo.'}</div>
+    </div>`;
   }
   function chkBind(c){
     const q = (sel, fn) => c.querySelectorAll(sel).forEach(el=>el.onclick = ()=>fn(el));
@@ -5801,6 +5936,14 @@ auth.onAuthStateChanged(async function(user){
     });
     q('[data-chk="justGuardar"]', ()=>chkGuardarJust());
     q('[data-chk="justCancelar"]', ()=>{ chk.justEdit = null; chkRepintar(); });
+    q('[data-chkrsm]', el=>{ chk.resModo = el.dataset.chkrsm; chkRepintar(); });
+    q('[data-chkrsn]', el=>{
+      const n = Number(el.dataset.chkrsn);
+      if(chk.resModo==='semana') chk.resSemana = chkAdd(chk.resSemana, 7*n);
+      else chk.resMes = new Date(chk.resMes.getFullYear(), chk.resMes.getMonth()+n, 1);
+      chkRepintar();
+    });
+    q('[data-chkrsw]', el=>{ chk.resModo = 'semana'; chk.resSemana = new Date(el.dataset.chkrsw+'T00:00'); chkRepintar(); });
     q('[data-chku]', el=>{ chk.equipoDetalle = chk.equipoDetalle===el.dataset.chku ? null : el.dataset.chku; chkRepintar(); });
     // Enter en los campos de contraseña / salario.
     c.querySelectorAll('.chk input').forEach(inp=>inp.onkeydown = e=>{
