@@ -5224,6 +5224,7 @@ auth.onAuthStateChanged(async function(user){
   // viejos) y guardiaIni_N / guardiaFin_N.
   const CHK_MAX_TRAMOS = 10, CHK_MAX_GUARDIAS = 5;
   const CHK_GUARDIA_HABILITADA = false;   // 30-sep-2026: botón de guardia visible pero apagado
+  const CHK_GUARDIA_VISIBLE = false;      // 30-sep-2026: bloque de guardia oculto (no eliminado); true para volver a mostrarlo
   function chkDeDoc(d){
     const x = d.data({serverTimestamps:'estimate'});
     const t = ts => (ts && ts.toDate) ? chkHM(ts.toDate()) : null;
@@ -5663,7 +5664,8 @@ auth.onAuthStateChanged(async function(user){
     else if((r.gNuevas||0) >= CHK_MAX_GUARDIAS) bG = `<button class="chk-btn guard" disabled>Iniciar guardia</button>`+nota('Máximo '+CHK_MAX_GUARDIAS+' guardias por día');
     else bG = `<button class="chk-btn guard" data-chkc="guardiaIni" ${dis}>Iniciar guardia</button>`+nota(gt.h ? 'Guardia de hoy: '+chkH(gt.h)+' h' : 'Hasta las '+CHK_GUARDIA_FIN_TXT+' como máximo');
     if(gt.sinSalida) bG += `<div class="chk-alert">No checó salida de guardia</div>`;
-    const acts = bloque('Jornada laboral', bJ) + bloque('Comida', bC) + bloque('Guardia', bG);
+    // Oculto con CHK_GUARDIA_VISIBLE; si alguien tiene una guardia abierta se sigue mostrando para que pueda terminarla
+    const acts = bloque('Jornada laboral', bJ) + bloque('Comida', bC) + (CHK_GUARDIA_VISIBLE || gt.abierta ? bloque('Guardia', bG) : '');
     let banner = '';
     if(info.finde && info.mesa){
       banner = 'Fin de semana: si hoy te toca guardia de Mesa de Control, registra tu entrada. Tus horas cuentan como guardia.';
