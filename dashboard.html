@@ -193,7 +193,7 @@ header.topbar{
   background:var(--signal-soft);
   color:var(--signal-dark);
 }
-.role-tag.admin{background:#FDEBD8;color:#A6560F;}
+.role-tag.admin{background:var(--role-admin-bg);color:var(--role-admin-ink);}
 
 main{flex:1;padding:20px 32px;width:100%;}
 
@@ -222,6 +222,12 @@ main{flex:1;padding:20px 32px;width:100%;}
     --badge-crit-bg:#FDECEC; --badge-warn-bg:#FFF3D6; --badge-med-bg:#FFF9DB; --badge-good-bg:#E7F7EC;
     --uploadbar-bg:#FAFAFB; --menu-bg:#FFFFFF; --field-bg:#FAFBFB; --ghost-hover-bg:#F0F2F1;
     --guardia-actual-bg:#F0FDFA; --guardia-proxima-bg:#F8FAFC;
+    /* Modo oscuro, 2a. vuelta (30-sep-2026): colores que seguían en hex fijo. En claro valen lo mismo que antes. */
+    --card-bg:#FFFFFF; --row-alt-bg:#FAFAFB; --locked-bg:#F4F5F7; --proy-bg:#FBFBFC; --track-bg:#EEF1F1;
+    --hover-tm-bg:#F0F7FB;
+    --note-green-bg:#E6F5EC; --note-green-ink:#14532D; --note-red-bg:#FBE9E4; --note-red-ink:#7A1F1F;
+    --note-blue-bg:#E3F1F2; --note-blue-ink:#0A4A54; --role-admin-bg:#FDEBD8; --role-admin-ink:#A6560F;
+    --nota-anio-a-bg:#EDE7F6; --nota-anio-b-bg:#F3E5F5;
     /* Paleta categórica validada (skill dataviz) — usada en el ranking de ingenieros de Tickets
        Soporte; --sprime es el tono neutro para la fila "Soporte Prime" (no es una persona). */
     --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
@@ -244,6 +250,11 @@ main{flex:1;padding:20px 32px;width:100%;}
     --badge-crit-bg:rgba(239,83,80,.18); --badge-warn-bg:rgba(224,168,0,.18); --badge-med-bg:rgba(224,168,0,.14); --badge-good-bg:rgba(46,204,113,.16);
     --uploadbar-bg:#181C20; --menu-bg:#1C2126; --field-bg:#12161A; --ghost-hover-bg:#20262B;
     --guardia-actual-bg:rgba(13,148,136,.20); --guardia-proxima-bg:rgba(148,163,184,.14);
+    --card-bg:var(--panel); --row-alt-bg:#171B1F; --locked-bg:#242A30; --proy-bg:#12161A; --track-bg:#242A30;
+    --hover-tm-bg:rgba(62,198,240,.12);
+    --note-green-bg:rgba(46,204,113,.14); --note-green-ink:#86E3AE; --note-red-bg:rgba(242,112,74,.14); --note-red-ink:#F5A58C;
+    --note-blue-bg:rgba(34,184,207,.14); --note-blue-ink:#7FD8E6; --role-admin-bg:rgba(242,112,74,.18); --role-admin-ink:#F5A46E;
+    --nota-anio-a-bg:rgba(179,157,219,.16); --nota-anio-b-bg:rgba(206,147,216,.14);
     --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
     --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767; --sprime:#8B93A0;
     color-scheme:dark;
@@ -260,6 +271,11 @@ main{flex:1;padding:20px 32px;width:100%;}
       --badge-crit-bg:rgba(239,83,80,.18); --badge-warn-bg:rgba(224,168,0,.18); --badge-med-bg:rgba(224,168,0,.14); --badge-good-bg:rgba(46,204,113,.16);
       --uploadbar-bg:#181C20; --menu-bg:#1C2126; --field-bg:#12161A; --ghost-hover-bg:#20262B;
       --guardia-actual-bg:rgba(13,148,136,.20); --guardia-proxima-bg:rgba(148,163,184,.14);
+      --card-bg:var(--panel); --row-alt-bg:#171B1F; --locked-bg:#242A30; --proy-bg:#12161A; --track-bg:#242A30;
+      --hover-tm-bg:rgba(62,198,240,.12);
+      --note-green-bg:rgba(46,204,113,.14); --note-green-ink:#86E3AE; --note-red-bg:rgba(242,112,74,.14); --note-red-ink:#F5A58C;
+      --note-blue-bg:rgba(34,184,207,.14); --note-blue-ink:#7FD8E6; --role-admin-bg:rgba(242,112,74,.18); --role-admin-ink:#F5A46E;
+      --nota-anio-a-bg:rgba(179,157,219,.16); --nota-anio-b-bg:rgba(206,147,216,.14);
       --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
       --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767; --sprime:#8B93A0;
       color-scheme:dark;
@@ -528,20 +544,20 @@ main{flex:1;padding:20px 32px;width:100%;}
   .guardia-row .fecha{color:var(--ink); display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
   .guardia-row .fecha .tagmini{font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:20px; color:#fff;}
   .guardia-row .fecha .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
-  .guardia-toggle{display:block; width:100%; text-align:center; margin:6px 0 14px; padding:9px; border:1px dashed var(--line); border-radius:8px; background:#FAFAFB; color:var(--tm); font-size:12.5px; font-weight:700; cursor:pointer;}
-  .guardia-toggle:hover{background:#F0F7FB; border-color:var(--tm);}
+  .guardia-toggle{display:block; width:100%; text-align:center; margin:6px 0 14px; padding:9px; border:1px dashed var(--line); border-radius:8px; background:var(--row-alt-bg); color:var(--tm); font-size:12.5px; font-weight:700; cursor:pointer;}
+  .guardia-toggle:hover{background:var(--hover-tm-bg); border-color:var(--tm);}
 
   /* ===== Apartados nuevos (Envíos y Recolecciones / Resumen y detalle de Reemplazos) — agosto 2026 ===== */
   .note-row{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:8px;}
   @media (max-width:900px){ .note-row{grid-template-columns:1fr;} }
   .note{border-radius:10px; padding:12px 14px; font-size:12.5px; line-height:1.5;}
   .note b{display:block; font-size:12.5px; margin-bottom:4px;}
-  .note.green{background:#E6F5EC; color:#14532D;}
-  .note.red{background:#FBE9E4; color:#7A1F1F;}
-  .note.blue{background:#E3F1F2; color:#0A4A54;}
+  .note.green{background:var(--note-green-bg); color:var(--note-green-ink);}
+  .note.red{background:var(--note-red-bg); color:var(--note-red-ink);}
+  .note.blue{background:var(--note-blue-bg); color:var(--note-blue-ink);}
   .resumen3{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
   @media (max-width:900px){ .resumen3{grid-template-columns:1fr;} }
-  .rescard{border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff;}
+  .rescard{border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--card-bg);}
   .rescard .rhead{color:#fff; font-weight:700; font-size:14px; padding:10px 16px;}
   .rescard .rbig{font-size:30px; font-weight:800; padding:16px 16px 2px;}
   .rescard .rsub{font-size:11.5px; color:var(--sub); padding:0 16px 14px;}
@@ -602,6 +618,38 @@ main{flex:1;padding:20px 32px;width:100%;}
   .noc-modal-status{display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:4px 10px; border-radius:20px; margin-bottom:14px;}
   .noc-modal-status.caida{background:#FECACA; color:#DC2626;}
   .noc-modal-status.en-linea{background:#E6F5EC; color:#1E8E5A;}
+  .noc-hint{font-size:11px; color:#52514e;}
+  /* Estatus de Servicio en modo oscuro (30-sep-2026): estos fondos estaban en hex fijo (blanco / gris
+     claro / rojo claro) y con el texto claro del modo oscuro no se leían. Solo aplica en oscuro;
+     el modo claro queda igual. */
+  :root[data-theme="dark"] .noc-wrap, :root[data-theme="dark"] .noc-modal{background:var(--panel);}
+  :root[data-theme="dark"] .noc-stat, :root[data-theme="dark"] .noc-card{background:var(--surface-a);}
+  :root[data-theme="dark"] .noc-card:hover{border-color:var(--ink-soft);}
+  :root[data-theme="dark"] .noc-card.caida{background:rgba(239,83,80,.20); border-color:#EF5350;}
+  :root[data-theme="dark"] .noc-card.caida:hover{border-color:#FF8A80;}
+  :root[data-theme="dark"] .noc-card.en-linea .noc-estado{color:var(--ok);}
+  :root[data-theme="dark"] .noc-card.caida .noc-estado{color:#FF8A80;}
+  :root[data-theme="dark"] .noc-alert{background:var(--badge-crit-bg); border-color:#EF5350; color:#FF8A80;}
+  :root[data-theme="dark"] .noc-modal-status.caida{background:var(--badge-crit-bg); color:#FF8A80;}
+  :root[data-theme="dark"] .noc-modal-status.en-linea{background:var(--ok-soft); color:var(--ok);}
+  :root[data-theme="dark"] #caidas-root .noc-modal-close{background:var(--signal); color:#12161A;}
+  :root[data-theme="dark"] #caidas-root .noc-modal-close:hover{background:var(--signal-dark);}
+  :root[data-theme="dark"] .noc-hint{color:var(--sub);}
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]) .noc-wrap, :root:not([data-theme="light"]) .noc-modal{background:var(--panel);}
+    :root:not([data-theme="light"]) .noc-stat, :root:not([data-theme="light"]) .noc-card{background:var(--surface-a);}
+    :root:not([data-theme="light"]) .noc-card:hover{border-color:var(--ink-soft);}
+    :root:not([data-theme="light"]) .noc-card.caida{background:rgba(239,83,80,.20); border-color:#EF5350;}
+    :root:not([data-theme="light"]) .noc-card.caida:hover{border-color:#FF8A80;}
+    :root:not([data-theme="light"]) .noc-card.en-linea .noc-estado{color:var(--ok);}
+    :root:not([data-theme="light"]) .noc-card.caida .noc-estado{color:#FF8A80;}
+    :root:not([data-theme="light"]) .noc-alert{background:var(--badge-crit-bg); border-color:#EF5350; color:#FF8A80;}
+    :root:not([data-theme="light"]) .noc-modal-status.caida{background:var(--badge-crit-bg); color:#FF8A80;}
+    :root:not([data-theme="light"]) .noc-modal-status.en-linea{background:var(--ok-soft); color:var(--ok);}
+    :root:not([data-theme="light"]) #caidas-root .noc-modal-close{background:var(--signal); color:#12161A;}
+    :root:not([data-theme="light"]) #caidas-root .noc-modal-close:hover{background:var(--signal-dark);}
+    :root:not([data-theme="light"]) .noc-hint{color:var(--sub);}
+  }
 
   /* Mapa de HUBs de recolección (sept. 2026, reemplaza las tarjetas) — banderita por HUB, ondeando
      con una animación de skew sobre el triángulo de tela; el asta no se mueve. */
@@ -613,26 +661,26 @@ main{flex:1;padding:20px 32px;width:100%;}
   /* ===== Budget IT 2026 ===== */
   #tbl-budget-it{min-width:1710px; table-layout:fixed;}
   /* Proveedor / Categoría / Moneda / Presup. quedan fijas (sticky) al hacer scroll horizontal para llegar al mes que se necesita editar */
-  #tbl-budget-it .bi-prov{position:sticky; left:0; z-index:2; background:#fff; text-align:left; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  #tbl-budget-it .bi-cat{position:sticky; left:200px; z-index:2; background:#fff; text-align:left; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  #tbl-budget-it .bi-moneda{position:sticky; left:330px; z-index:2; background:#fff; text-align:center; color:var(--sub); font-weight:600;}
-  #tbl-budget-it .bi-presup{position:sticky; left:400px; z-index:2; background:#fff; border-right:2px solid var(--line);}
-  #tbl-budget-it thead th.bi-prov, #tbl-budget-it thead th.bi-cat, #tbl-budget-it thead th.bi-moneda, #tbl-budget-it thead th.bi-presup{background:#fff; z-index:3;}
-  #tbl-budget-it tr.bi-totales .bi-prov, #tbl-budget-it tr.bi-totales .bi-cat, #tbl-budget-it tr.bi-totales .bi-moneda, #tbl-budget-it tr.bi-totales .bi-presup{background:#FAFAFB;}
-  #tbl-budget-it td.bi-locked{background:#F4F5F7; color:var(--sub); position:relative;}
+  #tbl-budget-it .bi-prov{position:sticky; left:0; z-index:2; background:var(--card-bg); text-align:left; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #tbl-budget-it .bi-cat{position:sticky; left:200px; z-index:2; background:var(--card-bg); text-align:left; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #tbl-budget-it .bi-moneda{position:sticky; left:330px; z-index:2; background:var(--card-bg); text-align:center; color:var(--sub); font-weight:600;}
+  #tbl-budget-it .bi-presup{position:sticky; left:400px; z-index:2; background:var(--card-bg); border-right:2px solid var(--line);}
+  #tbl-budget-it thead th.bi-prov, #tbl-budget-it thead th.bi-cat, #tbl-budget-it thead th.bi-moneda, #tbl-budget-it thead th.bi-presup{background:var(--card-bg); z-index:3;}
+  #tbl-budget-it tr.bi-totales .bi-prov, #tbl-budget-it tr.bi-totales .bi-cat, #tbl-budget-it tr.bi-totales .bi-moneda, #tbl-budget-it tr.bi-totales .bi-presup{background:var(--row-alt-bg);}
+  #tbl-budget-it td.bi-locked{background:var(--locked-bg); color:var(--sub); position:relative;}
   #tbl-budget-it td.bi-locked::after{content:'🔒'; font-size:8px; position:absolute; top:1px; right:2px; opacity:.5;}
-  #tbl-budget-it input.bi-proyectado{color:var(--sub); font-style:italic; background:#FBFBFC;}
-  #tbl-budget-it tr.bi-totales td{font-weight:700; border-top:2px solid var(--ink); background:#FAFAFB;}
+  #tbl-budget-it input.bi-proyectado{color:var(--sub); font-style:italic; background:var(--proy-bg);}
+  #tbl-budget-it tr.bi-totales td{font-weight:700; border-top:2px solid var(--ink); background:var(--row-alt-bg);}
   #tbl-budget-it tr.bi-presupuesto td{color:var(--sub); font-style:italic;}
   #tbl-budget-it tr.bi-ahorro td.pos{color:var(--good); font-weight:700;}
   #tbl-budget-it tr.bi-ahorro td.neg{color:var(--crit); font-weight:700;}
   .bi-legend{display:flex; gap:16px; margin:10px 0 0; font-size:11.5px; color:var(--sub); flex-wrap:wrap;}
   .bi-legend span{display:inline-flex; align-items:center; gap:5px;}
   .bi-swatch{width:10px; height:10px; border-radius:3px; display:inline-block; border:1px solid var(--line);}
-  .bi-swatch.locked{background:#F4F5F7;}
-  .bi-swatch.real{background:#fff;}
-  .bi-swatch.proy{background:#FBFBFC; border-style:dashed;}
-  .bi-insight{display:flex; gap:9px; padding:10px 11px; border-radius:8px; background:#FAFAFB; border:1px solid var(--line); margin-bottom:9px; border-left:3px solid var(--line);}
+  .bi-swatch.locked{background:var(--locked-bg);}
+  .bi-swatch.real{background:var(--card-bg);}
+  .bi-swatch.proy{background:var(--proy-bg); border-style:dashed;}
+  .bi-insight{display:flex; gap:9px; padding:10px 11px; border-radius:8px; background:var(--row-alt-bg); border:1px solid var(--line); margin-bottom:9px; border-left:3px solid var(--line);}
   .bi-insight.mejora{border-left-color:var(--med);}
   .bi-insight.riesgo{border-left-color:var(--crit);}
   .bi-insight.oportunidad{border-left-color:var(--good);}
@@ -641,7 +689,7 @@ main{flex:1;padding:20px 32px;width:100%;}
 
   /* Barra de progreso "presupuesto anual vs. proyección" (bullet bar) */
   .bi-bullet-wrap{padding:10px 2px 0;}
-  .bi-bullet-track{position:relative; height:34px; border-radius:8px; background:#EEF1F1; border:1px solid var(--line); overflow:hidden;}
+  .bi-bullet-track{position:relative; height:34px; border-radius:8px; background:var(--track-bg); border:1px solid var(--line); overflow:hidden;}
   .bi-bullet-seg{position:absolute; top:0; left:0; height:100%;}
   .bi-bullet-real{background:#0C8599; z-index:2;}
   .bi-bullet-proj{background:repeating-linear-gradient(135deg, #0C8599 0 5px, #cfe9ec 5px 10px); opacity:.75; border-right:2px solid #0A6B79; z-index:1;}
@@ -651,9 +699,9 @@ main{flex:1;padding:20px 32px;width:100%;}
   .bi-sw{width:12px; height:12px; border-radius:3px; display:inline-block;}
   .bi-sw.real{background:#0C8599;}
   .bi-sw.proj{background:repeating-linear-gradient(135deg, #0C8599 0 2px, #cfe9ec 2px 4px); border:1px solid #0A6B79;}
-  .bi-sw.gap{background:#fff; border:1.5px dashed var(--sub);}
-  .bi-bullet-callout{margin-top:12px; background:#E7F7EC; border-radius:8px; padding:9px 12px; font-size:12.5px; color:var(--good); font-weight:600;}
-  .bi-bullet-callout.warn{background:#FDECEC; color:var(--crit);}
+  .bi-sw.gap{background:var(--card-bg); border:1.5px dashed var(--sub);}
+  .bi-bullet-callout{margin-top:12px; background:var(--badge-good-bg); border-radius:8px; padding:9px 12px; font-size:12.5px; color:var(--good); font-weight:600;}
+  .bi-bullet-callout.warn{background:var(--badge-crit-bg); color:var(--crit);}
 </style>
 </head>
 <body>
@@ -686,7 +734,7 @@ main{flex:1;padding:20px 32px;width:100%;}
         <input type="text" id="reset-user" placeholder="El mismo usuario con el que entras">
       </div>
       <div id="reset-msg" style="font-size:12.5px; margin-bottom:8px; display:none;"></div>
-      <button type="button" id="btn-reset-pass" style="width:100%; padding:9px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:13px;">Enviar correo para restablecer</button>
+      <button type="button" id="btn-reset-pass" style="width:100%; padding:9px; border-radius:8px; border:1px solid var(--line); background:var(--card-bg); cursor:pointer; font-size:13px;">Enviar correo para restablecer</button>
       <p style="text-align:center; margin-top:8px;"><a href="#" id="link-cancelar-reset" style="font-size:12px; color:var(--ink-soft); text-decoration:none;">Cancelar</a></p>
     </div>
 
@@ -2458,7 +2506,7 @@ auth.onAuthStateChanged(async function(user){
             <span><span class="noc-dot on"></span> En línea</span>
             <span><span class="noc-dot off"></span> Caída</span>
           </div>
-          <div style="font-size:11px; color:#52514e;">Clic en una tienda para ver el detalle</div>
+          <div class="noc-hint">Clic en una tienda para ver el detalle</div>
           <button id="btnModoPantalla" style="${carruselActivo ? 'background:var(--tp); color:#fff; border-color:var(--tp);' : ''}">${carruselActivo ? '● Modo pantalla activo' : 'Modo pantalla'}</button>
         </div>
 
@@ -3416,7 +3464,7 @@ auth.onAuthStateChanged(async function(user){
           </div>` : ''}
         </div>
       </div>
-      ${carruselActivo ? `<div style="position:fixed; bottom:14px; right:14px; z-index:30; display:flex; align-items:center; gap:8px; font-size:11px; color:var(--tp); font-weight:600; background:#fff; padding:6px 10px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.12); opacity:.55; transition:opacity .15s;" onmouseover="this.style.opacity=1;" onmouseout="this.style.opacity=.55;"><span style="width:6px;height:6px;border-radius:50%;background:var(--tp);display:inline-block;"></span>Modo pantalla · Esc o <button id="btnDetenerCarrusel" style="padding:2px 8px; font-size:10.5px;">Detener</button></div>` : ''}
+      ${carruselActivo ? `<div style="position:fixed; bottom:14px; right:14px; z-index:30; display:flex; align-items:center; gap:8px; font-size:11px; color:var(--tp); font-weight:600; background:var(--card-bg); padding:6px 10px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.12); opacity:.55; transition:opacity .15s;" onmouseover="this.style.opacity=1;" onmouseout="this.style.opacity=.55;"><span style="width:6px;height:6px;border-radius:50%;background:var(--tp);display:inline-block;"></span>Modo pantalla · Esc o <button id="btnDetenerCarrusel" style="padding:2px 8px; font-size:10.5px;">Detener</button></div>` : ''}
       <div id="tabContent"></div>
     `;
     const mainEl = document.querySelector('main');
@@ -6110,7 +6158,7 @@ auth.onAuthStateChanged(async function(user){
         ${notas.length ? `
         <div style="margin-top:14px; display:flex; flex-wrap:wrap; gap:8px;">
           ${notas.map((n,i)=>`
-            <div style="font-size:12px; padding:6px 10px; border-radius:8px; background:${n.anio===state.anio-1?'#EDE7F6':'#F3E5F5'}; border:1px solid ${n.anio===state.anio-1?(COLOR_2025[prov]||'#B39DDB'):CARD_COLOR[prov]}; display:flex; align-items:center; gap:6px;">
+            <div style="font-size:12px; padding:6px 10px; border-radius:8px; background:${n.anio===state.anio-1?'var(--nota-anio-a-bg)':'var(--nota-anio-b-bg)'}; border:1px solid ${n.anio===state.anio-1?(COLOR_2025[prov]||'#B39DDB'):CARD_COLOR[prov]}; display:flex; align-items:center; gap:6px;">
               🚩 <b>${n.mes} ${n.anio}:</b> ${n.nota}
               ${editing ? `<button data-yoy-nota-remove="${i}" style="padding:1px 6px; margin-left:4px;">✕</button>` : ''}
             </div>`).join('')}
@@ -6246,17 +6294,17 @@ auth.onAuthStateChanged(async function(user){
 
       let estado = null; // null = neutro (futuro, o pasado/hoy sin info suficiente)
       if(tieneDatos && caidas > 0){
-        estado = { borde:'#F3B8B8', fondo:'#FDECEC', texto:'var(--crit)', etiqueta:`${caidas} caída${caidas===1?'':'s'}` };
+        estado = { borde:'#F3B8B8', fondo:'var(--badge-crit-bg)', texto:'var(--crit)', etiqueta:`${caidas} caída${caidas===1?'':'s'}` };
       } else if(esHoy){
         estado = { borde:'#D9A700', fondo:'#FFF9DB', texto:'var(--med)', etiqueta:'Hoy · en espera' };
       } else if(!esFuturo){
-        estado = { borde:'#C6E9D3', fondo:'#E7F7EC', texto:'var(--good)', etiqueta:'Sin caídas' };
+        estado = { borde:'#C6E9D3', fondo:'var(--badge-good-bg)', texto:'var(--good)', etiqueta:'Sin caídas' };
       }
 
       const bordeCelda = seleccionado ? 'var(--tp)' : (estado ? estado.borde : 'var(--line)');
       const anchoBorde = seleccionado || esHoy ? '2px' : '1px';
-      celdas += `<div ${tieneDatos ? `data-dia-calendario="${d}" style="cursor:pointer;` : `style="`}border:${anchoBorde} solid ${bordeCelda}; border-radius:8px; padding:6px; min-height:${tieneDatos?'104px':'56px'}; background:${estado ? estado.fondo : '#fff'};">
-        <div style="width:20px; height:20px; border:1px solid ${estado ? estado.borde : 'var(--line)'}; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10.5px; color:var(--ink); background:#fff;">${d}</div>
+      celdas += `<div ${tieneDatos ? `data-dia-calendario="${d}" style="cursor:pointer;` : `style="`}border:${anchoBorde} solid ${bordeCelda}; border-radius:8px; padding:6px; min-height:${tieneDatos?'104px':'56px'}; background:${estado ? estado.fondo : 'var(--card-bg)'};">
+        <div style="width:20px; height:20px; border:1px solid ${estado ? estado.borde : 'var(--line)'}; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10.5px; color:var(--ink); background:var(--card-bg);">${d}</div>
         ${estado ? `<div style="margin-top:6px; text-align:left; font-size:11px; font-weight:700; color:${estado.texto};">${estado.etiqueta}</div>` : ''}
         ${tieneDatos
           ? `<div style="margin-top:5px; display:flex; flex-direction:column; gap:1px;">${desglose.map(x=>`<div style="display:flex; align-items:center; gap:4px; font-size:9.5px; color:var(--sub); line-height:1.5;"><span style="width:6px; height:6px; border-radius:50%; background:${CARD_COLOR[x.prov]||'#999'}; flex:none;"></span><span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${x.prov}</span><span style="margin-left:auto; color:var(--ink);">${x.n}</span></div>`).join('')}</div>`
@@ -6741,7 +6789,7 @@ auth.onAuthStateChanged(async function(user){
     const filas = Object.entries(porTienda);
     const puedeEditarW11 = canEditWin11();
     return `
-      <div style="background:var(--surface, #fff); border:1px solid var(--line); border-radius:12px; padding:16px 18px;">
+      <div style="background:var(--card-bg); border:1px solid var(--line); border-radius:12px; padding:16px 18px;">
         <div style="font-weight:700; font-size:14px; margin-bottom:2px;">Pendientes de migrar — ${esTotal ? 'Todas las regiones' : region}</div>
         ${filas.length ? `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse;">
           <thead><tr>
@@ -6751,7 +6799,7 @@ auth.onAuthStateChanged(async function(user){
             <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--line);">Observaciones</th>
           </tr></thead>
           <tbody>${filas.map(([pdv,c],i)=>`
-            <tr style="background:${i%2===0 ? '#fff' : '#FAFAFB'};">
+            <tr style="background:${i%2===0 ? 'var(--card-bg)' : 'var(--row-alt-bg)'};">
               <td style="padding:8px 10px; text-align:left; border-bottom:1px solid var(--line);">${pdv}</td>
               <td style="padding:8px 10px; text-align:center; border-bottom:1px solid var(--line);">${c.laptop||''}</td>
               <td style="padding:8px 10px; text-align:center; border-bottom:1px solid var(--line);">${c.desktop||''}</td>
@@ -8182,7 +8230,7 @@ auth.onAuthStateChanged(async function(user){
   // Semáforo de fondo (tenue) para medir cualquier monto real contra el presupuesto/mes de ese proveedor —
   // aplica a los 14 proveedores, tanto en los meses ya cerrados (Ene–Jun) como en cualquier mes de
   // Jul–Dic que ya tenga dato capturado. Mismos tonos que ya usa `.status-badge.estable/.critica`.
-  function bgPresupuesto(valor, presupuesto){ return valor<=presupuesto ? '#E7F7EC' : '#FDECEC'; }
+  function bgPresupuesto(valor, presupuesto){ return valor<=presupuesto ? 'var(--badge-good-bg)' : 'var(--badge-crit-bg)'; }
   function moneyIT(n){ return '$' + Math.round(n||0).toLocaleString('es-MX'); }
   // Para meses sin dato real (null) se muestra una proyección: promedio de los hasta 3 meses reales
   // más recientes anteriores a ese mes. No se guarda como dato real hasta que alguien lo edite.
@@ -8333,8 +8381,8 @@ auth.onAuthStateChanged(async function(user){
         </table></div>
         <div class="bi-legend">
           <span><span class="bi-swatch locked"></span> Con dato capturado (no editable — Ene–Jun cerrado, o Jul–Dic ya guardado)</span>
-          <span><span class="bi-swatch" style="background:#E7F7EC;"></span> Dentro de presupuesto</span>
-          <span><span class="bi-swatch" style="background:#FDECEC;"></span> Sobre presupuesto</span>
+          <span><span class="bi-swatch" style="background:var(--badge-good-bg);"></span> Dentro de presupuesto</span>
+          <span><span class="bi-swatch" style="background:var(--badge-crit-bg);"></span> Sobre presupuesto</span>
           <span>— Sin captura todavía (editable)</span>
         </div>
       </div>
