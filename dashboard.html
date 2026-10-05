@@ -1798,11 +1798,11 @@ auth.onAuthStateChanged(async function(user){
     {id:'guardias', label:'Guardias'}
   ];
   const TABS = [
-    {id:'redcorp', label:'REDCORP'},
     {id:'ticketsmc', label:'Tickets Mesa de control'},
     {id:'checador', label:'Checador'},
     {id:'inventario', label:'Adquisición de Equipo'},
     {id:'migracion_win11', label:'Migración Win11'},
+    {id:'redcorp', label:'RedCorp'},
     {id:'expansion', label:'Plan de expansión'},
     {id:'budget_it', label:'Budget IT 2026'},
     {id:'actualizaciones', label:'Actualizaciones'},
@@ -8909,7 +8909,7 @@ auth.onAuthStateChanged(async function(user){
 
   // ---------- REDCORP (oct. 2026): tráfico de internet Total Play / Telmex desde PRTG ----------
   // PRTG (SERVERRED, 172.16.8.18) está en la red interna: un script en ese servidor (redcorp-agente/)
-  // manda cada hora el día completo a la Cloud Function recibirTraficoRedcorp, que lo deja en
+  // manda cada 5 minutos el día completo a la Cloud Function recibirTraficoRedcorp, que lo deja en
   // redcorp_trafico/actual. Aquí solo se escucha ese documento (onSnapshot) y se dibuja. Cada punto es
   // [minuto del día, total, entrante, saliente] en Mbit/s. Visible para todos (pedido de amartinez).
   const REDCORP_COLECCION = 'redcorp_trafico';
@@ -8925,10 +8925,10 @@ auth.onAuthStateChanged(async function(user){
     if(redcorp.unsub) return;
     redcorp.unsub = db.collection(REDCORP_COLECCION).doc('actual').onSnapshot(snap => {
       redcorp = { ...redcorp, cargado:true, error:null, doc: snap.exists ? snap.data() : null };
-      if(tab === 'redcorp') renderTab();
+      if(tab === 'redcorp' && !refrescarRedcorpEnSitio()) renderTab(); // en vivo: actualiza en su lugar
     }, err => {
       console.error('No se pudo leer REDCORP', err);
-      redcorp = { ...redcorp, unsub:null, cargado:true, error:'No se pudo leer el tráfico de REDCORP. Recarga la página.' };
+      redcorp = { ...redcorp, unsub:null, cargado:true, error:'No se pudo leer el tráfico de RedCorp. Recarga la página.' };
       if(tab === 'redcorp') renderTab();
     });
   }
@@ -8985,65 +8985,179 @@ auth.onAuthStateChanged(async function(user){
     return t;
   }
 
+  // "En vivo" (oct. 2026, aprobado por amartinez con vista previa): indicador que parpadea, contador
+  // "actualizado hace…", la línea se dibuja de izquierda a derecha al entrar o cambiar de vista, el
+  // último punto pulsa, y cuando llega un envío nuevo (onSnapshot, cada 5 min) la gráfica se actualiza
+  // EN SU LUGAR (sin volver a pintar la pestaña) para que la línea avance. Botón "Día completo / Última hora".
+  let redcorpVista = 'dia';           // 'dia' | 'hora' (últimos 60 minutos)
+  const REDCORP_MIN_EN_VIVO = 15;     // con datos de hace más de esto ya no se muestra "En vivo"
+  let redcorpReloj = null, redcorpPulso = null, redcorpFase = 0;
+
+  function datosRedcorp(d){
+    const datos = {}, res = {};
+    REDCORP_CARRIERS.forEach(k => { try{ datos[k.id] = JSON.parse(d[k.id] || '[]'); }catch(e){ datos[k.id] = []; } });
+    REDCORP_CARRIERS.forEach(k => { res[k.id] = resumenRedcorp(datos[k.id]); });
+    return { datos, res };
+  }
+  function puntosVistaRedcorp(pts){
+    if(redcorpVista !== 'hora' || !pts.length) return pts;
+    const ultimo = pts[pts.length-1][0];
+    return pts.filter(p => p[0] >= ultimo - 60);
+  }
+  function kpisRedcorpHtml(k, r, n){
+    const kpi = (label, valor, lbl, color, id) => `<div class="card"><div class="head" style="background:${cardGrad(color)}">${label}</div><div class="body"><div class="big"${id ? ` id="${id}"` : ''} style="font-size:24px;">${valor}</div><div class="lbl">${lbl}</div></div></div>`;
+    return `${kpi('Último dato', rcMbit(r.ultimo[1]), `${rcHora(r.ultimo[0])} · ↓ ${rcMbit(r.ultimo[2])} · ↑ ${rcMbit(r.ultimo[3])}`, k.color, 'rcUlt_' + k.id)}
+      ${kpi('Máximo del día', rcMbit(r.max[1]), `a las ${rcHora(r.max[0])}`, k.color)}
+      ${kpi('Promedio horario laboral', r.promLaboral !== null ? rcMbit(r.promLaboral) : '—', '9:00 a 19:00', k.color)}
+      ${kpi('Promedio del día', rcMbit(r.prom), `${fmtMX(n)} mediciones desde las 00:00`, k.color)}`;
+  }
+  function textoHaceRedcorp(iso){
+    const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+    return min < 1 ? 'actualizado hace un momento' : min === 1 ? 'actualizado hace 1 min' : min < 60 ? `actualizado hace ${min} min` : `actualizado a las ${fmtHora(iso)}`;
+  }
+  function badgeVivoRedcorp(iso){
+    const vivo = (Date.now() - new Date(iso).getTime()) / 60000 <= REDCORP_MIN_EN_VIVO;
+    return vivo ? `<span class="rc-vivo"><span class="rc-dot"></span>En vivo</span>` : `<span class="rc-vivo rc-off">Sin datos recientes</span>`;
+  }
+  // Mantiene vivos el contador "hace X min", el indicador y el pulso del último punto mientras la pestaña
+  // esté abierta; se apagan solos en cuanto la pestaña ya no está en pantalla.
+  function arrancarRelojRedcorp(){
+    if(!redcorpReloj) redcorpReloj = setInterval(() => {
+      const d = redcorp.doc;
+      if(tab !== 'redcorp' || !d || !document.getElementById('rcHace')){ clearInterval(redcorpReloj); redcorpReloj = null; return; }
+      document.getElementById('rcHace').textContent = textoHaceRedcorp(d.recibido);
+      document.querySelectorAll('.rc-badge').forEach(el => { el.innerHTML = badgeVivoRedcorp(d.recibido); });
+    }, 15000);
+    if(!redcorpPulso) redcorpPulso = setInterval(() => {
+      const vivos = REDCORP_CARRIERS.map(k => charts['redcorp_' + k.id]).filter(ch => ch && ch.canvas && ch.canvas.isConnected);
+      if(tab !== 'redcorp' || !vivos.length){ clearInterval(redcorpPulso); redcorpPulso = null; return; }
+      redcorpFase += 0.12;
+      vivos.forEach(ch => { if(!ch._redcorpEntrando) ch.draw(); });
+    }, 50);
+  }
+  const pulsoUltimoPuntoRedcorp = {
+    id:'pulsoRedcorp',
+    afterDatasetsDraw(ch){
+      const meta = ch.getDatasetMeta(0), pt = meta.data[meta.data.length - 1];
+      if(!pt || isNaN(pt.x) || isNaN(pt.y)) return;
+      const g = ch.ctx, s = Math.abs(Math.sin(redcorpFase)), color = ch.data.datasets[0].borderColor;
+      g.save();
+      g.globalAlpha = 0.45 - s * 0.35; g.beginPath(); g.arc(pt.x, pt.y, 4 + s * 7, 0, Math.PI * 2); g.fillStyle = color; g.fill();
+      g.globalAlpha = 1; g.beginPath(); g.arc(pt.x, pt.y, 4, 0, Math.PI * 2); g.fillStyle = color; g.fill();
+      g.lineWidth = 1.5; g.strokeStyle = '#fff'; g.stroke();
+      g.restore();
+    }
+  };
+  // Línea que se dibuja de izquierda a derecha (patrón "progressive line" de Chart.js), ~1.4 s.
+  function animacionEntradaRedcorp(n){
+    const paso = 1400 / Math.max(1, n);
+    const yAnterior = c => c.index === 0 ? c.chart.scales.y.getPixelForValue(0)
+      : c.chart.getDatasetMeta(c.datasetIndex).data[c.index - 1].getProps(['y'], true).y;
+    return {
+      x:{ type:'number', easing:'linear', duration:paso, from:NaN, delay(c){ if(c.type !== 'data' || c.xStarted) return 0; c.xStarted = true; return c.index * paso; } },
+      y:{ type:'number', easing:'linear', duration:paso, from:yAnterior, delay(c){ if(c.type !== 'data' || c.yStarted) return 0; c.yStarted = true; return c.index * paso; } }
+    };
+  }
+  function datasetsRedcorp(k, pts){
+    return [
+      { label:'Tráfico total', data: pts.map(p => p[1]), borderColor:k.color, backgroundColor:k.color + '22', fill:true, borderWidth:1.5, pointRadius:0, tension:.2 },
+      { label:'Entrante (bajada)', data: pts.map(p => p[2]), borderColor:REDCORP_COLOR_ENT, borderWidth:1, pointRadius:0, tension:.2 },
+      { label:'Saliente (subida)', data: pts.map(p => p[3]), borderColor:REDCORP_COLOR_SAL, borderWidth:1, pointRadius:0, tension:.2 }
+    ];
+  }
+  function crearGraficaRedcorp(k, ptsTodos){
+    const el = document.getElementById('chartRedcorp_' + k.id), pts = puntosVistaRedcorp(ptsTodos);
+    if(!el || !pts.length) return;
+    if(charts['redcorp_' + k.id]) charts['redcorp_' + k.id].destroy();
+    const ch = new Chart(el, {
+      type:'line', plugins:[pulsoUltimoPuntoRedcorp],
+      data:{ labels: pts.map(p => rcHora(p[0])), datasets: datasetsRedcorp(k, pts) },
+      options:{ responsive:true, maintainAspectRatio:false, animation: animacionEntradaRedcorp(pts.length), interaction:{ mode:'index', intersect:false },
+        plugins:{ legend:{ position:'bottom' }, tooltip:{ callbacks:{ label: x => `${x.dataset.label}: ${rcMbit(x.parsed.y)}` } } },
+        scales:{ x:{ ticks:{ maxTicksLimit:14 }, grid:{ display:false } }, y:{ beginAtZero:true, title:{ display:true, text:'Mbit/s' } } } }
+    });
+    ch._redcorpEntrando = true;
+    setTimeout(() => { ch._redcorpEntrando = false; ch.options.animation = { duration:700, easing:'easeOutCubic' }; }, 1700);
+    charts['redcorp_' + k.id] = ch;
+  }
+  // Llega un envío nuevo de PRTG: se actualiza todo en su lugar (KPIs, textos y la gráfica con animación
+  // suave). Regresa false si la pestaña no está armada todavía (entonces se pinta completa).
+  function refrescarRedcorpEnSitio(){
+    const d = redcorp.doc;
+    if(!d || !document.getElementById('rcHace')) return false;
+    const hoy = new Date().toLocaleDateString('en-CA', { timeZone:'America/Mexico_City' });
+    if(d.fecha !== hoy) return false;
+    const { datos, res } = datosRedcorp(d);
+    for(const k of REDCORP_CARRIERS){
+      const ch = charts['redcorp_' + k.id], r = res[k.id];
+      if(!r || !ch || !ch.canvas || !ch.canvas.isConnected) return false;
+      const otro = res[REDCORP_CARRIERS.find(x => x.id !== k.id).id];
+      document.getElementById('rcKpis_' + k.id).innerHTML = kpisRedcorpHtml(k, r, datos[k.id].length);
+      document.getElementById('rcInterp_' + k.id).innerHTML = interpretarRedcorp(k, r, otro).map(x => `<li>${x}</li>`).join('');
+      const ult = document.getElementById('rcUlt_' + k.id);
+      if(ult){ ult.classList.remove('rc-nuevo'); void ult.offsetWidth; ult.classList.add('rc-nuevo'); }
+      const pts = puntosVistaRedcorp(datos[k.id]);
+      ch.data.labels = pts.map(p => rcHora(p[0]));
+      ch.data.datasets.forEach((ds, i) => { ds.data = pts.map(p => p[i + 1]); });
+      ch.update();
+    }
+    document.getElementById('rcUltEnvio').textContent = fmtHora(d.recibido);
+    document.getElementById('rcHace').textContent = textoHaceRedcorp(d.recibido);
+    document.querySelectorAll('.rc-badge').forEach(el => { el.innerHTML = badgeVivoRedcorp(d.recibido); });
+    return true;
+  }
+
   function renderRedcorp(c){
     suscribirRedcorp();
-    if(!redcorp.cargado){ c.innerHTML = `<div class="title">REDCORP</div><div class="panel">Cargando tráfico…</div>`; return; }
-    if(redcorp.error){ c.innerHTML = `<div class="title">REDCORP</div><div class="panel">${redcorp.error}</div>`; return; }
+    if(!redcorp.cargado){ c.innerHTML = `<div class="title">RedCorp</div><div class="panel">Cargando tráfico…</div>`; return; }
+    if(redcorp.error){ c.innerHTML = `<div class="title">RedCorp</div><div class="panel">${redcorp.error}</div>`; return; }
     const d = redcorp.doc;
     if(!d){
-      c.innerHTML = `<div class="title">REDCORP</div><div class="placeholder"><h3>Todavía no llegan datos de PRTG</h3>
-        <p>En cuanto el servidor de PRTG mande su primera actualización (cada hora), aquí aparece el tráfico de Total Play y Telmex.</p></div>`;
+      c.innerHTML = `<div class="title">RedCorp</div><div class="placeholder"><h3>Todavía no llegan datos de PRTG</h3>
+        <p>En cuanto el servidor de PRTG mande su primera actualización (cada 5 minutos), aquí aparece el tráfico de Total Play y Telmex.</p></div>`;
       return;
     }
-    const datos = {};
-    REDCORP_CARRIERS.forEach(k => { try{ datos[k.id] = JSON.parse(d[k.id] || '[]'); }catch(e){ datos[k.id] = []; } });
-    const res = {};
-    REDCORP_CARRIERS.forEach(k => { res[k.id] = resumenRedcorp(datos[k.id]); });
+    const { datos, res } = datosRedcorp(d);
     const hoy = new Date().toLocaleDateString('en-CA', { timeZone:'America/Mexico_City' });
     const minutosSinDatos = (Date.now() - new Date(d.recibido).getTime()) / 60000;
     const fechaTxt = new Date(d.fecha + 'T12:00:00').toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
     const aviso = d.fecha !== hoy ? `Mostrando el <b>${fechaTxt}</b>: todavía no llega la primera actualización de hoy.`
       : minutosSinDatos > 90 ? `⚠️ El servidor de PRTG no manda datos desde las <b>${fmtHora(d.recibido)}</b>. Revisar la tarea "PrimeMX REDCORP - Trafico PRTG" en SERVERRED.` : '';
-    const kpi = (label, valor, lbl, color) => `<div class="card"><div class="head" style="background:${cardGrad(color)}">${label}</div><div class="body"><div class="big" style="font-size:24px;">${valor}</div><div class="lbl">${lbl}</div></div></div>`;
+    const btnVista = (id, txt) => `<button data-rc-vista="${id}" style="padding:5px 12px; font-size:13px;${redcorpVista === id ? ' background:var(--tp); color:#fff; border-color:var(--tp);' : ''}">${txt}</button>`;
     c.innerHTML = `
-      <div class="title">REDCORP</div>
-      <div class="subtitle">Tráfico de internet de los enlaces de REDCORP, medido por PRTG minuto a minuto · ${fechaTxt} · se actualiza cada hora (último envío ${fmtHora(d.recibido)}).</div>
+      <style>
+        .rc-vivo{font-size:12px; font-weight:600; padding:3px 10px; border-radius:999px; background:var(--ok-soft); color:var(--ok); display:inline-flex; align-items:center; gap:6px;}
+        .rc-vivo.rc-off{background:var(--row-alt-bg); color:var(--sub);}
+        .rc-dot{width:8px; height:8px; border-radius:50%; background:var(--ok); display:inline-block; animation:rcLatido 1.4s ease-in-out infinite;}
+        @keyframes rcLatido{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:.35; transform:scale(.7);}}
+        .rc-nuevo{animation:rcNuevo 1.6s ease-out;}
+        @keyframes rcNuevo{0%{color:var(--ok);} 100%{color:inherit;}}
+      </style>
+      <div class="title">RedCorp</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div class="subtitle" style="margin:0;">Tráfico de internet de los enlaces de RedCorp, medido por PRTG minuto a minuto · ${fechaTxt} · se actualiza cada 5 minutos (último envío <span id="rcUltEnvio">${fmtHora(d.recibido)}</span> · <span id="rcHace">${textoHaceRedcorp(d.recibido)}</span>).</div>
+        <div style="display:flex; gap:6px;">${btnVista('dia', 'Día completo')}${btnVista('hora', 'Última hora')}</div>
+      </div>
+      <div style="height:14px;"></div>
       ${aviso ? `<div class="panel" style="margin-bottom:16px; background:var(--warn-soft); border-color:var(--warn);">${aviso}</div>` : ''}
       ${REDCORP_CARRIERS.map(k => {
         const r = res[k.id], otro = res[REDCORP_CARRIERS.find(x => x.id !== k.id).id];
         return `<div class="panel" style="margin-bottom:22px;">
-          <h3 style="margin:0 0 12px; display:flex; align-items:center; gap:8px;"><span style="width:12px; height:12px; border-radius:3px; background:${k.color}; display:inline-block;"></span>${k.nombre}
-            <span style="font-size:12px; font-weight:500; color:var(--sub);">${k.sensor}</span></h3>
-          ${r ? `<div class="cards" style="margin-bottom:14px;">
-            ${kpi('Último dato', rcMbit(r.ultimo[1]), `${rcHora(r.ultimo[0])} · ↓ ${rcMbit(r.ultimo[2])} · ↑ ${rcMbit(r.ultimo[3])}`, k.color)}
-            ${kpi('Máximo del día', rcMbit(r.max[1]), `a las ${rcHora(r.max[0])}`, k.color)}
-            ${kpi('Promedio horario laboral', r.promLaboral !== null ? rcMbit(r.promLaboral) : '—', '9:00 a 19:00', k.color)}
-            ${kpi('Promedio del día', rcMbit(r.prom), `${fmtMX(datos[k.id].length)} mediciones desde las 00:00`, k.color)}
-          </div>` : ''}
+          <h3 style="margin:0 0 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="width:12px; height:12px; border-radius:3px; background:${k.color}; display:inline-block;"></span>${k.nombre}
+            <span class="rc-badge">${d.fecha === hoy ? badgeVivoRedcorp(d.recibido) : ''}</span>
+            <span style="font-size:12px; font-weight:500; color:var(--sub);">${k.sensor}${redcorpVista === 'hora' ? ' · últimos 60 minutos' : ''}</span></h3>
+          ${r ? `<div class="cards" id="rcKpis_${k.id}" style="margin-bottom:14px;">${kpisRedcorpHtml(k, r, datos[k.id].length)}</div>` : ''}
           <div style="position:relative; height:290px;"><canvas id="chartRedcorp_${k.id}"></canvas></div>
           <div style="margin-top:12px; padding:10px 14px; border-left:4px solid ${k.color}; background:var(--row-alt-bg); border-radius:6px; font-size:13px; line-height:1.55;">
             <div style="font-weight:700; margin-bottom:4px;">¿Qué nos dice esta gráfica?</div>
-            <ul style="margin:0; padding-left:18px;">${interpretarRedcorp(k, r, otro).map(x => `<li>${x}</li>`).join('')}</ul>
+            <ul id="rcInterp_${k.id}" style="margin:0; padding-left:18px;">${interpretarRedcorp(k, r, otro).map(x => `<li>${x}</li>`).join('')}</ul>
           </div>
         </div>`;
       }).join('')}
       <div style="font-size:12px; color:var(--sub); text-align:right;">Fuente: PRTG Network Monitor (SERVERRED) · Mbit/s</div>`;
-    REDCORP_CARRIERS.forEach(k => {
-      const pts = datos[k.id], el = document.getElementById('chartRedcorp_' + k.id);
-      if(!el || !pts.length) return;
-      if(charts['redcorp_' + k.id]) charts['redcorp_' + k.id].destroy();
-      charts['redcorp_' + k.id] = new Chart(el, {
-        type:'line',
-        data:{ labels: pts.map(p => rcHora(p[0])), datasets:[
-          { label:'Tráfico total', data: pts.map(p => p[1]), borderColor:k.color, backgroundColor:k.color + '22', fill:true, borderWidth:1.5, pointRadius:0, tension:.2 },
-          { label:'Entrante (bajada)', data: pts.map(p => p[2]), borderColor:REDCORP_COLOR_ENT, borderWidth:1, pointRadius:0, tension:.2 },
-          { label:'Saliente (subida)', data: pts.map(p => p[3]), borderColor:REDCORP_COLOR_SAL, borderWidth:1, pointRadius:0, tension:.2 }
-        ]},
-        options:{ responsive:true, maintainAspectRatio:false, animation:false, interaction:{ mode:'index', intersect:false },
-          plugins:{ legend:{ position:'bottom' }, tooltip:{ callbacks:{ label: x => `${x.dataset.label}: ${rcMbit(x.parsed.y)}` } } },
-          scales:{ x:{ ticks:{ maxTicksLimit:14 }, grid:{ display:false } }, y:{ beginAtZero:true, title:{ display:true, text:'Mbit/s' } } } }
-      });
-    });
+    REDCORP_CARRIERS.forEach(k => crearGraficaRedcorp(k, datos[k.id]));
+    c.querySelectorAll('[data-rc-vista]').forEach(b => b.onclick = () => { redcorpVista = b.dataset.rcVista; renderTab(); });
+    arrancarRelojRedcorp();
   }
 
   function renderExpansion(c){
