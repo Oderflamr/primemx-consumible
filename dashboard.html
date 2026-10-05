@@ -8980,7 +8980,6 @@ auth.onAuthStateChanged(async function(user){
         : `Reparte el tráfico casi parejo con el otro enlace (<b>${Math.round(pct*100)}%</b> del día).`);
     }
     if(r.huecos.length) t.push(`⚠️ PRTG no pudo medir el enlace en ${r.huecos.length === 1 ? 'un rato' : r.huecos.length + ' ratos'}: ${r.huecos.slice(0,3).map(h => `${rcHora(h[0])}–${rcHora(h[1])}`).join(', ')}${r.huecos.length > 3 ? '…' : ''}. Puede ser caída del enlace o del monitoreo; vale la pena revisarlo.`);
-    else t.push('PRTG lo midió todo el día sin huecos.');
     if(r.ceros.length && !esRespaldo) t.push(`⚠️ Estuvo prácticamente en cero en horario laboral: ${r.ceros.slice(0,3).map(h => `${rcHora(h[0])}–${rcHora(h[1])}`).join(', ')}.`);
     return t;
   }
@@ -9024,8 +9023,7 @@ auth.onAuthStateChanged(async function(user){
   function arrancarRelojRedcorp(){
     if(!redcorpReloj) redcorpReloj = setInterval(() => {
       const d = redcorp.doc;
-      if(tab !== 'redcorp' || !d || !document.getElementById('rcHace')){ clearInterval(redcorpReloj); redcorpReloj = null; return; }
-      document.getElementById('rcHace').textContent = textoHaceRedcorp(d.recibido);
+      if(tab !== 'redcorp' || !d || !document.getElementById('rcRaiz')){ clearInterval(redcorpReloj); redcorpReloj = null; return; }
       document.querySelectorAll('.rc-badge').forEach(el => { el.innerHTML = badgeVivoRedcorp(d.recibido); });
     }, 15000);
     if(!redcorpPulso) redcorpPulso = setInterval(() => {
@@ -9084,7 +9082,7 @@ auth.onAuthStateChanged(async function(user){
   // suave). Regresa false si la pestaña no está armada todavía (entonces se pinta completa).
   function refrescarRedcorpEnSitio(){
     const d = redcorp.doc;
-    if(!d || !document.getElementById('rcHace')) return false;
+    if(!d || !document.getElementById('rcRaiz')) return false;
     const hoy = new Date().toLocaleDateString('en-CA', { timeZone:'America/Mexico_City' });
     if(d.fecha !== hoy) return false;
     const { datos, res } = datosRedcorp(d);
@@ -9101,8 +9099,6 @@ auth.onAuthStateChanged(async function(user){
       ch.data.datasets.forEach((ds, i) => { ds.data = pts.map(p => p[i + 1]); });
       ch.update();
     }
-    document.getElementById('rcUltEnvio').textContent = fmtHora(d.recibido);
-    document.getElementById('rcHace').textContent = textoHaceRedcorp(d.recibido);
     document.querySelectorAll('.rc-badge').forEach(el => { el.innerHTML = badgeVivoRedcorp(d.recibido); });
     return true;
   }
@@ -9134,8 +9130,7 @@ auth.onAuthStateChanged(async function(user){
         @keyframes rcNuevo{0%{color:var(--ok);} 100%{color:inherit;}}
       </style>
       <div class="title">RedCorp</div>
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <div class="subtitle" style="margin:0;">Tráfico de internet de los enlaces de RedCorp, medido por PRTG minuto a minuto · ${fechaTxt} · se actualiza cada 5 minutos (último envío <span id="rcUltEnvio">${fmtHora(d.recibido)}</span> · <span id="rcHace">${textoHaceRedcorp(d.recibido)}</span>).</div>
+      <div id="rcRaiz" style="display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:10px;">
         <div style="display:flex; gap:6px;">${btnVista('dia', 'Día completo')}${btnVista('hora', 'Última hora')}</div>
       </div>
       <div style="height:14px;"></div>
