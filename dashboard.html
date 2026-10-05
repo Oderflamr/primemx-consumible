@@ -8923,9 +8923,38 @@ auth.onAuthStateChanged(async function(user){
   // [minuto del día, total, entrante, saliente] en Mbit/s. Visible para todos (pedido de amartinez).
   const REDCORP_COLECCION = 'redcorp_trafico';
   const REDCORP_CARRIERS = [
-    { id:'totalplay', nombre:'Total Play', color:COLOR.TotalPlay, sensor:'(008) Total Play Traffic' },
-    { id:'telmex', nombre:'Telmex', color:COLOR.Telmex, sensor:'(006) Telmex Traffic' }
+    // contratado = velocidad contratada en Mbit/s (oct. 2026, dato de amartinez): Total Play dedicado 500
+    // simétrico; Telmex 1 Gb de bajada y 350 Mb de subida. Bajada se compara contra "Entrante" y subida
+    // contra "Saliente" (el sensor está en el puerto del firewall que va al proveedor).
+    { id:'totalplay', nombre:'Total Play', color:COLOR.TotalPlay, sensor:'(008) Total Play Traffic', contratado:{ bajada:500, subida:500 } },
+    { id:'telmex', nombre:'Telmex', color:COLOR.Telmex, sensor:'(006) Telmex Traffic', contratado:{ bajada:1000, subida:350 } }
   ];
+  const REDCORP_USO_ALERTA = 0.8;        // 80% o más de lo contratado = alerta (rojo)
+  const REDCORP_USO_AVISO = 0.6;         // 60% a 80% = amarillo
+  const REDCORP_LINEA_CONTRATO = 0.4;    // la línea punteada de lo contratado se dibuja si el pico del día pasó del 40%
+  const rcPct = v => Math.round(v * 100) + '%';
+  const rcColorUso = f => f >= REDCORP_USO_ALERTA ? 'var(--warn)' : f >= REDCORP_USO_AVISO ? '#D99A00' : 'var(--ok)';
+  // "¿Cómo leer esto?" (oct. 2026, pedido de amartinez para quien no sabe qué es un Mbit/s): traduce los
+  // Mbit/s a algo cotidiano. Referencia: una videollamada (Teams/Zoom/Meet) usa ~4 Mbit/s.
+  const REDCORP_MBIT_VIDEOLLAMADA = 4;
+  function rcEnPalabras(mbit){
+    if(mbit < 1) return 'uso ligero: correo, WhatsApp y navegación';
+    const n = Math.round(mbit / REDCORP_MBIT_VIDEOLLAMADA);
+    return n < 1 ? 'menos de una videollamada' : n === 1 ? '≈ 1 videollamada' : `≈ ${n.toLocaleString('es-MX')} videollamadas al mismo tiempo`;
+  }
+  let redcorpGuiaAbierta = true; // el recuadro "¿Cómo leer esto?" se puede cerrar; se recuerda mientras la página esté abierta
+  function guiaRedcorpHtml(){
+    return `<details class="panel" id="rcGuia" style="margin-bottom:16px; font-size:13px; line-height:1.6;"${redcorpGuiaAbierta ? ' open' : ''}>
+      <summary style="cursor:pointer; font-weight:700;">¿Cómo leer esto? — qué es un Mbit/s</summary>
+      <div style="margin-top:8px;">
+        Piénsalo como una <b>carretera</b>: lo <b>contratado</b> es el ancho de la carretera (cuántos carriles hay) y los <b>Mbit/s</b> son cuántos coches pasan cada segundo.
+        Lo más importante es el <b>porcentaje</b>: hasta <b style="color:var(--ok);">60%</b> va fluido, de 60% a 80% <b style="color:#D99A00;">se empieza a cargar</b> y arriba de <b style="color:var(--warn);">80%</b> va casi lleno y todos lo sienten lento.
+      </div>
+      <div style="margin-top:6px;"><b>Para darse una idea</b> (por persona, aproximado): correo / WhatsApp / navegar <b>menos de 1 Mbit/s</b> · videollamada <b>2 a 4</b> · video HD <b>5</b> · video 4K <b>25</b>.
+        Ejemplo: 85 Mbit/s es como tener unas 20 videollamadas al mismo tiempo.</div>
+      <div style="margin-top:6px; color:var(--sub);">Ojo: los archivos se miden en megabytes (MB) y la velocidad en megabits (Mbit). 1 MB = 8 Mbit, así que con 100 Mbit/s un archivo de 100 MB baja en unos 8 segundos.</div>
+    </details>`;
+  }
   const REDCORP_COLOR_ENT = '#1E8E5A', REDCORP_COLOR_SAL = '#D63384';
   const REDCORP_HORARIO_LABORAL = [9*60, 19*60]; // 9:00 a 19:00, para el promedio "en horario laboral"
   let redcorp = { unsub:null, cargado:false, error:null, doc:null };
@@ -8965,7 +8994,8 @@ auth.onAuthStateChanged(async function(user){
       if((!bajo || i === pts.length - 1) && ini !== null){ const fin = bajo ? p[0] : pts[i-1][0]; if(fin - ini >= 30) ceros.push([ini, fin]); ini = null; }
     });
     const sumTot = tot.reduce((a, b) => a + b, 0), sumEnt = pts.reduce((a, p) => a + p[2], 0);
-    return { ultimo: pts[pts.length-1], max: pts[iMax], prom: rcProm(tot), promLaboral: laboral.length ? rcProm(laboral) : null,
+    const maxEnt = pts.reduce((a, p) => p[2] > a[2] ? p : a, pts[0]), maxSal = pts.reduce((a, p) => p[3] > a[3] ? p : a, pts[0]);
+    return { ultimo: pts[pts.length-1], max: pts[iMax], maxEnt, maxSal, prom: rcProm(tot), promLaboral: laboral.length ? rcProm(laboral) : null,
              horaPico, promHoraPico: rcProm(porHora[horaPico]), huecos, ceros, sumTot, pctEntrante: sumTot ? sumEnt / sumTot : 0 };
   }
 
@@ -8975,6 +9005,11 @@ auth.onAuthStateChanged(async function(user){
     const t = [];
     const pct = rOtro ? r.sumTot / ((r.sumTot + rOtro.sumTot) || 1) : 1; // parte de este enlace en el tráfico del día
     const esRespaldo = pct <= 0.4;
+    if(car.contratado){
+      const cb = car.contratado.bajada, cs = car.contratado.subida;
+      const fB = r.maxEnt[2] / cb, fS = r.maxSal[3] / cs, fMax = Math.max(fB, fS);
+      t.push(`${fMax >= REDCORP_USO_ALERTA ? '⚠️ ' : ''}Contra lo contratado (${cb === cs ? cb + ' Mbit/s simétrico' : cb.toLocaleString('es-MX') + ' Mbit/s de bajada y ' + cs + ' de subida'}): ahorita va al <b>${rcPct(r.ultimo[2] / cb)}</b> de la bajada y al <b>${rcPct(r.ultimo[3] / cs)}</b> de la subida. El pico de hoy fue <b>${rcPct(fB)}</b> de la bajada (${rcHora(r.maxEnt[0])}) y <b>${rcPct(fS)}</b> de la subida (${rcHora(r.maxSal[0])})${fMax >= REDCORP_USO_ALERTA ? ': <b>llegó cerca de su límite</b>; si se repite seguido conviene revisar la capacidad o repartir tráfico al otro enlace' : fMax < 0.3 ? ': tiene capacidad de sobra' : ''}.`);
+    }
     t.push(`El momento de más uso fue a las <b>${rcHora(r.max[0])}</b> con <b>${rcMbit(r.max[1])}</b>; la hora más cargada en promedio fue de <b>${rcHora(r.horaPico*60)} a ${rcHora(r.horaPico*60+59)}</b> (${rcMbit(r.promHoraPico)}).`);
     if(r.promLaboral !== null){
       const act = r.ultimo[1], ref = r.promLaboral;
@@ -9014,10 +9049,32 @@ auth.onAuthStateChanged(async function(user){
   }
   function kpisRedcorpHtml(k, r, n){
     const kpi = (label, valor, lbl, color, id) => `<div class="card"><div class="head" style="background:${cardGrad(color)}">${label}</div><div class="body"><div class="big"${id ? ` id="${id}"` : ''} style="font-size:24px;">${valor}</div><div class="lbl">${lbl}</div></div></div>`;
-    return `${kpi('Último dato', rcMbit(r.ultimo[1]), `${rcHora(r.ultimo[0])} · ↓ ${rcMbit(r.ultimo[2])} · ↑ ${rcMbit(r.ultimo[3])}`, k.color, 'rcUlt_' + k.id)}
+    const enPalabras = `${rcEnPalabras(r.ultimo[1])}${k.contratado ? ` · ${rcPct(r.ultimo[2] / k.contratado.bajada)} de su capacidad` : ''}`;
+    return `${kpi('Último dato', rcMbit(r.ultimo[1]), `${rcHora(r.ultimo[0])} · ↓ ${rcMbit(r.ultimo[2])} · ↑ ${rcMbit(r.ultimo[3])}<div style="margin-top:3px; font-size:12px; font-weight:600; color:var(--ink);">${enPalabras}</div>`, k.color, 'rcUlt_' + k.id)}
       ${kpi('Máximo del día', rcMbit(r.max[1]), `a las ${rcHora(r.max[0])}`, k.color)}
       ${kpi('Promedio horario laboral', r.promLaboral !== null ? rcMbit(r.promLaboral) : '—', '9:00 a 19:00', k.color)}
       ${kpi('Promedio del día', rcMbit(r.prom), `${fmtMX(n)} mediciones desde las 00:00`, k.color)}`;
+  }
+  // Barras "uso contra lo contratado" (bajada y subida), con el pico del día marcado.
+  function usoRedcorpHtml(k, r){
+    if(!k.contratado || !r) return '';
+    const barra = (nombre, actual, pico, horaPico, contratado) => {
+      const f = actual / contratado, fp = Math.min(1, pico / contratado);
+      return `<div style="flex:1; min-width:240px;">
+        <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+          <span><b>${nombre}</b>: ${rcMbit(actual)} de ${contratado.toLocaleString('es-MX')} Mbit/s</span>
+          <b style="color:${rcColorUso(f)};">${rcPct(f)}</b></div>
+        <div style="position:relative; height:10px; border-radius:6px; background:var(--row-alt-bg); border:1px solid var(--line);">
+          <div style="height:100%; width:${Math.min(100, f * 100)}%; border-radius:6px; background:${rcColorUso(f)}; transition:width .7s ease;"></div>
+          <div title="Pico de hoy" style="position:absolute; top:-3px; bottom:-3px; left:calc(${fp * 100}% - 1px); width:2px; background:var(--ink);"></div>
+        </div>
+        <div style="font-size:11px; color:var(--sub); margin-top:3px;">Pico de hoy: ${rcMbit(pico)} (${rcPct(pico / contratado)}) a las ${horaPico}</div>
+      </div>`;
+    };
+    return `<div style="display:flex; gap:24px; flex-wrap:wrap; margin:0 0 14px;">
+      ${barra('Bajada', r.ultimo[2], r.maxEnt[2], rcHora(r.maxEnt[0]), k.contratado.bajada)}
+      ${barra('Subida', r.ultimo[3], r.maxSal[3], rcHora(r.maxSal[0]), k.contratado.subida)}
+    </div>`;
   }
   function textoHaceRedcorp(iso){
     const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -9069,7 +9126,17 @@ auth.onAuthStateChanged(async function(user){
     return [
       { label:'Tráfico total', data: pts.map(p => p[1]), borderColor:k.color, backgroundColor:k.color + '22', fill:true, borderWidth:1.5, pointRadius:0, tension:.2 },
       { label:'Entrante (bajada)', data: pts.map(p => p[2]), borderColor:REDCORP_COLOR_ENT, borderWidth:1, pointRadius:0, tension:.2 },
-      { label:'Saliente (subida)', data: pts.map(p => p[3]), borderColor:REDCORP_COLOR_SAL, borderWidth:1, pointRadius:0, tension:.2 }
+      { label:'Saliente (subida)', data: pts.map(p => p[3]), borderColor:REDCORP_COLOR_SAL, borderWidth:1, pointRadius:0, tension:.2 },
+      ...lineasContratoRedcorp(k, pts)
+    ];
+  }
+  function lineasContratoRedcorp(k, pts){
+    if(!k.contratado) return [];
+    const picoEnt = Math.max(0, ...pts.map(p => p[2])), picoSal = Math.max(0, ...pts.map(p => p[3]));
+    const linea = (label, valor, color, visible) => ({ label, data: pts.map(() => valor), borderColor:color, borderDash:[6,4], borderWidth:1.5, pointRadius:0, fill:false, hidden:!visible, esContrato:true });
+    return [
+      linea(`Contratado bajada (${k.contratado.bajada})`, k.contratado.bajada, REDCORP_COLOR_ENT, picoEnt >= k.contratado.bajada * REDCORP_LINEA_CONTRATO),
+      linea(`Contratado subida (${k.contratado.subida})`, k.contratado.subida, REDCORP_COLOR_SAL, picoSal >= k.contratado.subida * REDCORP_LINEA_CONTRATO)
     ];
   }
   function crearGraficaRedcorp(k, ptsTodos){
@@ -9080,7 +9147,8 @@ auth.onAuthStateChanged(async function(user){
       type:'line', plugins:[pulsoUltimoPuntoRedcorp],
       data:{ labels: pts.map(p => rcHora(p[0])), datasets: datasetsRedcorp(k, pts) },
       options:{ responsive:true, maintainAspectRatio:false, animation: animacionEntradaRedcorp(pts.length), interaction:{ mode:'index', intersect:false },
-        plugins:{ legend:{ position:'bottom' }, tooltip:{ callbacks:{ label: x => `${x.dataset.label}: ${rcMbit(x.parsed.y)}` } } },
+        plugins:{ legend:{ position:'bottom', labels:{ filter:(it, data) => !(data.datasets[it.datasetIndex].esContrato && data.datasets[it.datasetIndex].hidden) } },
+          tooltip:{ filter: x => !x.dataset.esContrato, callbacks:{ label: x => `${x.dataset.label}: ${rcMbit(x.parsed.y)}` } } },
         scales:{ x:{ ticks:{ maxTicksLimit:14 }, grid:{ display:false } }, y:{ beginAtZero:true, title:{ display:true, text:'Mbit/s' } } } }
     });
     ch._redcorpEntrando = true;
@@ -9100,12 +9168,14 @@ auth.onAuthStateChanged(async function(user){
       if(!r || !ch || !ch.canvas || !ch.canvas.isConnected) return false;
       const otro = res[REDCORP_CARRIERS.find(x => x.id !== k.id).id];
       document.getElementById('rcKpis_' + k.id).innerHTML = kpisRedcorpHtml(k, r, datos[k.id].length);
+      const uso = document.getElementById('rcUso_' + k.id); if(uso) uso.innerHTML = usoRedcorpHtml(k, r);
       document.getElementById('rcInterp_' + k.id).innerHTML = interpretarRedcorp(k, r, otro).map(x => `<li>${x}</li>`).join('');
       const ult = document.getElementById('rcUlt_' + k.id);
       if(ult){ ult.classList.remove('rc-nuevo'); void ult.offsetWidth; ult.classList.add('rc-nuevo'); }
       const pts = puntosVistaRedcorp(datos[k.id]);
       ch.data.labels = pts.map(p => rcHora(p[0]));
-      ch.data.datasets.forEach((ds, i) => { ds.data = pts.map(p => p[i + 1]); });
+      const nuevos = datasetsRedcorp(k, pts);
+      ch.data.datasets.forEach((ds, i) => { ds.data = nuevos[i].data; if(ds.esContrato) ds.hidden = nuevos[i].hidden; });
       ch.update();
     }
     document.querySelectorAll('.rc-badge').forEach(el => { el.innerHTML = badgeVivoRedcorp(d.recibido); });
@@ -9143,6 +9213,7 @@ auth.onAuthStateChanged(async function(user){
         <div style="display:flex; gap:6px;">${btnVista('dia', 'Día completo')}${btnVista('hora', 'Última hora')}</div>
       </div>
       <div style="height:14px;"></div>
+      ${guiaRedcorpHtml()}
       ${aviso ? `<div class="panel" style="margin-bottom:16px; background:var(--warn-soft); border-color:var(--warn);">${aviso}</div>` : ''}
       ${REDCORP_CARRIERS.map(k => {
         const r = res[k.id], otro = res[REDCORP_CARRIERS.find(x => x.id !== k.id).id];
@@ -9151,6 +9222,7 @@ auth.onAuthStateChanged(async function(user){
             <span class="rc-badge">${d.fecha === hoy ? badgeVivoRedcorp(d.recibido) : ''}</span>
             <span style="font-size:12px; font-weight:500; color:var(--sub);">${k.sensor}${redcorpVista === 'hora' ? ' · últimos 60 minutos' : ''}</span></h3>
           ${r ? `<div class="cards" id="rcKpis_${k.id}" style="margin-bottom:14px;">${kpisRedcorpHtml(k, r, datos[k.id].length)}</div>` : ''}
+          <div id="rcUso_${k.id}">${usoRedcorpHtml(k, r)}</div>
           <div style="position:relative; height:290px;"><canvas id="chartRedcorp_${k.id}"></canvas></div>
           <div style="margin-top:12px; padding:10px 14px; border-left:4px solid ${k.color}; background:var(--row-alt-bg); border-radius:6px; font-size:13px; line-height:1.55;">
             <div style="font-weight:700; margin-bottom:4px;">¿Qué nos dice esta gráfica?</div>
@@ -9161,6 +9233,7 @@ auth.onAuthStateChanged(async function(user){
       <div style="font-size:12px; color:var(--sub); text-align:right;">Fuente: PRTG Network Monitor (SERVERRED) · Mbit/s</div>`;
     REDCORP_CARRIERS.forEach(k => crearGraficaRedcorp(k, datos[k.id]));
     c.querySelectorAll('[data-rc-vista]').forEach(b => b.onclick = () => { redcorpVista = b.dataset.rcVista; renderTab(); });
+    const guia = document.getElementById('rcGuia'); if(guia) guia.ontoggle = () => { redcorpGuiaAbierta = guia.open; };
     arrancarRelojRedcorp();
   }
 
