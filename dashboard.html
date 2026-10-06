@@ -1921,6 +1921,7 @@ auth.onAuthStateChanged(async function(user){
   const CARRUSEL_SECUENCIA = [
     { tab: 'resumen', segundos: 30 },
     { tab: 'tendencia', segundos: 25 },
+    { tab: 'redcorp', slides: 2, segundosPorSlide: 15 }, // vista 1 Total Play, vista 2 Telmex
     { tab: 'ingenieros', slides: 4, segundosPorSlide: 8 },
     { tab: 'pdv_region', segundos: 20 },
     { tab: 'ticketsmc', slides: 6, segundosPorSlide: 8 },
@@ -8922,7 +8923,6 @@ auth.onAuthStateChanged(async function(user){
   // Solo amartinez (ver tabPermitida). Lee mis_tickets/estado, que escribe la sincronización diaria de
   // InvGate (functions-alertas/invgate.js › guardarMisTickets): detalle de los abiertos y conteo de los
   // cerrados de la última semana. No hay carga manual: si no se ha sincronizado, se muestra el aviso.
-  const INVGATE_URL_TICKET = 'https://marafic.cloud.invgate.net/requests/';
   let misTickets = { cargado:false, cargando:false, error:null, datos:null, filtro:'Todos' };
   async function cargarMisTickets(){
     misTickets.cargando = true;
@@ -8949,10 +8949,8 @@ auth.onAuthStateChanged(async function(user){
     }
     const esc = v => (v===undefined||v===null) ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const ahora = Date.now();
-    const RANGO_PRIORIDAD = { 'Crítica':0, 'Urgente':1, 'Alta':2, 'Media':3, 'Baja':4 };
     const abiertos = (d.abiertos || []).map(t => ({ ...t, dias: t.creado ? Math.max(0, Math.floor((ahora - new Date(t.creado).getTime())/86400000)) : 0 }));
-    const rango = t => (t.prioridad in RANGO_PRIORIDAD) ? RANGO_PRIORIDAD[t.prioridad] : 5;
-    abiertos.sort((a,b) => rango(a) - rango(b) || b.dias - a.dias);
+    abiertos.sort((a,b) => b.dias - a.dias || String(a.creado).localeCompare(String(b.creado)));
     const hayPrioridad = abiertos.some(t => t.prioridad);
     const urgentes = abiertos.filter(t => t.prioridad==='Crítica' || t.prioridad==='Urgente').length;
     const masViejo = abiertos.reduce((m,t) => Math.max(m, t.dias), 0);
@@ -8996,11 +8994,11 @@ auth.onAuthStateChanged(async function(user){
       </div>
       <div class="panel">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-          <h3 style="margin:0;">Para atender hoy <span style="font-weight:400; text-transform:none; letter-spacing:0;">· orden: prioridad y antigüedad</span></h3>
+          <h3 style="margin:0;">Para atender hoy <span style="font-weight:400; text-transform:none; letter-spacing:0;">· del más viejo al más nuevo</span></h3>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">${estados.map(e => `<button data-mis-filtro="${esc(e)}" style="padding:3px 10px; font-size:12px;${e===misTickets.filtro ? ' background:var(--tp); color:#fff; border-color:var(--tp);' : ''}">${esc(e)}</button>`).join('')}</div>
         </div>
         ${lista.length===0 ? `<div class="placeholder"><h3>Sin tickets abiertos</h3><p>No tienes tickets pendientes con este filtro.</p></div>` : `<div style="overflow-x:auto;"><table>
-          <thead><tr><th style="text-align:left;">Ticket</th><th style="text-align:left;">Título</th><th style="text-align:left;">Categoría</th><th>Estado</th><th>Prioridad</th><th>Antigüedad</th><th></th></tr></thead>
+          <thead><tr><th style="text-align:left;">Ticket</th><th style="text-align:left;">Título</th><th style="text-align:left;">Categoría</th><th>Estado</th><th>Prioridad</th><th>Antigüedad</th><th>Fecha de creación</th></tr></thead>
           <tbody>${lista.map(t => `<tr>
             <td style="text-align:left; font-family:var(--font-mono);">#${esc(t.id)}</td>
             <td style="text-align:left;">${esc(t.titulo) || '<span style="color:var(--sub);">—</span>'}${consumible(t) ? '<div style="font-size:11px; color:var(--tp);">ligado a Consumibles</div>' : ''}</td>
@@ -9008,7 +9006,7 @@ auth.onAuthStateChanged(async function(user){
             <td>${esc(t.estado)}</td>
             <td style="color:${colorPrio[t.prioridad] || 'var(--sub)'}; font-weight:600;">${esc(t.prioridad) || '—'}</td>
             <td style="color:${colorDias(t.dias)}; font-weight:600;">${t.dias} d</td>
-            <td><a href="${INVGATE_URL_TICKET}${encodeURIComponent(t.id)}" target="_blank" rel="noopener" style="color:var(--tp); text-decoration:none; font-weight:600;">Abrir ↗</a></td>
+            <td style="white-space:nowrap;">${t.creado ? fmtFechaSolo(t.creado) : '—'}</td>
           </tr>`).join('')}</tbody></table></div>`}
       </div>`;
     wireMisTickets();
@@ -9049,7 +9047,7 @@ auth.onAuthStateChanged(async function(user){
   }
   let redcorpGuiaAbierta = true; // el recuadro "¿Cómo leer esto?" se puede cerrar; se recuerda mientras la página esté abierta
   function guiaRedcorpHtml(){
-    return `<details class="panel" id="rcGuia" style="margin-bottom:16px; font-size:13px; line-height:1.6;"${redcorpGuiaAbierta ? ' open' : ''}>
+    return `<details class="panel oculto-en-carrusel" id="rcGuia" style="margin-bottom:16px; font-size:13px; line-height:1.6;"${redcorpGuiaAbierta ? ' open' : ''}>
       <summary style="cursor:pointer; font-weight:700;">¿Cómo leer esto? — qué es un Mbit/s</summary>
       <div style="margin-top:8px;">
         Piénsalo como una <b>carretera</b>: lo <b>contratado</b> es el ancho de la carretera (cuántos carriles hay) y los <b>Mbit/s</b> son cuántos coches pasan cada segundo.
@@ -9289,6 +9287,7 @@ auth.onAuthStateChanged(async function(user){
 
   function renderRedcorp(c){
     suscribirRedcorp();
+    if(carruselActivo) redcorpVista = 'dia'; // en pantalla siempre el día completo (el botón "Última hora" se oculta)
     if(!redcorp.cargado){ c.innerHTML = `<div class="title">RedCorp</div><div class="panel">Cargando tráfico…</div>`; return; }
     if(redcorp.error){ c.innerHTML = `<div class="title">RedCorp</div><div class="panel">${redcorp.error}</div>`; return; }
     const d = redcorp.doc;
@@ -9314,15 +9313,15 @@ auth.onAuthStateChanged(async function(user){
         @keyframes rcNuevo{0%{color:var(--ok);} 100%{color:inherit;}}
       </style>
       <div class="title">RedCorp</div>
-      <div id="rcRaiz" style="display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div id="rcRaiz" class="oculto-en-carrusel" style="display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:10px;">
         <div style="display:flex; gap:6px;">${btnVista('dia', 'Día completo')}${btnVista('hora', 'Última hora')}</div>
       </div>
-      <div style="height:14px;"></div>
+      <div class="oculto-en-carrusel" style="height:14px;"></div>
       ${guiaRedcorpHtml()}
       ${aviso ? `<div class="panel" style="margin-bottom:16px; background:var(--warn-soft); border-color:var(--warn);">${aviso}</div>` : ''}
-      ${REDCORP_CARRIERS.map(k => {
+      ${REDCORP_CARRIERS.map((k, i) => {
         const r = res[k.id], otro = res[REDCORP_CARRIERS.find(x => x.id !== k.id).id];
-        return `<div class="panel" style="margin-bottom:22px;">
+        return `<div class="carrusel-slide${i === 0 ? ' activo' : ''}"><div class="panel" style="margin-bottom:22px;">
           <h3 style="margin:0 0 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="width:12px; height:12px; border-radius:3px; background:${k.color}; display:inline-block;"></span>${k.nombre}
             <span class="rc-badge">${d.fecha === hoy ? badgeVivoRedcorp(d.recibido) : ''}</span>
             <span style="font-size:12px; font-weight:500; color:var(--sub);">${k.sensor}${redcorpVista === 'hora' ? ' · últimos 60 minutos' : ''}</span></h3>
@@ -9333,13 +9332,16 @@ auth.onAuthStateChanged(async function(user){
             <div style="font-weight:700; margin-bottom:4px;">¿Qué nos dice esta gráfica?</div>
             <ul id="rcInterp_${k.id}" style="margin:0; padding-left:18px;">${interpretarRedcorp(k, r, otro).map(x => `<li>${x}</li>`).join('')}</ul>
           </div>
-        </div>`;
+        </div></div>`;
       }).join('')}
       <div style="font-size:12px; color:var(--sub); text-align:right;">Fuente: PRTG Network Monitor (SERVERRED) · Mbit/s</div>`;
     REDCORP_CARRIERS.forEach(k => crearGraficaRedcorp(k, datos[k.id]));
     c.querySelectorAll('[data-rc-vista]').forEach(b => b.onclick = () => { redcorpVista = b.dataset.rcVista; renderTab(); });
     const guia = document.getElementById('rcGuia'); if(guia) guia.ontoggle = () => { redcorpGuiaAbierta = guia.open; };
     arrancarRelojRedcorp();
+    // Modo pantalla: si la pestaña se vuelve a pintar a media vuelta (llegó un envío nuevo de PRTG y no
+    // se pudo actualizar en su lugar), se conserva la vista que le toca (Total Play o Telmex).
+    if(carruselActivo) actualizarSlideCarrusel();
   }
 
   function renderExpansion(c){
