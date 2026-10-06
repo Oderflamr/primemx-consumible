@@ -1816,7 +1816,8 @@ auth.onAuthStateChanged(async function(user){
     {id:'budget_it', label:'Budget IT 2026'},
     {id:'actualizaciones', label:'Actualizaciones'},
     {id:'log_accesos', label:'Accesos'},
-    {id:'cargas', label:'Cargas'}
+    {id:'cargas', label:'Cargas'},
+    {id:'mis_tickets', label:'Mis tickets'}
   ];
   // Estas pestañas están restringidas: no aparecen en la barra ni se pueden abrir si el usuario
   // no está en USUARIOS_BUDGET_EDITAR/USUARIOS_BUDGET_LECTURA (ver puedeVerBudgetIT()). "Accesos" (log
@@ -1829,7 +1830,7 @@ auth.onAuthStateChanged(async function(user){
   function esUsuarioSoloMesa(){ return !!(typeof currentUser!=='undefined' && currentUser && USUARIOS_SOLO_MESA.includes(currentUser.username)); }
   function tabPermitida(id){
     // "Cargas" (oct. 2026): comparativo de cada carga de tickets contra la anterior — solo amartinez.
-    if(id==='cargas') return !!(typeof currentUser!=='undefined' && currentUser && currentUser.username==='amartinez');
+    if(id==='cargas' || id==='mis_tickets') return !!(typeof currentUser!=='undefined' && currentUser && currentUser.username==='amartinez');
     if(TABS_RESTRINGIDOS_BUDGET.includes(id) && !puedeVerBudgetIT()) return false;
     if(esUsuarioSoloMesa()) return id==='ticketsmc' || id==='checador' || id==='expansion';
     return true;
@@ -3703,6 +3704,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='actualizaciones') return renderActualizaciones(c);
     if(tab==='log_accesos') return renderLogAccesos(c);
     if(tab==='cargas') return renderCargas(c);
+    if(tab==='mis_tickets') return renderMisTickets(c);
     if(tab==='redcorp') return renderRedcorp(c);
   }
 
@@ -8914,6 +8916,109 @@ auth.onAuthStateChanged(async function(user){
   function wireCargas(){
     const b = document.getElementById('btnCargasRecargar');
     if(b) b.onclick = () => { cargasComparativo.cargado = false; cargasComparativo.error = null; cargarComparativoCargas(); };
+  }
+
+  // ---------- Mis tickets (oct. 2026) — seguimiento de los tickets ASIGNADOS a amartinez ----------
+  // Solo amartinez (ver tabPermitida). Lee mis_tickets/estado, que escribe la sincronización diaria de
+  // InvGate (functions-alertas/invgate.js › guardarMisTickets): detalle de los abiertos y conteo de los
+  // cerrados de la última semana. No hay carga manual: si no se ha sincronizado, se muestra el aviso.
+  const INVGATE_URL_TICKET = 'https://marafic.cloud.invgate.net/requests/';
+  let misTickets = { cargado:false, cargando:false, error:null, datos:null, filtro:'Todos' };
+  async function cargarMisTickets(){
+    misTickets.cargando = true;
+    render();
+    try{
+      const snap = await db.collection('mis_tickets').doc('estado').get();
+      misTickets = { ...misTickets, cargado:true, cargando:false, error:null, datos: snap.exists ? snap.data() : null };
+    }catch(err){
+      console.error('No se pudo cargar mis tickets', err);
+      misTickets = { ...misTickets, cargado:false, cargando:false, error:'No se pudieron cargar tus tickets. Intenta de nuevo.', datos:null };
+    }
+    render();
+  }
+  function renderMisTickets(c){
+    if(!misTickets.cargado && !misTickets.cargando && !misTickets.error) cargarMisTickets();
+    if(misTickets.cargando){ c.innerHTML = `<div class="title">Mis tickets</div><div class="panel">Cargando…</div>`; return; }
+    if(misTickets.error){ c.innerHTML = `<div class="title">Mis tickets</div><div class="panel">${misTickets.error} <button id="btnMisTicketsRecargar">Reintentar</button></div>`; wireMisTickets(); return; }
+    const d = misTickets.datos;
+    if(!d){
+      c.innerHTML = `<div class="title">Mis tickets</div>
+        <div class="placeholder"><h3>Todavía no hay datos</h3>
+        <p>Se llenan solos con la sincronización de InvGate (lunes a viernes, 9:15). Después de la primera corrida con esta función aparecen aquí tus tickets abiertos.</p></div>`;
+      return;
+    }
+    const esc = v => (v===undefined||v===null) ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const ahora = Date.now();
+    const RANGO_PRIORIDAD = { 'Crítica':0, 'Urgente':1, 'Alta':2, 'Media':3, 'Baja':4 };
+    const abiertos = (d.abiertos || []).map(t => ({ ...t, dias: t.creado ? Math.max(0, Math.floor((ahora - new Date(t.creado).getTime())/86400000)) : 0 }));
+    const rango = t => (t.prioridad in RANGO_PRIORIDAD) ? RANGO_PRIORIDAD[t.prioridad] : 5;
+    abiertos.sort((a,b) => rango(a) - rango(b) || b.dias - a.dias);
+    const hayPrioridad = abiertos.some(t => t.prioridad);
+    const urgentes = abiertos.filter(t => t.prioridad==='Crítica' || t.prioridad==='Urgente').length;
+    const masViejo = abiertos.reduce((m,t) => Math.max(m, t.dias), 0);
+    const enEspera = abiertos.filter(t => t.estado==='En espera').length;
+    const rangos = [['0–7 días', abiertos.filter(t=>t.dias<=7).length, '#1E8E5A'], ['8–30 días', abiertos.filter(t=>t.dias>7 && t.dias<=30).length, '#B7791F'], ['Más de 30 días', abiertos.filter(t=>t.dias>30).length, '#C6421B']];
+    const totalRangos = Math.max(1, abiertos.length);
+    const prioridades = ['Crítica','Urgente','Alta','Media','Baja'].map(p => [p, abiertos.filter(t=>t.prioridad===p).length]).filter(x => x[1]);
+    const maxPrio = Math.max(1, ...prioridades.map(x=>x[1]));
+    const colorPrio = { 'Crítica':'#C6421B', 'Urgente':'#B7791F', 'Alta':'#1A56DB', 'Media':'#6B7280', 'Baja':'#6B7280' };
+    const estados = ['Todos'].concat(Array.from(new Set(abiertos.map(t=>t.estado))));
+    if(!estados.includes(misTickets.filtro)) misTickets.filtro = 'Todos';
+    const lista = abiertos.filter(t => misTickets.filtro==='Todos' || t.estado===misTickets.filtro);
+    const kpi = (label, valor, lbl, color) => `<div class="card"><div class="head" style="background:${cardGrad(color)}">${label}</div><div class="body"><div class="big">${valor}</div><div class="lbl">${lbl}</div></div></div>`;
+    const consumible = t => /toner|unidad de imagen|kit de mantenimiento|fallas con la impresora/i.test(t.categoria || '');
+    const colorDias = n => n>30 ? '#C6421B' : n>7 ? '#B7791F' : '#1E8E5A';
+    c.innerHTML = `
+      <div class="title">Mis tickets</div>
+      <div class="subtitle">Tickets asignados a ${esc(d.agente)} en InvGate · actualizado ${fmtFechaSolo(d.actualizado)} ${fmtHora(d.actualizado)} · se refresca con la sincronización (lunes a viernes, 9:15)
+        <button id="btnMisTicketsRecargar" style="margin-left:8px;">Actualizar</button></div>
+      <div class="cards cards-5">
+        ${kpi('Abiertos', fmtMX(abiertos.length), `de ${fmtMX(d.total_asignados)} asignados en total`, COLOR_SOPORTE)}
+        ${kpi('Críticos + urgentes', hayPrioridad ? fmtMX(urgentes) : '—', hayPrioridad ? 'prioridad Crítica o Urgente' : 'sin dato de prioridad', urgentes ? '#C6421B' : '#1E8E5A')}
+        ${kpi('Más viejo', `${fmtMX(masViejo)} d`, 'días desde su creación', masViejo>30 ? '#B7791F' : '#1E8E5A')}
+        ${kpi('En espera', fmtMX(enEspera), 'estado "En espera"', '#475569')}
+        ${kpi('Cerrados 7 días', fmtMX(d.cerrados_7d), 'tickets tuyos cerrados', '#1E8E5A')}
+      </div>
+      <div class="cards cards-2">
+        <div class="panel">
+          <h3>Antigüedad de abiertos</h3>
+          <div style="display:flex; height:22px; border-radius:6px; overflow:hidden; gap:2px;">
+            ${rangos.map(r => r[1] ? `<div style="flex:${r[1]}; background:${r[2]};"></div>` : '').join('')}
+          </div>
+          <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--sub); margin-top:8px;">${rangos.map(r => `<span><span style="color:${r[2]};">●</span> ${r[0]}: <b>${r[1]}</b></span>`).join('')}</div>
+        </div>
+        <div class="panel">
+          <h3>Por prioridad</h3>
+          ${prioridades.length ? `<div style="display:grid; grid-template-columns:70px 1fr 28px; gap:6px 8px; align-items:center; font-size:12.5px;">
+            ${prioridades.map(([p,n]) => `<span>${p}</span><div style="height:8px; border-radius:4px; background:${colorPrio[p]}; width:${Math.round(n/maxPrio*100)}%;"></div><span>${n}</span>`).join('')}
+          </div>` : `<div style="font-size:12.5px; color:var(--sub);">InvGate no mandó la prioridad de estos tickets.</div>`}
+        </div>
+      </div>
+      <div class="panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+          <h3 style="margin:0;">Para atender hoy <span style="font-weight:400; text-transform:none; letter-spacing:0;">· orden: prioridad y antigüedad</span></h3>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">${estados.map(e => `<button data-mis-filtro="${esc(e)}" style="padding:3px 10px; font-size:12px;${e===misTickets.filtro ? ' background:var(--tp); color:#fff; border-color:var(--tp);' : ''}">${esc(e)}</button>`).join('')}</div>
+        </div>
+        ${lista.length===0 ? `<div class="placeholder"><h3>Sin tickets abiertos</h3><p>No tienes tickets pendientes con este filtro.</p></div>` : `<div style="overflow-x:auto;"><table>
+          <thead><tr><th style="text-align:left;">Ticket</th><th style="text-align:left;">Título</th><th style="text-align:left;">Categoría</th><th>Estado</th><th>Prioridad</th><th>Antigüedad</th><th></th></tr></thead>
+          <tbody>${lista.map(t => `<tr>
+            <td style="text-align:left; font-family:var(--font-mono);">#${esc(t.id)}</td>
+            <td style="text-align:left;">${esc(t.titulo) || '<span style="color:var(--sub);">—</span>'}${consumible(t) ? '<div style="font-size:11px; color:var(--tp);">ligado a Consumibles</div>' : ''}</td>
+            <td style="text-align:left; font-size:12px; color:var(--sub);">${esc((t.categoria||'').split('>').slice(-2).join(' › ').trim())}</td>
+            <td>${esc(t.estado)}</td>
+            <td style="color:${colorPrio[t.prioridad] || 'var(--sub)'}; font-weight:600;">${esc(t.prioridad) || '—'}</td>
+            <td style="color:${colorDias(t.dias)}; font-weight:600;">${t.dias} d</td>
+            <td><a href="${INVGATE_URL_TICKET}${encodeURIComponent(t.id)}" target="_blank" rel="noopener" style="color:var(--tp); text-decoration:none; font-weight:600;">Abrir ↗</a></td>
+          </tr>`).join('')}</tbody></table></div>`}
+      </div>`;
+    wireMisTickets();
+  }
+  function wireMisTickets(){
+    const b = document.getElementById('btnMisTicketsRecargar');
+    if(b) b.onclick = () => { misTickets.cargado = false; misTickets.error = null; cargarMisTickets(); };
+    document.querySelectorAll('[data-mis-filtro]').forEach(el => {
+      el.onclick = () => { misTickets.filtro = el.dataset.misFiltro; render(); };
+    });
   }
 
   // ---------- REDCORP (oct. 2026): tráfico de internet Total Play / Telmex desde PRTG ----------
