@@ -2093,8 +2093,10 @@ auth.onAuthStateChanged(async function(user){
   // Excepción exclusiva de mgiron (agosto 2026, a petición del cliente): puede editar CUALQUIER celda
   // de OPEX aunque ya esté bloqueada — Ene-Jun congelado, o Jul-Dic con dato ya guardado. amartinez
   // (el otro editor) sigue sin poder tocar una celda ya bloqueada, igual que antes.
+  // Oct. 2026: se le dio el mismo permiso a amartinez (pedido explícito) — ahora los dos editores
+  // pueden reabrir celdas bloqueadas.
   function puedeEditarBloqueadosBI(){
-    return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'mgiron');
+    return !!(typeof currentUser !== 'undefined' && currentUser && ['mgiron','amartinez'].includes(currentUser.username));
   }
   // Actualizaciones es un log de solo lectura — mismos 3 usuarios que Budget IT, nadie "edita" un log.
   function puedeVerActualizaciones(){
@@ -8501,7 +8503,7 @@ auth.onAuthStateChanged(async function(user){
                 } else if(bloqueado && !puedeReabrir){
                   cells += `<td class="bi-locked" style="background:${bgPresupuesto(o.valor, v.presupuesto_mes)};">${moneyIT(o.valor)}</td>`;
                 } else if(puedeReabrir){
-                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${valorPrecargado}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — mgiron puede editarlo${esUSD?' (en dólares)':''}"></td>`;
+                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${valorPrecargado}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — puedes editarlo${esUSD?' (en dólares)':''}"></td>`;
                 } else if(editing && puedeEditar && dobleFactura){
                   // Un solo campo de texto (sept. 2026) — se escriben las facturas del mes separadas por
                   // "+" (ej. 2250+19500) y btnSaveBI las suma. Si el mes ya traía un dato real (dentro de
