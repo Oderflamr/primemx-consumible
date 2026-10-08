@@ -8438,9 +8438,10 @@ auth.onAuthStateChanged(async function(user){
     const pctAhorro = d.ahorroProyectado/d.opexAnnualBudget*100;
     const pctReal = Math.max(0, Math.min(100, d.janJunActual/d.opexAnnualBudget*100));
     const pctProj = Math.max(0, Math.min(100-pctReal, (d.opexAnnualProjected-d.janJunActual)/d.opexAnnualBudget*100));
-    // Ventana editable de 2 meses (sept. 2026, pedido explícito): antes un mes de Jul-Dic se cerraba
+    // Ventana editable de 3 meses (oct. 2026, pedido explícito; antes eran 2): mes actual y los DOS
+    // anteriores. Antes un mes de Jul-Dic se cerraba
     // solo (candado) en cuanto tenía un dato real — el mes en curso podía necesitar correcciones
-    // durante todo el mes, así que ahora se queda abierto junto con el mes anterior, aunque ya tengan
+    // durante todo el mes, así que ahora se queda abierto junto con los dos anteriores, aunque ya tengan
     // datos capturados (se precargan en el input, no se pierden). Los meses que todavía no llegan
     // (después del actual) no muestran ningún campo — no tiene caso capturar algo que no ha pasado.
     // Ene-Jun sigue congelado siempre. La ventana se recorre sola cada mes, sin tocar código.
@@ -8488,7 +8489,7 @@ auth.onAuthStateChanged(async function(user){
               let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td class="bi-moneda">${monedaProveedor(v.proveedor)}</td><td class="bi-presup">${presupCell}</td>`;
               valores.forEach((o,i)=>{
                 const esFuturo = i > mesActualIdxBI;
-                const enVentanaEditable = i === mesActualIdxBI || i === mesActualIdxBI - 1;
+                const enVentanaEditable = i <= mesActualIdxBI && i >= mesActualIdxBI - 2;
                 const bloqueado = !esFuturo && !enVentanaEditable;
                 const puedeReabrir = bloqueado && editing && puedeEditar && puedeEditarBloqueadosBI();
                 // El dato guardado siempre está en pesos — para un proveedor USD se vuelve a mostrar en
@@ -8537,7 +8538,7 @@ auth.onAuthStateChanged(async function(user){
           </tfoot>
         </table></div>
         <div class="bi-legend">
-          <span><span class="bi-swatch locked"></span> Con dato capturado (no editable — Ene–Jun cerrado, o Jul–Dic ya guardado)</span>
+          <span><span class="bi-swatch locked"></span> Con dato capturado (no editable — Ene–Jun cerrado, o meses fuera de la ventana: solo se edita el mes actual y los dos anteriores)</span>
           <span><span class="bi-swatch" style="background:var(--badge-good-bg);"></span> Dentro de presupuesto</span>
           <span><span class="bi-swatch" style="background:var(--badge-crit-bg);"></span> Sobre presupuesto</span>
           <span>— Sin captura todavía (editable)</span>
