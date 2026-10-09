@@ -198,6 +198,30 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
 .stat-card .num{font-family:var(--font-mono);font-size:22px;font-weight:600;}
 .stat-card .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;margin-top:2px;}
 
+/* Tiendas por carrier (oct. 2026): una fila de recuadros debajo de los indicadores; al hacer clic en uno
+   se filtra la lista por ese carrier (y otro clic lo quita). */
+.carrier-row{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:10px;
+  margin-bottom:16px;
+}
+.carrier-card{
+  position:relative;
+  overflow:hidden;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:10px 14px 10px 18px;
+  cursor:pointer;
+}
+.carrier-card:hover{border-color:var(--ink-soft);}
+.carrier-card.sel{border-color:var(--signal);box-shadow:0 0 0 2px var(--signal-soft);}
+.carrier-card .bar{position:absolute;left:0;top:0;bottom:0;width:5px;}
+.carrier-card .nom{font-size:12px;font-weight:600;color:var(--ink-soft);}
+.carrier-card .num{font-family:var(--font-mono);font-size:24px;font-weight:600;line-height:1.2;}
+.carrier-card .sub{font-size:11px;color:var(--ink-soft);}
+
 .toolbar{
   background:var(--panel);
   border:1px solid var(--line);
@@ -446,6 +470,7 @@ main{flex:1;padding:20px;max-width:1400px;margin:0 auto;width:100%;}
 
   <main>
     <div class="stats-row" id="stats-row"></div>
+    <div class="carrier-row" id="carrier-row"></div>
 
     <div class="toolbar">
       <div class="search-box">
@@ -762,11 +787,59 @@ function populateFilterOptions(){
   fill('filter-director','director');
 }
 
+// Un mismo carrier puede venir escrito distinto en el catálogo ("MEGA CABLE" / "MEGACABLE", "STARLIK" /
+// "STARLINK"): para contar y filtrar se compara por esta clave, sin espacios ni mayúsculas.
+function normCarrier(v){
+  const k = String(v||'').toUpperCase().replace(/\s+/g,'');
+  return k === 'STARLIK' ? 'STARLINK' : k;
+}
+const CARRIERS_FILA = [
+  { key:'TOTALPLAY', nombre:'TotalPlay', color:'#6600CC' },
+  { key:'TELMEX',    nombre:'Telmex',    color:'#29B6F6' },
+  { key:'MEGACABLE', nombre:'Megacable', color:'#92D050' },
+  { key:'STARLINK',  nombre:'Starlink',  color:'#000000' }
+];
+function renderCarrierRow(){
+  const cuenta = {};
+  allStores.forEach(s=>{
+    const k = normCarrier(s.carrier);
+    if(!k) return;
+    if(!cuenta[k]) cuenta[k] = { total:0, activas:0, raw:s.carrier };
+    cuenta[k].total++;
+    if(String(s.activo)==='1') cuenta[k].activas++;
+  });
+  const conocidos = new Set(CARRIERS_FILA.map(c=>c.key));
+  const lista = CARRIERS_FILA.concat(Object.keys(cuenta).filter(k=>!conocidos.has(k)).map(k=>({ key:k, nombre:cuenta[k].raw, color:'#9AA5B1' })));
+  document.getElementById('carrier-row').innerHTML = lista.map(c=>{
+    const n = cuenta[c.key] || { total:0, activas:0, raw:c.nombre };
+    return `<div class="carrier-card" data-carrier-key="${esc(c.key)}" data-carrier-raw="${esc(n.raw)}" title="Filtrar por ${esc(c.nombre)}">
+      <span class="bar" style="background:${c.color}"></span>
+      <div class="nom">${esc(c.nombre)}</div>
+      <div class="num">${n.total}</div>
+      <div class="sub">${n.activas} ${n.activas===1?'activa':'activas'}</div>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.carrier-card').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const sel = document.getElementById('filter-carrier');
+      const yaActivo = normCarrier(sel.value) === el.dataset.carrierKey;
+      sel.value = yaActivo ? '' : el.dataset.carrierRaw;
+      page = 1; applyFilters();
+    });
+  });
+  marcarCarrierActivo();
+}
+function marcarCarrierActivo(){
+  const k = normCarrier(document.getElementById('filter-carrier').value);
+  document.querySelectorAll('.carrier-card').forEach(el=>el.classList.toggle('sel', !!k && el.dataset.carrierKey === k));
+}
+
 function renderStats(){
   const total = allStores.length;
   const activas = allStores.filter(s=>String(s.activo)==='1').length;
   const inactivas = total - activas;
-  const carriers = new Set(allStores.map(s=>s.carrier).filter(Boolean)).size;
+  const carriers = new Set(allStores.map(s=>normCarrier(s.carrier)).filter(Boolean)).size;
+  renderCarrierRow();
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-card"><div class="num">${total}</div><div class="lbl">Tiendas totales</div></div>
     <div class="stat-card"><div class="num" style="color:var(--ok)">${activas}</div><div class="lbl">Activas</div></div>
@@ -894,9 +967,10 @@ function applyFilters(){
   const fActivo = document.getElementById('filter-activo').value;
   const fRegion = document.getElementById('filter-region').value;
   const fDirector = document.getElementById('filter-director').value;
+  marcarCarrierActivo();
 
   filtered = allStores.filter(s=>{
-    if(fCarrier && s.carrier !== fCarrier) return false;
+    if(fCarrier && normCarrier(s.carrier) !== normCarrier(fCarrier)) return false;
     if(fTecnologia && s.tecnologia !== fTecnologia) return false;
     if(fClasif && s.clasificacion !== fClasif) return false;
     if(fOrigen && s.origen !== fOrigen) return false;
