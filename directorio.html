@@ -812,18 +812,21 @@ function renderCarrierRow(){
   const lista = CARRIERS_FILA.concat(Object.keys(cuenta).filter(k=>!conocidos.has(k)).map(k=>({ key:k, nombre:cuenta[k].raw, color:'#9AA5B1' })));
   document.getElementById('carrier-row').innerHTML = lista.map(c=>{
     const n = cuenta[c.key] || { total:0, activas:0, raw:c.nombre };
-    return `<div class="carrier-card" data-carrier-key="${esc(c.key)}" data-carrier-raw="${esc(n.raw)}" title="Filtrar por ${esc(c.nombre)}">
+    return `<div class="carrier-card" data-carrier-key="${esc(c.key)}" data-carrier-raw="${esc(n.raw)}" title="Ver las tiendas activas de ${esc(c.nombre)}">
       <span class="bar" style="background:${c.color}"></span>
       <div class="nom">${esc(c.nombre)}</div>
-      <div class="num">${n.total}</div>
-      <div class="sub">${n.activas} ${n.activas===1?'activa':'activas'}</div>
+      <div class="num">${n.activas}</div>
+      <div class="sub">${n.activas===1?'activa':'activas'}</div>
     </div>`;
   }).join('');
   document.querySelectorAll('.carrier-card').forEach(el=>{
     el.addEventListener('click', ()=>{
+      // El recuadro cuenta solo tiendas activas, así que el clic filtra carrier + Estatus "Activo" para que
+      // la lista tenga el mismo número; el segundo clic quita los dos filtros.
       const sel = document.getElementById('filter-carrier');
       const yaActivo = normCarrier(sel.value) === el.dataset.carrierKey;
       sel.value = yaActivo ? '' : el.dataset.carrierRaw;
+      document.getElementById('filter-activo').value = yaActivo ? '' : '1';
       page = 1; applyFilters();
     });
   });
