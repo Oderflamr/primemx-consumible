@@ -977,6 +977,17 @@ auth.onAuthStateChanged(async function(user){
   const FIRESTORE_DOC = 'estado';
   const COLOR = { TotalPlay:'#6600CC', Telmex:'#00B0F0', Metrocarrier:'#66BB6A' };
   const CARD_COLOR = { TotalPlay:'#6600CC', Telmex:'#29B6F6', Megacable:'#92D050', Starlink:'#212121' };
+  // Starlink (oct. 2026, pedido explícito): su gris casi negro se perdía sobre el fondo del modo oscuro.
+  // En oscuro el encabezado va blanco con letra negra; en claro, negro con letra blanca. Se usa en las
+  // tarjetas, la gráfica de dona y los puntos del calendario (todo lo que pinta a Starlink).
+  function cardColor(prov){
+    if(prov !== 'Starlink') return CARD_COLOR[prov];
+    return esTemaOscuro() ? '#FFFFFF' : '#000000';
+  }
+  function cardHeadStyle(prov){
+    const fondo = cardColor(prov);
+    return `background:${fondo};` + (prov === 'Starlink' ? ` color:${esTemaOscuro() ? '#12161A' : '#FFFFFF'};` : '');
+  }
   const COLOR_2025 = { TotalPlay:'#CBB6E8', Telmex:'#B3E5FC', Metrocarrier:'#B39DDB' };
   const COLOR_COMBINADO = '#4012A5'; // (sin usar ya, se deja por compatibilidad histórica)
   // Paleta ejecutiva (agosto 2026) — un color de identidad vivo por pestaña, para las tarjetas/encabezados
@@ -2040,9 +2051,15 @@ auth.onAuthStateChanged(async function(user){
   // sola vez aquí (color por defecto para TODAS las gráficas) en vez de tocar cada `new Chart(...)` de
   // este archivo uno por uno. Los colores de cada serie (COLOR_SOPORTE, etc.) se quedan igual en los
   // dos temas: son acentos saturados, se siguen viendo bien sobre fondo oscuro.
+  // Mismo criterio que el CSS: el botón manda (data-theme); sin elección, se sigue el modo del sistema.
+  function esTemaOscuro(){
+    const t = document.documentElement.getAttribute('data-theme');
+    if(t) return t === 'dark';
+    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  }
   function aplicarTemaChartJS(){
     if(typeof Chart === 'undefined') return;
-    const oscuro = document.documentElement.getAttribute('data-theme') === 'dark';
+    const oscuro = esTemaOscuro();
     Chart.defaults.color = oscuro ? '#9FB2BE' : '#6B7280';
     Chart.defaults.borderColor = oscuro ? '#2B3238' : '#E5E7EB';
   }
@@ -2093,10 +2110,8 @@ auth.onAuthStateChanged(async function(user){
   // Excepción exclusiva de mgiron (agosto 2026, a petición del cliente): puede editar CUALQUIER celda
   // de OPEX aunque ya esté bloqueada — Ene-Jun congelado, o Jul-Dic con dato ya guardado. amartinez
   // (el otro editor) sigue sin poder tocar una celda ya bloqueada, igual que antes.
-  // Oct. 2026: se le dio el mismo permiso a amartinez (pedido explícito) — ahora los dos editores
-  // pueden reabrir celdas bloqueadas.
   function puedeEditarBloqueadosBI(){
-    return !!(typeof currentUser !== 'undefined' && currentUser && ['mgiron','amartinez'].includes(currentUser.username));
+    return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username === 'mgiron');
   }
   // Actualizaciones es un log de solo lectura — mismos 3 usuarios que Budget IT, nadie "edita" un log.
   function puedeVerActualizaciones(){
@@ -6227,11 +6242,28 @@ auth.onAuthStateChanged(async function(user){
     // el catálogo todavía no ha cargado la primera vez se muestra "…" en vez de "0", para no dar la
     // impresión de que de repente no hay tiendas.
     function svTexto(prov){ return catalogoVivo.cargado ? fmtMX(catalogoVivo.activasPorCarrier[prov]||0) : '…'; }
+    // "Caídas del mes" (oct. 2026, pedido explícito): total del mes en curso (periodo_actual) de cada
+    // proveedor, a la derecha del acumulado. Megacable usa la serie 'Metrocarrier' (igual que su
+    // acumulado). Starlink se captura como un solo número a mano (caidas_extra), no por mes: sin dato.
+    const idxMesTarj = idxMes(state.periodo_actual);
+    function caidasDelMes(prov){
+      if(prov==='Starlink') return null;
+      const arr = state.tendencia.data[prov==='Megacable' ? 'Metrocarrier' : prov] || [];
+      return Number(arr[idxMesTarj]||0);
+    }
     function card(prov,caidas,pillCaidas){
       const st = estatusProveedor(pillCaidas);
-      return `<div class="card"><div class="head" style="background:${CARD_COLOR[prov]}">${prov}</div>
+      const delMes = caidasDelMes(prov);
+      return `<div class="card"><div class="head" style="${cardHeadStyle(prov)}">${prov}</div>
         <div class="body"><div class="big">${svTexto(prov)}</div><div class="lbl">Servicios</div><div class="rule"></div>
-        <div class="big" style="font-size:20px">${caidas} Caídas</div><span class="pill ${st.cls}">${st.label}</span></div></div>`;
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+          <div><div class="big" style="font-size:20px">${caidas} Caídas</div><span class="pill ${st.cls}">${st.label}</span></div>
+          <div style="text-align:right; border-left:1px solid var(--line); padding-left:10px;">
+            <div class="lbl" style="margin:0;">Caídas del mes</div>
+            <div class="big" style="font-size:20px;">${delMes===null ? '—' : delMes}</div>
+            <div class="lbl">${delMes===null ? 'sin dato mensual' : state.periodo_actual}</div>
+          </div>
+        </div></div></div>`;
     }
     c.innerHTML = `
       <div class="title">Tendencia mensual de caídas — Enero a ${state.periodo_actual} ${state.anio}</div>
@@ -6466,7 +6498,7 @@ auth.onAuthStateChanged(async function(user){
         <div style="width:20px; height:20px; border:1px solid ${estado ? estado.borde : 'var(--line)'}; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10.5px; color:var(--ink); background:var(--card-bg);">${d}</div>
         ${estado ? `<div style="margin-top:6px; text-align:left; font-size:11px; font-weight:700; color:${estado.texto};">${estado.etiqueta}</div>` : ''}
         ${tieneDatos
-          ? `<div style="margin-top:5px; display:flex; flex-direction:column; gap:1px;">${desglose.map(x=>`<div style="display:flex; align-items:center; gap:4px; font-size:9.5px; color:var(--sub); line-height:1.5;"><span style="width:6px; height:6px; border-radius:50%; background:${CARD_COLOR[x.prov]||'#999'}; flex:none;"></span><span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${x.prov}</span><span style="margin-left:auto; color:var(--ink);">${x.n}</span></div>`).join('')}</div>`
+          ? `<div style="margin-top:5px; display:flex; flex-direction:column; gap:1px;">${desglose.map(x=>`<div style="display:flex; align-items:center; gap:4px; font-size:9.5px; color:var(--sub); line-height:1.5;"><span style="width:6px; height:6px; border-radius:50%; background:${cardColor(x.prov)||'#999'}; flex:none;"></span><span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${x.prov}</span><span style="margin-left:auto; color:var(--ink);">${x.n}</span></div>`).join('')}</div>`
           : (estado ? '' : `<div style="font-size:10.5px; color:var(--sub); margin-top:8px;">—</div>`)}
       </div>`;
     }
@@ -6540,7 +6572,7 @@ auth.onAuthStateChanged(async function(user){
     function card(prov,caidas){
       const peerVal = autoPeer(prov,caidas);
       const atnVal = autoAtn(prov);
-      return `<div class="card"><div class="head" style="background:${CARD_COLOR[prov]}">${prov}</div>
+      return `<div class="card"><div class="head" style="${cardHeadStyle(prov)}">${prov}</div>
         <div class="body">
           <div class="big" style="font-size:22px">${caidas}</div><div class="lbl">Caídas · ${fmtPct(caidas,total)} del total</div>
           <div class="rule"></div>
@@ -6601,7 +6633,7 @@ auth.onAuthStateChanged(async function(user){
     charts.resumen = new Chart(document.getElementById('chartResumen'), {
       type:'bar',
       data:{ labels:['TotalPlay','Telmex','Megacable','Starlink'], datasets:[{ data:[tp,tm,mg,sl],
-        backgroundColor:[CARD_COLOR.TotalPlay,CARD_COLOR.Telmex,CARD_COLOR.Megacable,CARD_COLOR.Starlink] }] },
+        backgroundColor:[CARD_COLOR.TotalPlay,CARD_COLOR.Telmex,CARD_COLOR.Megacable,cardColor('Starlink')] }] },
       options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
     });
     const selMes = document.getElementById('selMesCalendario');
@@ -8503,7 +8535,7 @@ auth.onAuthStateChanged(async function(user){
                 } else if(bloqueado && !puedeReabrir){
                   cells += `<td class="bi-locked" style="background:${bgPresupuesto(o.valor, v.presupuesto_mes)};">${moneyIT(o.valor)}</td>`;
                 } else if(puedeReabrir){
-                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${valorPrecargado}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — puedes editarlo${esUSD?' (en dólares)':''}"></td>`;
+                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${valorPrecargado}" style="width:72px; background:${bgPresupuesto(o.valor, v.presupuesto_mes)};" title="Mes ya cerrado — mgiron puede editarlo${esUSD?' (en dólares)':''}"></td>`;
                 } else if(editing && puedeEditar && dobleFactura){
                   // Un solo campo de texto (sept. 2026) — se escriben las facturas del mes separadas por
                   // "+" (ej. 2250+19500) y btnSaveBI las suma. Si el mes ya traía un dato real (dentro de
