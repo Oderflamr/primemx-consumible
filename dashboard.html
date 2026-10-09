@@ -4903,9 +4903,12 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <h3 style="margin:0;">Directorio de HUBs de recolección</h3>
-          ${puedeEditar ? (hubMapModoEdicion
-            ? `<div class="editbar" style="margin:0;"><button id="btnAgregarHubMapa">+ Agregar HUB</button><button class="primary" id="btnCerrarEdicionHubMapa">Terminar edición</button></div>`
-            : `<button id="btnEditarHubMapa">Editar directorio</button>`) : ''}
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            ${hubMapModoEdicion ? '' : `<button id="btnExcelHub">Excel: importar / exportar</button>`}
+            ${puedeEditar ? (hubMapModoEdicion
+              ? `<div class="editbar" style="margin:0;"><button id="btnAgregarHubMapa">+ Agregar HUB</button><button class="primary" id="btnCerrarEdicionHubMapa">Terminar edición</button></div>`
+              : `<button id="btnEditarHubMapa">Editar directorio</button>`) : ''}
+          </div>
         </div>
         ${filas.length===0 ? `<p style="color:var(--sub); margin-top:10px;">Sin registros todavía.</p>` : `
         <div style="margin-top:12px; overflow-x:auto;">
@@ -4933,6 +4936,7 @@ auth.onAuthStateChanged(async function(user){
         <div style="font-size:11px; color:var(--sub); margin-top:8px;">Pasa el mouse sobre una bandera para ver su nombre, da clic para ver el detalle abajo.</div>
         `}
         <div id="hubMapModalRoot"></div>
+        <div id="hubExcelModalRoot"></div>
       </div>
     `;
   }
@@ -5027,6 +5031,169 @@ auth.onAuthStateChanged(async function(user){
       };
     }
   }
+  // ---------- Excel de HUBs (oct. 2026): exportar e importar desde un solo botón ----------
+  // Exportar: una fila por HUB dado de alta (campos propios + Dirección/Gerente regional/Latitud/Longitud
+  // tomados del Directorio, igual que la ficha). Importar (solo quien edita el directorio): agrega o
+  // actualiza por NOMBRE de HUB, con vista previa; nunca borra, y una celda vacía no borra el dato actual.
+  let hubExcelVentana = null;   // null | 'menu' | 'preview'
+  let hubExcelFilas = null;     // filas limpias del archivo, a la espera de confirmar
+  let hubExcelArchivo = '';
+  const HUB_EXCEL_COLUMNAS = ['Región','Estado','Ciudad','HUB','Responsable','Teléfono','Dirección','Gerente regional','Latitud','Longitud','En Directorio'];
+  const HUB_CAMPOS_IMPORT = ['region','estado','ciudad','responsable','telefono'];
+  const claveHub = s => String(s==null?'':s).toUpperCase().replace(/\s+/g,' ').trim();
+  const quitarAcentosHub = s => String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+
+  async function exportarHubsExcel(){
+    if(!catalogoVivo.cargado){ try{ await cargarCatalogoVivo(); }catch(e){} }
+    const filas = (state.hub.directorio||[]).map(f=>{
+      const t = catalogoVivo.porNombre[String(f.hub||'').toUpperCase().trim()];
+      return [f.region||'', f.estado||'', f.ciudad||'', f.hub||'', f.responsable||'', String(f.telefono||''),
+        (t&&t.direccion)||'', (t&&t.gerente_regional)||'', (t&&t.latitud)||'', (t&&t.longitud)||'', t ? 'Sí' : 'No'];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([HUB_EXCEL_COLUMNAS].concat(filas));
+    ws['!cols'] = [14,18,18,38,30,16,50,28,12,12,13].map(w=>({wch:w}));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'HUBs');
+    const hoy = new Date().toLocaleDateString('en-CA', { timeZone:'America/Mexico_City' });
+    XLSX.writeFile(wb, `HUBs_PrimeMX_${hoy}.xlsx`);
+    toast(`${filas.length} HUBs exportados`);
+  }
+
+  // Lee la hoja y regresa filas limpias {fila, hub, region, estado, ciudad, responsable, telefono}.
+  function leerFilasHubs(rows2d){
+    const alias = { region:['region'], estado:['estado'], ciudad:['ciudad'], hub:['hub','hub de recoleccion','nombre del hub'], responsable:['responsable'], telefono:['telefono','tel','tel.'] };
+    let hIdx = -1, col = {};
+    for(let i=0; i<Math.min(10, rows2d.length); i++){
+      const c = {};
+      (rows2d[i]||[]).forEach((v,j)=>{ const k = quitarAcentosHub(v); Object.keys(alias).forEach(a=>{ if(alias[a].includes(k) && c[a]===undefined) c[a] = j; }); });
+      if(c.hub !== undefined){ hIdx = i; col = c; break; }
+    }
+    if(hIdx < 0) throw new Error('No se encontró la columna "HUB" en el archivo. Usa el Excel que se descarga con "Exportar" como plantilla.');
+    const val = (r,a) => col[a]===undefined ? '' : String(r[col[a]]==null ? '' : r[col[a]]).trim();
+    const filas = [];
+    for(let i=hIdx+1; i<rows2d.length; i++){
+      const r = rows2d[i] || [];
+      const f = { fila:i+1, hub:val(r,'hub'), region:val(r,'region'), estado:val(r,'estado'), ciudad:val(r,'ciudad'), responsable:val(r,'responsable'), telefono:val(r,'telefono') };
+      if(!f.hub && !f.region && !f.estado && !f.ciudad && !f.responsable && !f.telefono) continue; // fila vacía
+      filas.push(f);
+    }
+    return filas;
+  }
+
+  // Compara las filas del archivo contra el directorio ACTUAL (se vuelve a calcular al aplicar, por si
+  // cambió mientras la vista previa estaba abierta).
+  function clasificarImportHubs(filas){
+    const actuales = state.hub.directorio || [];
+    const porClave = {};
+    actuales.forEach((f,i)=>{ const k = claveHub(f.hub); if(k){ (porClave[k] = porClave[k] || []).push(i); } });
+    const vistas = new Set();
+    const res = { nuevos:[], cambian:[], iguales:0, problemas:[], estadoRaro:[], noVienen:0 };
+    filas.forEach(f=>{
+      const k = claveHub(f.hub);
+      if(!k){ res.problemas.push({ fila:f.fila, motivo:'sin nombre de HUB' }); return; }
+      if(vistas.has(k)){ res.problemas.push({ fila:f.fila, motivo:`HUB repetido en el archivo (${f.hub})` }); return; }
+      vistas.add(k);
+      if(f.estado && !ESTADOS_HUB_COORDS[normalizarEstadoHub(f.estado)]) res.estadoRaro.push(f.hub);
+      const idx = porClave[k] ? porClave[k][0] : -1;
+      if(idx < 0){ res.nuevos.push(f); return; }
+      const antes = actuales[idx], despues = {}, campos = [];
+      HUB_CAMPOS_IMPORT.forEach(c=>{
+        if(f[c] !== '' && String(antes[c]||'').trim() !== f[c]){ despues[c] = f[c]; campos.push(c); }
+      });
+      if(campos.length) res.cambian.push({ idx, hub:antes.hub, campos, despues });
+      else res.iguales++;
+    });
+    res.noVienen = actuales.filter(f=>{ const k = claveHub(f.hub); return k && !vistas.has(k); }).length;
+    return res;
+  }
+
+  function renderHubExcelModal(){
+    const root = document.getElementById('hubExcelModalRoot');
+    if(!root) return;
+    if(!hubExcelVentana){ root.innerHTML = ''; return; }
+    const total = (state.hub.directorio||[]).length;
+    const puedeImportar = canEditHub();
+    let cuerpo = '';
+    if(hubExcelVentana === 'menu'){
+      const op = (id,t,d)=>`<button id="${id}" style="text-align:left; padding:12px; border-radius:10px; display:block; height:auto;"><b style="display:block; font-size:14px; margin-bottom:4px;">${t}</b><span style="font-size:12px; font-weight:400; color:var(--sub);">${d}</span></button>`;
+      cuerpo = `
+        <h3>Excel de HUBs</h3>
+        <div class="noc-modal-sub">¿Qué quieres hacer?</div>
+        <div style="display:grid; grid-template-columns:${puedeImportar?'1fr 1fr':'1fr'}; gap:10px;">
+          ${op('hubExcelExportar','Exportar',`Descarga los ${total} HUBs dados de alta en un archivo de Excel.`)}
+          ${puedeImportar ? op('hubExcelImportar','Importar','Sube un Excel para agregar o actualizar HUBs. Antes de aplicar ves qué cambia.') : ''}
+        </div>
+        <input type="file" id="hubExcelArchivo" accept=".xlsx,.xls" style="display:none">
+        <button class="noc-modal-close" id="hubExcelCerrar">Cerrar</button>`;
+    } else {
+      const r = clasificarImportHubs(hubExcelFilas || []);
+      const n = r.nuevos.length + r.cambian.length;
+      const etiqueta = { region:'región', estado:'estado', ciudad:'ciudad', responsable:'responsable', telefono:'teléfono' };
+      const fila = (t,v,color)=>`<div class="noc-modal-row"><span>${t}</span><b${color?` style="color:${color};"`:''}>${v}</b></div>`;
+      const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      cuerpo = `
+        <h3>Importar HUBs</h3>
+        <div class="noc-modal-sub">${esc(hubExcelArchivo)} · ${(hubExcelFilas||[]).length} filas leídas</div>
+        ${fila('HUBs nuevos (se agregan)', r.nuevos.length, r.nuevos.length ? 'var(--ok)' : '')}
+        ${fila('HUBs que cambian', r.cambian.length)}
+        ${fila('Sin cambios', r.iguales)}
+        ${fila('Filas con problema (no se aplican)', r.problemas.length, r.problemas.length ? 'var(--warn)' : '')}
+        ${fila('HUBs que no vienen en el archivo (no se borran)', r.noVienen)}
+        ${r.estadoRaro.length ? `<div style="font-size:12px; color:var(--warn); margin-top:8px;">Estado no reconocido en: ${r.estadoRaro.map(esc).join(', ')} — se aplican, pero su bandera cae en una posición genérica del mapa.</div>` : ''}
+        ${r.problemas.length ? `<details style="margin-top:10px; font-size:12px;"><summary style="cursor:pointer;">Ver filas con problema</summary>${r.problemas.map(p=>`<div>Fila ${p.fila}: ${esc(p.motivo)}</div>`).join('')}</details>` : ''}
+        ${n ? `<details style="margin-top:10px; font-size:12px;"><summary style="cursor:pointer;">Ver qué se va a aplicar</summary>
+          ${r.nuevos.map(f=>`<div>+ ${esc(f.hub)} <span style="color:var(--sub);">(nuevo)</span></div>`).join('')}
+          ${r.cambian.map(c=>`<div>~ ${esc(c.hub)} <span style="color:var(--sub);">(${c.campos.map(k=>etiqueta[k]).join(', ')})</span></div>`).join('')}
+        </details>` : ''}
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button id="hubExcelCancelar" style="flex:1;">Cancelar</button>
+          <button class="primary" id="hubExcelAplicar" style="flex:1;" ${n?'':'disabled'}>Aplicar ${n} cambio${n===1?'':'s'}</button>
+        </div>`;
+    }
+    root.innerHTML = `<div class="noc-overlay" id="hubExcelOverlay"><div class="noc-modal" style="max-width:520px;">${cuerpo}</div></div>`;
+    const cerrar = ()=>{ hubExcelVentana = null; hubExcelFilas = null; renderHubExcelModal(); };
+    const ov = document.getElementById('hubExcelOverlay');
+    ov.onclick = e=>{ if(e.target === ov) cerrar(); };
+    const bCerrar = document.getElementById('hubExcelCerrar'); if(bCerrar) bCerrar.onclick = cerrar;
+    const bCancelar = document.getElementById('hubExcelCancelar'); if(bCancelar) bCancelar.onclick = cerrar;
+    const bExp = document.getElementById('hubExcelExportar');
+    if(bExp) bExp.onclick = async ()=>{ await exportarHubsExcel(); cerrar(); };
+    const bImp = document.getElementById('hubExcelImportar'), inp = document.getElementById('hubExcelArchivo');
+    if(bImp && inp){
+      bImp.onclick = ()=> inp.click();
+      inp.onchange = e=>{
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = ev=>{
+          try{
+            const wb = XLSX.read(ev.target.result, { type:'array' });
+            const ws = wb.Sheets[wb.SheetNames.includes('HUBs') ? 'HUBs' : wb.SheetNames[0]];
+            hubExcelFilas = leerFilasHubs(XLSX.utils.sheet_to_json(ws, { header:1, defval:'' }));
+            hubExcelArchivo = file.name;
+            hubExcelVentana = 'preview';
+            renderHubExcelModal();
+          }catch(err){
+            console.error(err);
+            toast(err.message || 'No se pudo leer el archivo.', 'error');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+        e.target.value = '';
+      };
+    }
+    const bAp = document.getElementById('hubExcelAplicar');
+    if(bAp) bAp.onclick = ()=>{
+      if(!canEditHub()) return;
+      const r = clasificarImportHubs(hubExcelFilas || []);
+      r.cambian.forEach(c=>{ Object.assign(state.hub.directorio[c.idx], c.despues); });
+      r.nuevos.forEach(f=>{ state.hub.directorio.push({ region:f.region, estado:f.estado, ciudad:f.ciudad, hub:f.hub, responsable:f.responsable, telefono:f.telefono }); });
+      descripcionActualizacion = `Importación de Excel — Directorio de HUBs de recolección (${hubExcelArchivo})`;
+      hubExcelVentana = null; hubExcelFilas = null;
+      save();
+    };
+  }
+
   function wireDirectorioHubs(){
     document.querySelectorAll('.hub-flagpin').forEach(g=>{
       g.onclick = ()=>{
@@ -5037,6 +5204,9 @@ auth.onAuthStateChanged(async function(user){
       };
     });
     renderHubMapModal();
+    const btnExcel = document.getElementById('btnExcelHub');
+    if(btnExcel) btnExcel.onclick = ()=>{ hubExcelVentana = 'menu'; hubExcelFilas = null; renderHubExcelModal(); };
+    renderHubExcelModal();
     if(!canEditHub()) return;
     const btnEditar = document.getElementById('btnEditarHubMapa');
     if(btnEditar) btnEditar.onclick = ()=>{ hubMapModoEdicion = true; render(); };
