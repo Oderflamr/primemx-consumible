@@ -4910,6 +4910,10 @@ auth.onAuthStateChanged(async function(user){
               : `<button id="btnEditarHubMapa">Editar directorio</button>`) : ''}
           </div>
         </div>
+        ${(puedeEditar && gruposHubDuplicados().length) ? `<div style="margin-top:12px; padding:10px 12px; border-radius:8px; background:var(--badge-warn-bg); border:1px solid #B7791F; font-size:12.5px; line-height:1.6;">
+          <b>⚠ Hay HUBs duplicados en el directorio.</b> Entra a "Editar directorio" y elimina o corrige el repetido.
+          ${gruposHubDuplicados().map(g=>`<div>${escEsv(filas[g[0]].hub)} — ${g.map((i,n)=>`<a href="#" data-hub-dup="${i}" style="color:var(--tp); font-weight:600;">ver fila ${n+1} (${escEsv(filas[i].region||'sin región')})</a>`).join(' · ')}</div>`).join('')}
+        </div>` : ''}
         ${filas.length===0 ? `<p style="color:var(--sub); margin-top:10px;">Sin registros todavía.</p>` : `
         <div style="margin-top:12px; overflow-x:auto;">
           <svg viewBox="12 144 400 248" style="width:100%; max-width:700px; display:block; margin:0 auto;" role="img">
@@ -4958,6 +4962,7 @@ auth.onAuthStateChanged(async function(user){
         ${editando ? `
           <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Hub de recolección</label>
           <input type="text" id="hubMapCampoHub" value="${String(f.hub||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:14px; font-weight:600; margin-bottom:8px;">
+          <div id="hubMapAvisoDup"></div>
           <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Estado</label>
           <select id="hubMapCampoEstado" style="width:100%; padding:6px 8px; font-size:13px; margin-bottom:8px;">
             ${!f.estado ? `<option value="" disabled selected>Elige un estado…</option>` : ''}
@@ -5005,6 +5010,18 @@ auth.onAuthStateChanged(async function(user){
     `;
     document.getElementById('hubMapModalCloseBtn').onclick = ()=>{ hubMapSeleccion=null; hubMapDraft=null; renderHubMapModal(); };
     if(editando){
+      // Aviso en vivo: si el nombre ya está dado de alta en OTRO HUB, se muestra y se bloquea "Guardar".
+      // Si se edita un HUB que ya estaba repetido sin cambiarle el nombre, se deja guardar (para poder corregirlo).
+      const nombreOriginal = esNuevo ? '' : ((state.hub.directorio||[])[hubMapSeleccion]||{}).hub;
+      const duplicadoDe = nombre => (!esNuevo && claveHub(nombre) === claveHub(nombreOriginal)) ? null : buscarHubDuplicado(nombre, esNuevo ? -1 : hubMapSeleccion);
+      const inpHub = document.getElementById('hubMapCampoHub'), avisoHub = document.getElementById('hubMapAvisoDup'), btnGuardar = document.getElementById('btnGuardarHubMapa');
+      const revisarDup = ()=>{
+        const d = duplicadoDe(inpHub.value);
+        avisoHub.innerHTML = d ? `<div style="background:var(--badge-crit-bg); color:var(--crit); border-radius:8px; padding:8px 10px; font-size:12px; line-height:1.45; margin-bottom:8px;"><b>Este punto de venta ya está dado de alta como HUB.</b><br>${escEsv(d.f.hub)} · ${escEsv(d.f.region||'sin región')} · ${escEsv(d.f.estado||'sin estado')}${d.f.ciudad?' · '+escEsv(d.f.ciudad):''}. No se puede duplicar: ábrelo desde el mapa y edítalo ahí.</div>` : '';
+        btnGuardar.disabled = !!d;
+      };
+      inpHub.addEventListener('input', revisarDup);
+      revisarDup();
       document.getElementById('btnGuardarHubMapa').onclick = ()=>{
         const nuevo = {
           hub: document.getElementById('hubMapCampoHub').value,
@@ -5014,6 +5031,7 @@ auth.onAuthStateChanged(async function(user){
           responsable: document.getElementById('hubMapCampoResponsable').value,
           telefono: document.getElementById('hubMapCampoTelefono').value
         };
+        if(duplicadoDe(nuevo.hub)){ toast('Ese punto de venta ya está dado de alta como HUB.', 'error'); return; }
         if(esNuevo) state.hub.directorio.push(nuevo);
         else state.hub.directorio[hubMapSeleccion] = nuevo;
         hubMapSeleccion = null;
@@ -5040,8 +5058,24 @@ auth.onAuthStateChanged(async function(user){
   let hubExcelArchivo = '';
   const HUB_EXCEL_COLUMNAS = ['Región','Estado','Ciudad','HUB','Responsable','Teléfono','Dirección','Gerente regional','Latitud','Longitud','En Directorio'];
   const HUB_CAMPOS_IMPORT = ['region','estado','ciudad','responsable','telefono'];
-  const claveHub = s => String(s==null?'':s).toUpperCase().replace(/\s+/g,' ').trim();
-  const quitarAcentosHub = s => String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+  const quitarAcentosHub = s => String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+  // Clave para comparar nombres de HUB: sin mayúsculas, acentos ni espacios de más ("prm tda  Torreón" = "PRM TDA TORREON").
+  const claveHub = quitarAcentosHub;
+  // Un punto de venta solo puede estar una vez en el directorio (oct. 2026): regresa el primer HUB ya dado de
+  // alta con ese nombre, ignorando la fila `ignorarIdx` (la que se está editando).
+  function buscarHubDuplicado(nombre, ignorarIdx){
+    const k = claveHub(nombre);
+    if(!k) return null;
+    const lista = state.hub.directorio || [];
+    for(let i=0; i<lista.length; i++){ if(i !== ignorarIdx && claveHub(lista[i].hub) === k) return { i, f:lista[i] }; }
+    return null;
+  }
+  // Duplicados que ya existen guardados: grupos de 2 o más filas con el mismo nombre.
+  function gruposHubDuplicados(){
+    const m = {};
+    (state.hub.directorio || []).forEach((f,i)=>{ const k = claveHub(f.hub); if(k) (m[k] = m[k] || []).push(i); });
+    return Object.values(m).filter(g=>g.length > 1);
+  }
 
   async function exportarHubsExcel(){
     if(!catalogoVivo.cargado){ try{ await cargarCatalogoVivo(); }catch(e){} }
@@ -5135,10 +5169,12 @@ auth.onAuthStateChanged(async function(user){
         <h3>Importar HUBs</h3>
         <div class="noc-modal-sub">${esc(hubExcelArchivo)} · ${(hubExcelFilas||[]).length} filas leídas</div>
         ${fila('HUBs nuevos (se agregan)', r.nuevos.length, r.nuevos.length ? 'var(--ok)' : '')}
-        ${fila('HUBs que cambian', r.cambian.length)}
-        ${fila('Sin cambios', r.iguales)}
+        ${fila('Ya dados de alta (no se duplican)', r.cambian.length + r.iguales, (r.cambian.length + r.iguales) ? '#B7791F' : '')}
+        ${fila('&nbsp;&nbsp;↳ de esos, con datos distintos (se actualizan)', r.cambian.length)}
+        ${fila('&nbsp;&nbsp;↳ de esos, sin cambios', r.iguales)}
         ${fila('Filas con problema (no se aplican)', r.problemas.length, r.problemas.length ? 'var(--warn)' : '')}
         ${fila('HUBs que no vienen en el archivo (no se borran)', r.noVienen)}
+        ${(r.cambian.length + r.iguales) ? `<div style="font-size:12px; margin-top:8px; padding:8px 10px; border-radius:8px; background:var(--badge-warn-bg); color:var(--ink);"><b>${r.cambian.length + r.iguales} filas ya existen como HUB.</b> No se crean otra vez; solo se actualiza su región, estado, ciudad, responsable o teléfono si el archivo trae un dato distinto.</div>` : ''}
         ${r.estadoRaro.length ? `<div style="font-size:12px; color:var(--warn); margin-top:8px;">Estado no reconocido en: ${r.estadoRaro.map(esc).join(', ')} — se aplican, pero su bandera cae en una posición genérica del mapa.</div>` : ''}
         ${r.problemas.length ? `<details style="margin-top:10px; font-size:12px;"><summary style="cursor:pointer;">Ver filas con problema</summary>${r.problemas.map(p=>`<div>Fila ${p.fila}: ${esc(p.motivo)}</div>`).join('')}</details>` : ''}
         ${n ? `<details style="margin-top:10px; font-size:12px;"><summary style="cursor:pointer;">Ver qué se va a aplicar</summary>
@@ -5198,6 +5234,15 @@ auth.onAuthStateChanged(async function(user){
     document.querySelectorAll('.hub-flagpin').forEach(g=>{
       g.onclick = ()=>{
         const i = Number(g.dataset.hubIdx);
+        hubMapSeleccion = i;
+        hubMapDraft = hubMapModoEdicion ? clone(state.hub.directorio[i]) : null;
+        renderHubMapModal();
+      };
+    });
+    document.querySelectorAll('[data-hub-dup]').forEach(a=>{
+      a.onclick = e=>{
+        e.preventDefault();
+        const i = Number(a.dataset.hubDup);
         hubMapSeleccion = i;
         hubMapDraft = hubMapModoEdicion ? clone(state.hub.directorio[i]) : null;
         renderHubMapModal();
