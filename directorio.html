@@ -2026,7 +2026,22 @@ function openForm(id){
                        'region','gerente_regional','director','gerente_tienda','correo_gerente','fecha_apertura',
                        'latitud','longitud'];
 
-  const inputsHtml = textFields.map(key=>`
+  // Carrier como lista (oct. 2026): escrito a mano salían variantes ("MEGA CABLE" / "MEGACABLE", "STARLIK") que
+  // descuadraban los conteos. Estándar: MEGACABLE. Si la tienda trae un valor que no está en la lista (ej.
+  // "STARLIK" del catálogo actual) se conserva como opción para no borrarlo al guardar.
+  const CARRIERS_ESTANDAR = ['TOTALPLAY','TELMEX','MEGACABLE','STARLINK'];
+  const carrierActual = String(s.carrier||'').trim();
+  const opcionesCarrier = CARRIERS_ESTANDAR.slice();
+  if(carrierActual && !opcionesCarrier.includes(carrierActual)) opcionesCarrier.push(carrierActual);
+  const inputsHtml = textFields.map(key=> key==='carrier' ? `
+    <div class="field">
+      <label>${labels[key]}</label>
+      <select id="f-carrier">
+        <option value="">(sin carrier)</option>
+        ${opcionesCarrier.map(c=>`<option value="${esc(c)}" ${c===carrierActual?'selected':''}>${esc(c)}${CARRIERS_ESTANDAR.includes(c)?'':' (actual)'}</option>`).join('')}
+      </select>
+    </div>
+  ` : `
     <div class="field">
       <label>${labels[key]}</label>
       <input type="text" id="f-${key}" value="${esc(s[key])}">
