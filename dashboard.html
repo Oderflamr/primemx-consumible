@@ -2743,6 +2743,12 @@ auth.onAuthStateChanged(async function(user){
   }
   // ---------- Carga de archivo de tickets (Excel) ----------
   const DIST_LABELS = ['<4h','4-12h','12-24h','1-3d','>3d'];
+  // Año que cuenta el Dashboard (oct. 2026): los tickets creados en OTRO año no se suman a ningún mes — sin esto,
+  // un ticket de enero 2027 caería en la barra de enero 2026 (el cálculo agrupa por mes, no por año). Es un valor
+  // fijo A PROPÓSITO: cambiarlo a 2027 se hace junto con el cambio de año del Dashboard (state.anio, comparativo
+  // 2026 vs 2027, vista de InvGate), no solo. Tiene que vivir dentro de este bloque: la sincronización de InvGate
+  // copia desde DIST_LABELS hasta aplicarDatosTickets() del dashboard publicado.
+  const ANIO_TICKETS = 2026;
 
   function parseFechaTicket(v){
     if(!v) return null;
@@ -3018,6 +3024,7 @@ auth.onAuthStateChanged(async function(user){
       if(row['ID'] !== undefined && row['ID'] !== '') foto[row['ID']] = fotoTicket;
       const fc = parseFechaTicket(row['Fecha de creación']);
       if(!fc){ fotoTicket.a.push('Sin fecha de creación'); return; }
+      if(fc.getFullYear() !== ANIO_TICKETS){ fotoTicket.a.push('Otro año (no cuenta)'); return; }
       const mIdx = fc.getMonth();
       if(mIdx > maxMonthIdx) maxMonthIdx = mIdx;
 
@@ -3316,7 +3323,7 @@ auth.onAuthStateChanged(async function(user){
     mapa.forEach(f => {
       const lista = f.a ? f.a.split(' + ') : [];
       lista.forEach(ap => { cuenta[ap] = (cuenta[ap] || 0) + 1; });
-      if(!lista.some(ap => APARTADOS_PRINCIPALES.includes(ap))) cuenta['Sin contabilizar (ni Soporte ni Mesa de Control)']++;
+      if(!lista.some(ap => APARTADOS_PRINCIPALES.includes(ap)) && !lista.includes('Otro año (no cuenta)')) cuenta['Sin contabilizar (ni Soporte ni Mesa de Control)']++;
     });
     return cuenta;
   }
