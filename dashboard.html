@@ -1077,7 +1077,11 @@ auth.onAuthStateChanged(async function(user){
   // e inactivas, para no perder el Carrier/Tecnología de tickets históricos de tiendas ya cerradas);
   // `catalogoVivo.activasPorCarrier` solo cuenta activas y alimenta el Peer de Resumen 2026 y las
   // tarjetas "Servicios" de Tendencia mensual, que antes eran un número fijo editado a mano.
-  const CARRIER_DASHBOARD_LABEL = { 'TOTALPLAY':'TotalPlay', 'TELMEX':'Telmex', 'MEGA CABLE':'Megacable', 'STARLIK':'Starlink' };
+  // Oct. 2026: el catálogo cambió de "MEGA CABLE" a "MEGACABLE" tras una actualización masiva y el conteo de
+  // Servicios de Megacable se fue a 0 (la clave exacta ya no coincidía). Ahora se compara sin espacios y se
+  // aceptan las dos escrituras de Starlink, para que una variante de captura no vuelva a romper el conteo.
+  const CARRIER_DASHBOARD_LABEL = { 'TOTALPLAY':'TotalPlay', 'TELMEX':'Telmex', 'MEGACABLE':'Megacable', 'STARLIK':'Starlink', 'STARLINK':'Starlink' };
+  function etiquetaCarrierDashboard(c){ return CARRIER_DASHBOARD_LABEL[String(c||'').toUpperCase().replace(/\s+/g,'')]; }
   let catalogoVivo = { cargado:false, cargando:false, error:null, porNombre:{}, activasPorCarrier:{ TotalPlay:0, Telmex:0, Megacable:0, Starlink:0 }, actualizado:null };
   // Calendario de caídas — 100% independiente del Excel de tickets. Lee en vivo la colección
   // `fallas` de Directorio (mismo Firebase), filtrando Tipo="Sin servicio". El día es la fecha
@@ -1112,7 +1116,7 @@ auth.onAuthStateChanged(async function(user){
       const tiendaPorId = {};
       snapTiendas.docs.forEach(d=>{
         const t = d.data();
-        const label = CARRIER_DASHBOARD_LABEL[String(t.carrier||'').toUpperCase().trim()] || (t.carrier||'—');
+        const label = etiquetaCarrierDashboard(t.carrier) || (t.carrier||'—');
         tiendaPorId[d.id] = { plaza: t.plaza || 'Tienda no encontrada', carrier: label };
       });
       const porMes = {};
@@ -1174,7 +1178,7 @@ auth.onAuthStateChanged(async function(user){
         // direccion/latitud/longitud/gerente_regional (sept. 2026) — para la ficha del mapa de HUB,
         // que cruza por nombre contra este mismo catálogo en vivo de Directorio.
         porNombre[nombre] = { carrier: t.carrier, tecnologia: t.tecnologia, direccion: t.direccion, latitud: t.latitud, longitud: t.longitud, gerente_regional: t.gerente_regional };
-        const label = CARRIER_DASHBOARD_LABEL[String(t.carrier||'').toUpperCase().trim()];
+        const label = etiquetaCarrierDashboard(t.carrier);
         if(label && String(t.activo)==='1') activasPorCarrier[label]++;
       });
       catalogoVivo = { cargado:true, cargando:false, error:null, porNombre, activasPorCarrier, actualizado:new Date().toISOString() };
@@ -8989,8 +8993,29 @@ auth.onAuthStateChanged(async function(user){
   // Log global de todo lo que se guarda en el dashboard, sin importar la pestaña — visible solo para
   // amartinez, mgiron y lalzaga (mismo criterio que Budget IT). Es de solo lectura para los tres: nadie
   // "edita" un registro de auditoría, se llena solo desde save() (ver descripcionActualizacion).
+  // Cargas automáticas de RedCorp (oct. 2026): no se guardan en state.actualizaciones (serían ~288 al día en el
+  // documento grande); la Cloud Function recibirTraficoRedcorp deja un documento chico por día en redcorp_log con
+  // la hora de la primera y la última carga, y aquí se mezclan como dos renglones por día. Se vuelve a leer si
+  // la última lectura tiene más de 1 minuto.
+  let redcorpLogAct = { ts:0, cargando:false, filas:[] };
+  async function cargarRedcorpLogAct(){
+    redcorpLogAct.cargando = true;
+    let filas = [];
+    try{
+      const snap = await db.collection('redcorp_log').orderBy('fecha','desc').limit(8).get();
+      snap.forEach(d=>{
+        const x = d.data();
+        if(x.primera) filas.push({ usuario:'PRTG (automático)', tipo:'Carga automática RedCorp (PRTG) — primera del día', fecha:x.primera });
+        if(x.ultima) filas.push({ usuario:'PRTG (automático)', tipo:`Carga automática RedCorp (PRTG) — última del día${x.cargas ? ` (${x.cargas} cargas)` : ''}`, fecha:x.ultima });
+      });
+    }catch(err){ console.error('No se pudo leer la bitácora de RedCorp', err); }
+    redcorpLogAct = { ts:Date.now(), cargando:false, filas };
+    if(tab === 'actualizaciones') render();
+  }
   function renderActualizaciones(c){
-    const log = state.actualizaciones || [];
+    if(!redcorpLogAct.cargando && Date.now() - redcorpLogAct.ts > 60000) cargarRedcorpLogAct();
+    const log = (state.actualizaciones || []).concat(redcorpLogAct.filas)
+      .sort((a,b)=> String(b.fecha).localeCompare(String(a.fecha)));
     c.innerHTML = `
       <div class="title">Actualizaciones</div>
       ${log.length===0 ? `
