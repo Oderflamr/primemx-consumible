@@ -1082,7 +1082,7 @@ auth.onAuthStateChanged(async function(user){
   // aceptan las dos escrituras de Starlink, para que una variante de captura no vuelva a romper el conteo.
   const CARRIER_DASHBOARD_LABEL = { 'TOTALPLAY':'TotalPlay', 'TELMEX':'Telmex', 'MEGACABLE':'Megacable', 'STARLIK':'Starlink', 'STARLINK':'Starlink' };
   function etiquetaCarrierDashboard(c){ return CARRIER_DASHBOARD_LABEL[String(c||'').toUpperCase().replace(/\s+/g,'')]; }
-  let catalogoVivo = { cargado:false, cargando:false, error:null, porNombre:{}, activasPorCarrier:{ TotalPlay:0, Telmex:0, Megacable:0, Starlink:0 }, actualizado:null };
+  let catalogoVivo = { cargado:false, cargando:false, error:null, porNombre:{}, activasPorCarrier:{ TotalPlay:0, Telmex:0, Megacable:0, Starlink:0 }, tecnologiaTotalPlay:{}, actualizado:null };
   // Calendario de caídas — 100% independiente del Excel de tickets. Lee en vivo la colección
   // `fallas` de Directorio (mismo Firebase), filtrando Tipo="Sin servicio". El día es la fecha
   // de captura de la falla; el estatus es "Abierto" si no tiene fecha_cierre, o "Cerrado" si ya
@@ -1171,6 +1171,9 @@ auth.onAuthStateChanged(async function(user){
       const snap = await db.collection('tiendas').get();
       const porNombre = {};
       const activasPorCarrier = { TotalPlay:0, Telmex:0, Megacable:0, Starlink:0 };
+      // Desglose por tecnología (oct. 2026) solo de TotalPlay (activas): lo muestra la tarjeta de Tendencia mensual.
+      // Telmex/Megacable/Starlink llevan texto fijo ahí, así que no se cuentan.
+      const tecnologiaTotalPlay = {};
       snap.docs.forEach(d=>{
         const t = d.data();
         const nombre = String(t.plaza||'').toUpperCase().trim();
@@ -1179,9 +1182,12 @@ auth.onAuthStateChanged(async function(user){
         // que cruza por nombre contra este mismo catálogo en vivo de Directorio.
         porNombre[nombre] = { carrier: t.carrier, tecnologia: t.tecnologia, direccion: t.direccion, latitud: t.latitud, longitud: t.longitud, gerente_regional: t.gerente_regional };
         const label = etiquetaCarrierDashboard(t.carrier);
-        if(label && String(t.activo)==='1') activasPorCarrier[label]++;
+        if(label && String(t.activo)==='1'){
+          activasPorCarrier[label]++;
+          if(label === 'TotalPlay'){ const tec = String(t.tecnologia||'').toUpperCase().trim() || 'SIN DATO'; tecnologiaTotalPlay[tec] = (tecnologiaTotalPlay[tec]||0) + 1; }
+        }
       });
-      catalogoVivo = { cargado:true, cargando:false, error:null, porNombre, activasPorCarrier, actualizado:new Date().toISOString() };
+      catalogoVivo = { cargado:true, cargando:false, error:null, porNombre, activasPorCarrier, tecnologiaTotalPlay, actualizado:new Date().toISOString() };
     }catch(err){
       console.error('No se pudo cargar el catálogo en vivo de Directorio', err);
       catalogoVivo.cargando = false;
@@ -6477,11 +6483,27 @@ auth.onAuthStateChanged(async function(user){
       const arr = state.tendencia.data[prov==='Megacable' ? 'Metrocarrier' : prov] || [];
       return Number(arr[idxMesTarj]||0);
     }
+    // Tecnología de los servicios (oct. 2026, pedido explícito): TotalPlay se desglosa con números desde el
+    // Directorio (solo activas, primario); Telmex es todo fibra, Megacable fibra dedicada y Starlink satelital,
+    // por eso van como texto fijo y no se cuentan (en Directorio hay 4 tiendas Telmex marcadas MICROONDA, a propósito
+    // no se reflejan aquí).
+    const TECNOLOGIA_TEXTO = { Telmex:'Fibra', Megacable:'Fibra dedicada', Starlink:'Satelital' };
+    function tecnologiaHtml(prov){
+      if(TECNOLOGIA_TEXTO[prov]) return `<div style="text-align:right; border-left:1px solid var(--line); padding-left:10px;"><div class="big" style="font-size:15px;">${TECNOLOGIA_TEXTO[prov]}</div></div>`;
+      if(prov !== 'TotalPlay' || !catalogoVivo.cargado) return '';
+      const nombre = t => t === 'FIBRA' ? 'Fibra' : t === 'MICROONDA' ? 'Microonda' : t.charAt(0) + t.slice(1).toLowerCase();
+      const orden = ['FIBRA','MICROONDA'];
+      const tecs = Object.keys(catalogoVivo.tecnologiaTotalPlay||{}).sort((a,b)=>{
+        const ia = orden.indexOf(a), ib = orden.indexOf(b);
+        return (ia<0?99:ia) - (ib<0?99:ib) || a.localeCompare(b);
+      });
+      return `<div style="display:flex; gap:12px; text-align:right;">${tecs.map(t=>`<div style="border-left:1px solid var(--line); padding-left:10px;"><div class="lbl" style="margin:0;">${nombre(t)}</div><div class="big" style="font-size:20px;">${fmtMX(catalogoVivo.tecnologiaTotalPlay[t])}</div></div>`).join('')}</div>`;
+    }
     function card(prov,caidas,pillCaidas){
       const st = estatusProveedor(pillCaidas);
       const delMes = caidasDelMes(prov);
       return `<div class="card"><div class="head" style="${cardHeadStyle(prov)}">${prov}</div>
-        <div class="body"><div class="big">${svTexto(prov)}</div><div class="lbl">Servicios</div><div class="rule"></div>
+        <div class="body"><div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;"><div><div class="big">${svTexto(prov)}</div><div class="lbl">Servicios</div></div>${tecnologiaHtml(prov)}</div><div class="rule"></div>
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
           <div><div class="big" style="font-size:20px">${caidas} Caídas</div><span class="pill ${st.cls}">${st.label}</span></div>
           <div style="text-align:right; border-left:1px solid var(--line); padding-left:10px;">
