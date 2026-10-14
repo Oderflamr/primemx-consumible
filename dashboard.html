@@ -2694,6 +2694,10 @@ auth.onAuthStateChanged(async function(user){
       if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
       if(!state.budget_it.historial) state.budget_it.historial = [];
       state.budget_it.capex.forEach(cx=>{ if(cx.incluir===undefined) cx.incluir = true; });
+      // Budget IT 2027 (oct. 2026): misma estructura de rubros que 2026 pero todo en cero y sin captura, para ir
+      // cargando el presupuesto 2027. Es una llave aparte del estado (budget_it_2027): no toca nada de 2026.
+      if(!state.budget_it_2027) state.budget_it_2027 = crearBudgetVacio(state.budget_it);
+      if(!state.budget_it_2027.historial) state.budget_it_2027.historial = [];
     }catch(e){ console.error(e); state = clone(DEFAULTS); }
     stateAlCargar = clone(state);
     render();
@@ -8682,8 +8686,18 @@ auth.onAuthStateChanged(async function(user){
   // Nota: los valores calculados (reales + proyectados) se guardan en un arreglo aparte (valoresPorVendor),
   // nunca sobre state.budget_it.opex directamente — así el objeto que se persiste en Firestore solo
   // contiene los datos reales que alguien capturó, sin caché de cálculos.
-  function computeBudgetIT(){
-    const data = state.budget_it;
+  // Año que se está viendo en Budget IT (2026 o 2027). Solo de sesión: siempre se abre en 2026.
+  let budgetAnioVista = 2026;
+  function datosBI(){ return budgetAnioVista === 2027 ? state.budget_it_2027 : state.budget_it; }
+  function crearBudgetVacio(base){
+    return {
+      opex: base.opex.map(v=>({ proveedor:v.proveedor, categoria:v.categoria, presupuesto_mes:0, meses:new Array(12).fill(null) })),
+      capex: base.capex.map(cx=>({ proveedor:cx.proveedor, presupuesto:0, ejecutado:0, mes_ejecucion:null, mes_plan:null, incluir:true })),
+      historial: []
+    };
+  }
+  function computeBudgetIT(data){
+    data = data || state.budget_it;
     const valoresPorVendor = data.opex.map(v=> v.meses.map((_,i)=>budgetItValorMes(v.meses,i)));
     const monthlyActual = new Array(12).fill(0);
     valoresPorVendor.forEach(valores=> valores.forEach((o,i)=> monthlyActual[i]+=o.valor));
@@ -8714,12 +8728,14 @@ auth.onAuthStateChanged(async function(user){
   }
 
   function renderBudgetIT(c){
-    const data = state.budget_it;
+    const anio = budgetAnioVista;
+    const data = datosBI();
     const puedeEditar = canEditBudgetIT();
-    const d = computeBudgetIT();
-    const pctAhorro = d.ahorroProyectado/d.opexAnnualBudget*100;
-    const pctReal = Math.max(0, Math.min(100, d.janJunActual/d.opexAnnualBudget*100));
-    const pctProj = Math.max(0, Math.min(100-pctReal, (d.opexAnnualProjected-d.janJunActual)/d.opexAnnualBudget*100));
+    const d = computeBudgetIT(data);
+    const denBI = d.opexAnnualBudget || 1;  // 2027 arranca con presupuesto 0: evita dividir entre cero
+    const pctAhorro = d.ahorroProyectado/denBI*100;
+    const pctReal = Math.max(0, Math.min(100, d.janJunActual/denBI*100));
+    const pctProj = Math.max(0, Math.min(100-pctReal, (d.opexAnnualProjected-d.janJunActual)/denBI*100));
     // Ventana editable de 3 meses (oct. 2026, pedido explícito; antes eran 2): mes actual y los DOS
     // anteriores. Antes un mes de Jul-Dic se cerraba
     // solo (candado) en cuanto tenía un dato real — el mes en curso podía necesitar correcciones
@@ -8727,13 +8743,25 @@ auth.onAuthStateChanged(async function(user){
     // datos capturados (se precargan en el input, no se pierden). Los meses que todavía no llegan
     // (después del actual) no muestran ningún campo — no tiene caso capturar algo que no ha pasado.
     // Ene-Jun sigue congelado siempre. La ventana se recorre sola cada mes, sin tocar código.
-    const mesActualIdxBI = idxMes(state.periodo_actual);
+    // En 2027 el "mes actual" sale del calendario real (el periodo de tickets es de 2026): antes de enero 2027
+    // todos los meses son futuros (sin captura de gasto); ya en 2027 aplica la misma ventana de 3 meses.
+    const hoyBI = new Date();
+    const mesActualIdxBI = anio === 2027
+      ? (hoyBI.getFullYear() < 2027 ? -1 : (hoyBI.getFullYear() === 2027 ? hoyBI.getMonth() : 11))
+      : idxMes(state.periodo_actual);
 
     c.innerHTML = `
-      <div class="title">Budget IT 2026</div>
-      <div class="editbar">${editing && puedeEditar
-        ? `<button id="btnCancelBI">Cancelar</button><button class="primary" id="btnSaveBI">Guardar cambios</button>`
-        : (puedeEditar ? `<button id="btnEditBI">Editar Jul–Dic</button>` : '')}</div>
+      <div class="title">Budget IT ${anio}</div>
+      <div class="editbar" style="justify-content:space-between; align-items:center;">
+        <div style="display:flex; gap:6px; align-items:center;">
+          <span style="font-size:12px; color:var(--sub);">Año:</span>
+          ${[2026,2027].map(y=>`<button data-bi-anio="${y}" ${editing ? 'disabled' : ''} style="padding:5px 14px;${y===anio ? ' background:var(--tp); color:#fff; border-color:var(--tp);' : ''}">${y}</button>`).join('')}
+          ${anio===2027 ? `<span style="font-size:11px; color:var(--sub);">presupuesto en captura — todo inicia en $0</span>` : ''}
+        </div>
+        <div>${editing && puedeEditar
+          ? `<button id="btnCancelBI">Cancelar</button><button class="primary" id="btnSaveBI">Guardar cambios</button>`
+          : (puedeEditar ? `<button id="btnEditBI">${anio===2027 ? 'Editar presupuesto 2027' : 'Editar Jul–Dic'}</button>` : '')}</div>
+      </div>
 
       <div class="cards cards-5">
         <div class="card"><div class="head" style="background:${cardGrad('#0C8599')}">Presupuesto anual OPEX</div>
@@ -8749,7 +8777,7 @@ auth.onAuthStateChanged(async function(user){
       </div>
 
       <div class="panel">
-        <h3>Presupuesto vs. ejercido — OPEX mensual (Ene–Jun congelado)</h3>
+        <h3>Presupuesto vs. ejercido — OPEX mensual${anio===2026 ? ' (Ene–Jun congelado)' : ' ' + anio}</h3>
         <div class="foot" style="margin:2px 0 10px;">Nota: los proveedores que manejan moneda en USD consideran un tipo de cambio fijo de $${TIPO_CAMBIO_USD} pesos por dólar.</div>
         <div style="overflow-x:auto;"><table id="tbl-budget-it">
           <colgroup>
@@ -8828,7 +8856,7 @@ auth.onAuthStateChanged(async function(user){
       </div>
 
       <div class="panel">
-        <h3>CAPEX 2026 — ejecución de proyectos</h3>
+        <h3>CAPEX ${anio} — ejecución de proyectos</h3>
         <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:16px;">
           <div style="overflow-x:auto;"><table>
             <thead><tr><th></th><th style="text-align:left;">Proyecto</th><th>Presupuesto</th><th>Ejecutado</th><th>Pendiente</th><th>Mes estimado</th></tr></thead>
@@ -8837,13 +8865,14 @@ auth.onAuthStateChanged(async function(user){
               const pendiente = Math.max(cx.presupuesto-cx.ejecutado,0);
               let status;
               if(!incluido) status = `<span class="status-badge" style="background:#F1F1F3; color:var(--sub);">No incluido</span>`;
+              else if(cx.presupuesto<=0) status = `<span class="status-badge" style="background:#F1F1F3; color:var(--sub);">Sin presupuesto</span>`;
               else if(pendiente<=0) status = `<span class="status-badge estable">Pagado</span>`;
               else status = `<span class="status-badge alerta">Pendiente</span>`;
               const checkbox = `<input type="checkbox" data-bi-capex-incluir="${ci}" ${incluido?'checked':''} ${(editing && puedeEditar)?'':'disabled'}>`;
-              const sel = (incluido && pendiente>0 && editing && puedeEditar)
-                ? `<select data-bi-capex="${ci}">${CAPEX_MESES_BI.map(m=>`<option value="${m}" ${m===cx.mes_plan?'selected':''}>${m}</option>`).join('')}</select>`
+              const sel = (incluido && (pendiente>0 || anio===2027) && editing && puedeEditar)
+                ? `<select data-bi-capex="${ci}">${(anio===2027 ? MESES12 : CAPEX_MESES_BI).map(m=>`<option value="${m}" ${m===cx.mes_plan?'selected':''}>${m}</option>`).join('')}</select>`
                 : (incluido && pendiente>0 ? (cx.mes_plan||'—') : (cx.mes_ejecucion||'—'));
-              return `<tr style="${incluido?'':'opacity:.5;'}"><td>${checkbox}</td><td style="text-align:left;">${cx.proveedor} ${status}</td><td>${moneyIT(cx.presupuesto)}</td><td>${moneyIT(cx.ejecutado)}</td><td>${moneyIT(pendiente)}</td><td style="text-align:left;">${sel}</td></tr>`;
+              return `<tr style="${incluido?'':'opacity:.5;'}"><td>${checkbox}</td><td style="text-align:left;">${cx.proveedor} ${status}</td><td>${(anio===2027 && editing && puedeEditar) ? `<input type="number" step="1" data-bi-capex-presup="${ci}" value="${cx.presupuesto}" style="width:90px;">` : moneyIT(cx.presupuesto)}</td><td>${moneyIT(cx.ejecutado)}</td><td>${moneyIT(pendiente)}</td><td style="text-align:left;">${sel}</td></tr>`;
             }).join('')}</tbody>
           </table></div>
           <div><canvas id="chartBudgetItCapex"></canvas></div>
@@ -8852,10 +8881,10 @@ auth.onAuthStateChanged(async function(user){
 
       <div class="panel">
         <h3>Análisis de proyección anual</h3>
-        <p style="font-size:13px; line-height:1.55; margin:0 0 14px;">Con el ritmo real de Enero–Junio (cerrado) y una proyección Julio–Diciembre basada en el promedio de los últimos meses reales por proveedor, el gasto OPEX 2026 terminaría en <b>${moneyIT(d.opexAnnualProjected)}</b> contra un presupuesto de <b>${moneyIT(d.opexAnnualBudget)}</b> — ${d.ahorroProyectado>=0?'un ahorro proyectado':'un sobre-ejercicio proyectado'} de <b>${moneyIT(Math.abs(d.ahorroProyectado))}</b> (${fmtPct(Math.abs(d.ahorroProyectado), d.opexAnnualBudget)}). Sumando los ${moneyIT(d.capexPendiente)} de CAPEX que aún no se ejecutan, el ${d.ahorroTotalProyectado>=0?'ahorro':'sobre-ejercicio'} total proyectado del presupuesto combinado de IT es de <b>${moneyIT(Math.abs(d.ahorroTotalProyectado))}</b> (${fmtPct(Math.abs(d.ahorroTotalProyectado), d.totalPresupuestoAnual)}). Se recalcula cada vez que se guarda un cambio en Julio–Diciembre.</p>
+        ${anio===2027 ? `<p style="font-size:13px; line-height:1.55; margin:0 0 14px;">Todavía no hay gasto capturado de 2027: aquí se carga el presupuesto mensual por proveedor y los proyectos de CAPEX. Conforme avance el año, el gasto real y la proyección se calculan igual que en 2026.</p>` : `<p style="font-size:13px; line-height:1.55; margin:0 0 14px;">Con el ritmo real de Enero–Junio (cerrado) y una proyección Julio–Diciembre basada en el promedio de los últimos meses reales por proveedor, el gasto OPEX 2026 terminaría en <b>${moneyIT(d.opexAnnualProjected)}</b> contra un presupuesto de <b>${moneyIT(d.opexAnnualBudget)}</b> — ${d.ahorroProyectado>=0?'un ahorro proyectado':'un sobre-ejercicio proyectado'} de <b>${moneyIT(Math.abs(d.ahorroProyectado))}</b> (${fmtPct(Math.abs(d.ahorroProyectado), d.opexAnnualBudget)}). Sumando los ${moneyIT(d.capexPendiente)} de CAPEX que aún no se ejecutan, el ${d.ahorroTotalProyectado>=0?'ahorro':'sobre-ejercicio'} total proyectado del presupuesto combinado de IT es de <b>${moneyIT(Math.abs(d.ahorroTotalProyectado))}</b> (${fmtPct(Math.abs(d.ahorroTotalProyectado), d.totalPresupuestoAnual)}). Se recalcula cada vez que se guarda un cambio en Julio–Diciembre.</p>`}
         <div class="cards" style="margin-bottom:0;">
-          <div class="card"><div class="head" style="background:#4B5A6B">Presupuesto total 2026</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.totalPresupuestoAnual)}</div><div class="lbl">OPEX + CAPEX</div></div></div>
-          <div class="card"><div class="head" style="background:#4B5A6B">Proyección total 2026</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.totalProyeccionAnual)}</div></div></div>
+          <div class="card"><div class="head" style="background:#4B5A6B">Presupuesto total ${anio}</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.totalPresupuestoAnual)}</div><div class="lbl">OPEX + CAPEX</div></div></div>
+          <div class="card"><div class="head" style="background:#4B5A6B">Proyección total ${anio}</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.totalProyeccionAnual)}</div></div></div>
           <div class="card"><div class="head" style="background:#4B5A6B">Ahorro / sobre-ejercicio</div><div class="body"><div class="big" style="font-size:17px;">${moneyIT(d.ahorroTotalProyectado)}</div></div></div>
           <div class="card"><div class="head" style="background:#4B5A6B">% del presupuesto total</div><div class="body"><div class="big" style="font-size:17px;">${fmtPct(Math.abs(d.ahorroTotalProyectado), d.totalPresupuestoAnual)}</div></div></div>
         </div>
@@ -8899,7 +8928,6 @@ auth.onAuthStateChanged(async function(user){
     if(wrapTablaBI && wrapTablaBI.parentElement){
       const anchoPrefijo = 200 + 130 + 70 + 92; // Proveedor + Categoría + Moneda + Presup./mes
       const anchoMes = 88;
-      const mesActualIdxBI = idxMes(state.periodo_actual);
       const mesesDeContexto = 2;
       wrapTablaBI.parentElement.scrollLeft = anchoPrefijo + anchoMes * Math.max(0, mesActualIdxBI - mesesDeContexto);
     }
@@ -8929,24 +8957,36 @@ auth.onAuthStateChanged(async function(user){
         document.querySelectorAll('[data-bi-capex-incluir]').forEach(chk=>{
           data.capex[Number(chk.dataset.biCapexIncluir)].incluir = chk.checked;
         });
+        document.querySelectorAll('[data-bi-capex-presup]').forEach(inp=>{
+          const raw = inp.value.trim();
+          if(raw!=='') data.capex[Number(inp.dataset.biCapexPresup)].presupuesto = Number(raw);
+        });
         document.querySelectorAll('[data-bi-capex]').forEach(sel=>{
           data.capex[Number(sel.dataset.biCapex)].mes_plan = sel.value;
         });
-        const dSave = computeBudgetIT();
-        if(!state.budget_it.historial) state.budget_it.historial = [];
-        state.budget_it.historial.unshift({
+        const dSave = computeBudgetIT(data);
+        if(!data.historial) data.historial = [];
+        data.historial.unshift({
           fecha: new Date().toISOString(),
           usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : 'desconocido',
           resumen: { ejercido_anual_proyectado: dSave.opexAnnualProjected, ahorro_proyectado: dSave.ahorroProyectado, capex_pendiente: dSave.capexPendiente }
         });
-        if(state.budget_it.historial.length > 30) state.budget_it.historial.length = 30;
-        descripcionActualizacion = 'Edición manual — Budget IT 2026';
+        if(data.historial.length > 30) data.historial.length = 30;
+        descripcionActualizacion = `Edición manual — Budget IT ${anio}`;
         editing = false;
         save();
       };
     } else if(puedeEditar){
       document.getElementById('btnEditBI').onclick = ()=>{ editing=true; render(); };
     }
+    document.querySelectorAll('[data-bi-anio]').forEach(btn=>{
+      btn.onclick = ()=>{
+        if(editing) return;
+        budgetAnioVista = Number(btn.dataset.biAnio);
+        historialBudgetItExpandido = null;
+        render();
+      };
+    });
     document.querySelectorAll('[data-hist-bi-ver]').forEach(btn=>{
       btn.onclick = ()=>{
         const idx = Number(btn.dataset.histBiVer);
@@ -8981,7 +9021,7 @@ auth.onAuthStateChanged(async function(user){
     if(charts.budgetItCapex) charts.budgetItCapex.destroy();
     charts.budgetItCapex = new Chart(document.getElementById('chartBudgetItCapex'), {
       type:'bar',
-      data:{labels:['CAPEX 2026'], datasets:[
+      data:{labels:['CAPEX '+anio], datasets:[
         {label:'Ejecutado', data:[d.capexEjecutado], backgroundColor:'#00B050', borderRadius:4},
         {label:'Pendiente', data:[d.capexPendiente], backgroundColor:'#C00000', borderRadius:4}
       ]},
@@ -8990,7 +9030,7 @@ auth.onAuthStateChanged(async function(user){
   }
 
   function renderHistorialBudgetIT(){
-    const hist = (state.budget_it && state.budget_it.historial) || [];
+    const hist = (datosBI() && datosBI().historial) || [];
     if(!hist.length){
       return `<div class="panel"><h3>Historial de cambios</h3></div>`;
     }
