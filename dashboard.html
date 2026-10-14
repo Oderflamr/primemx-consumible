@@ -1787,13 +1787,11 @@ auth.onAuthStateChanged(async function(user){
         {proveedor:'GRUPO LEYMARK', categoria:'CRM y Zapier', presupuesto_mes:619500, meses:[619000, 619000, 619000, 619000, 619500, 618500, null, null, null, null, null, null]},
         {proveedor:'COLOUR KLUB', categoria:'Impresión', presupuesto_mes:413000, meses:[176350, 410360, 460370, 238200, 326950, 400090, null, null, null, null, null, null]},
         {proveedor:'RED', categoria:'Red', presupuesto_mes:0, meses:[0, 0, 15000, 15000, 15000, 15000, 15000, null, null, null, null, null]},
-        {proveedor:'REEMBOLSOS', categoria:'Reembolsos', presupuesto_mes:40000, meses:[40000, 40000, 40000, 40000, 40000, 40000, null, null, null, null, null, null]}
+        {proveedor:'Mto. Tiendas', categoria:'Mto. Tiendas', presupuesto_mes:40000, meses:[40000, 40000, 40000, 40000, 40000, 40000, null, null, null, null, null, null]}
       ],
       capex: [
         {proveedor:'PCI', presupuesto:100000, ejecutado:77231.43, mes_ejecucion:'Mayo', mes_plan:null, incluir:true},
-        {proveedor:'ANTISPAM', presupuesto:2500000, ejecutado:0, mes_ejecucion:null, mes_plan:'Diciembre', incluir:true},
-        {proveedor:'Zoom (2)', presupuesto:5756.4, ejecutado:5756.4, mes_ejecucion:'Junio', mes_plan:null, incluir:true},
-        {proveedor:'LICENCIAS DE FIREWALL CORPORATIVO', presupuesto:200000, ejecutado:0, mes_ejecucion:null, mes_plan:'Diciembre', incluir:true}
+        {proveedor:'Zoom (2)', presupuesto:5756.4, ejecutado:5756.4, mes_ejecucion:'Junio', mes_plan:null, incluir:true}
       ],
       historial: []
     },
@@ -1834,7 +1832,7 @@ auth.onAuthStateChanged(async function(user){
     {id:'migracion_win11', label:'Migración Win11'},
     {id:'redcorp', label:'RedCorp'},
     {id:'expansion', label:'Plan de expansión'},
-    {id:'budget_it', label:'Budget IT 2026'},
+    {id:'budget_it', label:'Budget IT'},
     {id:'actualizaciones', label:'Actualizaciones'},
     {id:'log_accesos', label:'Accesos'},
     {id:'cargas', label:'Cargas'},
@@ -8751,7 +8749,7 @@ auth.onAuthStateChanged(async function(user){
       : idxMes(state.periodo_actual);
 
     c.innerHTML = `
-      <div class="title">Budget IT ${anio}</div>
+      <div class="title">Budget IT</div>
       <div class="editbar" style="justify-content:space-between; align-items:center;">
         <div style="display:flex; gap:6px; align-items:center;">
           <span style="font-size:12px; color:var(--sub);">Año:</span>
