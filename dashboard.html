@@ -976,6 +976,11 @@ auth.onAuthStateChanged(async function(user){
   const FIRESTORE_COLLECTION = 'caidas_dashboard';
   const FIRESTORE_DOC = 'estado';
   const COLOR = { TotalPlay:'#6600CC', Telmex:'#00B0F0', Metrocarrier:'#66BB6A' };
+  // Nombre VISIBLE (oct. 2026, pedido explícito): todo lo que antes decía "Metrocarrier" se llama Megacable. La llave
+  // interna 'Metrocarrier' se conserva a propósito en el estado guardado (tendencia, atención, yoy_notas...) y en las
+  // etiquetas de apartado de la foto de cargas — cambiarlas rompería los datos ya guardados; solo se cambia lo que se ve.
+  function nombreProv(p){ return p === 'Metrocarrier' ? 'Megacable' : p; }
+  function nombreApartado(t){ return String(t==null ? '' : t).replace(/Metrocarrier/g, 'Megacable'); }
   const CARD_COLOR = { TotalPlay:'#6600CC', Telmex:'#29B6F6', Megacable:'#92D050', Starlink:'#212121' };
   // Starlink (oct. 2026, pedido explícito): su gris casi negro se perdía sobre el fondo del modo oscuro.
   // En oscuro el encabezado va blanco con letra negra; en claro, negro con letra blanca. Se usa en las
@@ -1777,7 +1782,7 @@ auth.onAuthStateChanged(async function(user){
         {proveedor:'TOTALPLAY', categoria:'Internet', presupuesto_mes:900000, meses:[864908.69, 902868.65, 893060.68, 894083.86, 894458.77, 896681.02, null, null, null, null, null, null]},
         {proveedor:'TELNOR', categoria:'Internet', presupuesto_mes:20000, meses:[8299.6, 8213.4, 8213.64, 10445.97, 11413.79, 9461.7, 9461.82, null, null, null, null, null]},
         {proveedor:'TELMEX', categoria:'Internet', presupuesto_mes:150000, meses:[111530.28, 114463.93, 110104.34, 108110.15, 108736.3, 111307.78, 126529.39, null, null, null, null, null]},
-        {proveedor:'METROCARRIER', categoria:'Internet', presupuesto_mes:25000, meses:[18650, 18650, 18650, 21335.48, 20900, 22150, 22150, null, null, null, null, null]},
+        {proveedor:'MEGACABLE', categoria:'Internet', presupuesto_mes:25000, meses:[18650, 18650, 18650, 21335.48, 20900, 22150, 22150, null, null, null, null, null]},
         {proveedor:'TOTALPLAY AWS', categoria:'aws', presupuesto_mes:150000, meses:[127145.98, 112702.94, 103982.57, 108358.68, 98923.42, 107022.65, null, null, null, null, null, null]},
         {proveedor:'TOTALPLAY OFFICE 365', categoria:'office 365', presupuesto_mes:600000, meses:[433495.7, 398465.97, 410921.28, 401904.23, 400010.76, 404693.63, null, null, null, null, null, null]},
         {proveedor:'MARAFIC', categoria:'Help', presupuesto_mes:948000, meses:[922185, 922185, 922185, 922185, 917730, 917730, null, null, null, null, null, null]},
@@ -2354,7 +2359,7 @@ auth.onAuthStateChanged(async function(user){
     const key = esvCarrierKey(carrier);
     if(key==='TELMEX') return 'Telmex';
     if(key==='TOTALPLAY') return 'TotalPlay';
-    if(key==='METRO') return 'Metrocarrier';
+    if(key==='METRO') return 'Megacable';
     if(key==='STARLINK') return 'Starlink';
     return carrier || 'Sin proveedor';
   }
@@ -3180,7 +3185,7 @@ auth.onAuthStateChanged(async function(user){
         if(!celda.detalle_por_dia[dia]) celda.detalle_por_dia[dia] = [];
         celda.detalle_por_dia[dia].push({
           tienda: extraerNombreCanonico(row['Cliente']) || 'Sin nombre',
-          carrier: prov,
+          carrier: prov === 'Metrocarrier' ? 'Megacable' : prov,
           hora: fc.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}),
           estatus: String(row['Estado']||'').trim() || '—'
         });
@@ -6548,14 +6553,14 @@ auth.onAuthStateChanged(async function(user){
       data:{ labels, datasets:[
         { label:'TotalPlay', data:state.tendencia.data.TotalPlay.slice(0,hasta+1), borderColor:COLOR.TotalPlay, backgroundColor:COLOR.TotalPlay, tension:.25, pointRadius:4, borderWidth:2.5 },
         { label:'Telmex', data:state.tendencia.data.Telmex.slice(0,hasta+1), borderColor:COLOR.Telmex, backgroundColor:COLOR.Telmex, tension:.25, pointRadius:4, borderWidth:2.5 },
-        { label:'Metrocarrier', data:state.tendencia.data.Metrocarrier.slice(0,hasta+1), borderColor:COLOR.Metrocarrier, backgroundColor:COLOR.Metrocarrier, tension:.25, pointRadius:4, borderWidth:2.5 }
+        { label:'Megacable', data:state.tendencia.data.Metrocarrier.slice(0,hasta+1), borderColor:COLOR.Metrocarrier, backgroundColor:COLOR.Metrocarrier, tension:.25, pointRadius:4, borderWidth:2.5 }
       ]},
       options:{responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
     });
   }
   function editorTendencia(){
     const provs=['TotalPlay','Telmex','Metrocarrier'];
-    const rows = provs.map(p=>`<tr><td>${p}</td>${MESES.map((m,i)=>`<td><input type="number" min="0" data-prov="${p}" data-idx="${i}" value="${state.tendencia.data[p][i]}"></td>`).join('')}</tr>`).join('');
+    const rows = provs.map(p=>`<tr><td>${nombreProv(p)}</td>${MESES.map((m,i)=>`<td><input type="number" min="0" data-prov="${p}" data-idx="${i}" value="${state.tendencia.data[p][i]}"></td>`).join('')}</tr>`).join('');
     return `<div class="panel"><h3>Editar caídas por mes</h3>
       <div style="overflow-x:auto;"><table><thead><tr><th>Proveedor</th>${MESES.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
       <h3 style="margin-top:16px;">Periodo actual</h3>
@@ -6839,7 +6844,7 @@ auth.onAuthStateChanged(async function(user){
       ${canEdit ? `
       <div class="uploadbar">
         <div class="txt">
-          <b>Cargar reporte de tickets (.xlsx, año completo)</b> — recalcula Tendencia, Atención y Top 15 (TotalPlay/Telmex/Metrocarrier) a partir de las categorías "Internet y telefonia".
+          <b>Cargar reporte de tickets (.xlsx, año completo)</b> — recalcula Tendencia, Atención y Top 15 (TotalPlay/Telmex/Megacable) a partir de las categorías "Internet y telefonia".
           ${(state.carga.archivo && currentUser && (state.carga.usuario===currentUser.username || currentUser.username==='amartinez')) ? `<div class="upload-summary">Última actualización: ${state.carga.archivo} · ${state.carga.tickets_caidas} tickets de caídas procesados · ${fmtFecha(state.carga.fecha)}</div>` : ''}
           <div id="uploadError"></div>
         </div>
@@ -6912,7 +6917,7 @@ auth.onAuthStateChanged(async function(user){
         : (canEdit ? `<button id="btnEdit">Editar tiempos de atención</button>` : '')}</div>
       <div class="cards">${provs.map(p=>{
         const d=a[p];
-        return `<div class="card"><div class="head" style="background:${CARD_COLOR[p]||'#66BB6A'}">${p}</div>
+        return `<div class="card"><div class="head" style="background:${CARD_COLOR[nombreProv(p)]||'#66BB6A'}">${nombreProv(p)}</div>
           <div class="body">
             <div class="big">${d.tickets}</div><div class="lbl">tickets</div><div class="rule"></div>
             <div style="font-size:20px;font-weight:800;color:#D2691E">${d.avg} hrs</div>
@@ -6952,7 +6957,7 @@ auth.onAuthStateChanged(async function(user){
   function editorAtencion(p){
     const d = state.atencion[p];
     const dLabels = ['<4h','4-12h','12-24h','1-3d','>3d'];
-    return `<div class="panel"><h3>${p}</h3>
+    return `<div class="panel"><h3>${nombreProv(p)}</h3>
       <div class="servicios-grid">
         <div class="sv-field"><label>Tickets</label><input type="number" min="0" id="tk_${p}" value="${d.tickets}"></div>
         <div class="sv-field"><label>Promedio (hrs)</label><input type="number" step="0.1" id="avg_${p}" value="${d.avg}"></div>
@@ -8669,7 +8674,7 @@ auth.onAuthStateChanged(async function(user){
   function monedaProveedor(proveedor){ return esProveedorUSD(proveedor) ? 'USD' : 'MX'; }
   // Proveedores que meten 2 facturas por mes — en edición se capturan por separado y se suman;
   // solo se guarda el total, nunca las 2 cantidades por separado (agosto 2026).
-  const PROVEEDORES_DOBLE_FACTURA = ['COLOUR KLUB', 'GRUPO LEYMARK', 'METROCARRIER', 'MARAFIC', 'RED', 'REDSLOG'];
+  const PROVEEDORES_DOBLE_FACTURA = ['COLOUR KLUB', 'GRUPO LEYMARK', 'MEGACABLE', 'MARAFIC', 'RED', 'REDSLOG'];
   // Semáforo de fondo (tenue) para medir cualquier monto real contra el presupuesto/mes de ese proveedor —
   // aplica a los 14 proveedores, tanto en los meses ya cerrados (Ene–Jun) como en cualquier mes de
   // Jul–Dic que ya tenga dato capturado. Mismos tonos que ya usa `.status-badge.estable/.critica`.
@@ -9238,7 +9243,7 @@ auth.onAuthStateChanged(async function(user){
         <div style="overflow-x:auto;"><table>
           <thead><tr><th style="text-align:left;">Apartado</th><th>Anterior</th><th>Actual</th><th>Diferencia</th></tr></thead>
           <tbody>${apartados.map(ap => `<tr${ap.startsWith('Sin ') && act[ap] ? ' style="background:var(--warn-soft);"' : ''}>
-            <td style="text-align:left;${ap==='Registros' ? 'font-weight:700;' : ''}">${ap}</td>
+            <td style="text-align:left;${ap==='Registros' ? 'font-weight:700;' : ''}">${nombreApartado(ap)}</td>
             <td>${ant ? n(ant[ap] || 0) : '—'}</td><td>${n(act[ap] || 0)}</td><td>${ant ? dif(ant[ap] || 0, act[ap] || 0) : '—'}</td></tr>`).join('')}
           </tbody></table></div>
         <div style="font-size:12px; color:var(--sub); margin-top:6px;">Un ticket puede contar en más de un apartado (ej. una caída también es Ticket Soporte), por eso los apartados no suman el total de registros. "Sin contabilizar" son tickets que no entraron ni a Soporte ni a Mesa de Control.</div>
@@ -9254,7 +9259,7 @@ auth.onAuthStateChanged(async function(user){
           <div style="font-size:12px; color:var(--sub); margin:6px 0;">${t.ayuda}${filas.length < conteo[t.id] ? ` Se muestran ${fmtMX(filas.length)} de ${fmtMX(conteo[t.id])}.` : ''}</div>
           <div style="overflow-x:auto; max-height:420px; overflow-y:auto;"><table>
             <thead><tr><th style="text-align:left;">Ticket</th><th style="text-align:left;">Antes</th><th style="text-align:left;">Ahora</th></tr></thead>
-            <tbody>${filas.map(x => `<tr><td style="text-align:left;">#${x.id}</td><td style="text-align:left;">${x.antes || '—'}</td><td style="text-align:left;">${x.ahora || '—'}</td></tr>`).join('')}</tbody>
+            <tbody>${filas.map(x => `<tr><td style="text-align:left;">#${x.id}</td><td style="text-align:left;">${nombreApartado(x.antes) || '—'}</td><td style="text-align:left;">${nombreApartado(x.ahora) || '—'}</td></tr>`).join('')}</tbody>
           </table></div>
         </details>`;
       }).join('') : ''}
