@@ -9670,7 +9670,9 @@ auth.onAuthStateChanged(async function(user){
       const horaPico = horas.slice().sort((a, b) => rcProm(porHora[b]) - rcProm(porHora[a]))[0];
       res = { ahora: pts[pts.length - 1], max: pts[vals.indexOf(Math.max(...vals))], prom: rcProm(vals), horaPico, promHoraPico: rcProm(porHora[horaPico]) };
     }
-    return { pts, aps, porHora, horas, res, apActivos: Number.isInteger(d.ap_activos) ? d.ap_activos : null };
+    let redes = [];
+    try{ redes = JSON.parse(d.redes || '[]'); }catch(e){ redes = []; }
+    return { pts, aps, redes, porHora, horas, res, apActivos: Number.isInteger(d.ap_activos) ? d.ap_activos : null };
   }
   function listaApsRedcorp(w){
     const lista = w.aps.map(a => ({ n: REDCORP_AP_ALIAS[a.n] || a.n, e: REDCORP_AP_ESTADOS[a.e] ? a.e : 'otro', ip: a.ip || '' }));
@@ -9688,6 +9690,29 @@ auth.onAuthStateChanged(async function(user){
     }
     const activos = conSensor ? lista.filter(a => a.e === 'ok').length : w.apActivos;
     return { lista, conSensor, activos };
+  }
+  // Dispositivos por red del Ruckus (barra = calidad de la senal que muestra la consola: Bien / Moderado / Pobre).
+  const REDCORP_REDES_NOMBRE = { 'Corporativo':'Corporativo (2.4/5 GHz)', 'Movil':'Móvil', 'Invitados':'Invitados', 'RAFA (Telmex)':'RAFA (salida Telmex)' };
+  function redesWifiHtml(w){
+    if(!w.redes.length) return '';
+    const suma = w.redes.reduce((s, r) => s + r.d, 0);
+    const seg = (n, tot, color) => n > 0 ? `<span style="width:${(n / tot * 100).toFixed(1)}%; background:${color}; height:100%; display:block;"></span>` : '';
+    const filas = w.redes.map(r => {
+      const otros = Math.max(0, r.d - r.b - r.m - r.p), tot = r.d || 1;
+      return `<div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:8px 0; border-top:1px solid var(--line);">
+        <div style="width:190px; font-size:13px; font-weight:700;">${rcEsc(REDCORP_REDES_NOMBRE[r.n] || r.n)}</div>
+        <div class="big" style="width:56px; font-size:20px; text-align:right;">${fmtMX(r.d)}</div>
+        <div style="flex:1; min-width:220px;">
+          <div style="display:flex; height:10px; border-radius:6px; overflow:hidden; background:var(--row-alt-bg); border:1px solid var(--line);">${seg(r.b, tot, 'var(--ok, #1E8E5A)')}${seg(r.m, tot, '#D99A00')}${seg(r.p, tot, 'var(--warn, #C6421B)')}${seg(otros, tot, 'var(--line)')}</div>
+          <div style="font-size:12px; color:var(--sub); margin-top:3px;">Bien ${fmtMX(r.b)} · Moderado ${fmtMX(r.m)} · <span${r.p ? ' style="color:var(--warn, #C6421B); font-weight:700;"' : ''}>Pobre ${fmtMX(r.p)}</span></div>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; margin-bottom:4px;">
+        <span style="font-size:13px; font-weight:700;">Dispositivos por red</span>
+        <span style="font-size:12px; color:var(--sub);">Suma de estas redes: <b>${fmtMX(suma)}</b></span>
+      </div>${filas}
+      <div style="font-size:11px; color:var(--sub); margin-top:4px;">Corporativo suma PRIME-CORPORATIVO y PRIME-CORP 5. PRIME-DIRECCION no se cuenta. Calidad de señal según la consola del Ruckus.</div>`;
   }
   function wifiKpisHtml(w){
     const r = w.res, color = REDCORP_WIFI_COLOR;
@@ -9757,8 +9782,9 @@ auth.onAuthStateChanged(async function(user){
         <span class="rc-badge">${d.fecha === hoy ? badgeVivoRedcorp(d.recibido) : ''}</span>
         <span style="font-size:12px; font-weight:500; color:var(--sub);">Ruckus Unleashed (PRIME-MX) · dispositivos conectados por hora</span></h3>
       <div id="rcWifiAps" style="margin-bottom:16px;">${nocApsHtml(w)}</div>
-      ${w.res ? `<div class="cards" id="rcWifiKpis" style="margin-bottom:14px;">${wifiKpisHtml(w)}</div>
-        <div style="position:relative; height:250px;"><canvas id="chartRedcorp_wifi"></canvas></div>` : ''}
+      ${w.res ? `<div class="cards" id="rcWifiKpis" style="margin-bottom:14px;">${wifiKpisHtml(w)}</div>` : ''}
+      <div id="rcWifiRedes" style="margin-bottom:16px;">${redesWifiHtml(w)}</div>
+      ${w.res ? `<div style="position:relative; height:250px;"><canvas id="chartRedcorp_wifi"></canvas></div>` : ''}
       <div style="margin-top:12px; padding:10px 14px; border-left:4px solid ${REDCORP_WIFI_COLOR}; background:var(--row-alt-bg); border-radius:6px; font-size:13px; line-height:1.55;">
         <div style="font-weight:700; margin-bottom:4px;">¿Qué nos dice esto?</div>
         <ul id="rcWifiInterp" style="margin:0; padding-left:18px;">${interpretarWifiRedcorp(w).map(x => `<li>${x}</li>`).join('')}</ul>
@@ -9770,6 +9796,7 @@ auth.onAuthStateChanged(async function(user){
     const w = datosWifiRedcorp(d), kp = document.getElementById('rcWifiKpis');
     if(!document.getElementById('rcWifiAps') || !!kp !== !!w.res) return false;
     document.getElementById('rcWifiAps').innerHTML = nocApsHtml(w);
+    const elRedes = document.getElementById('rcWifiRedes'); if(elRedes) elRedes.innerHTML = redesWifiHtml(w);
     document.getElementById('rcWifiInterp').innerHTML = interpretarWifiRedcorp(w).map(x => `<li>${x}</li>`).join('');
     if(w.res){
       const ch = charts.redcorp_wifi;
