@@ -9643,11 +9643,16 @@ auth.onAuthStateChanged(async function(user){
   // otro) cuando existan sensores por AP en PRTG. Mientras no existan, las 12 tarjetas salen en gris ("Sin sensor").
   const REDCORP_WIFI_COLOR = '#6250D6';
   const REDCORP_WIFI_AP_TOTAL = 12;
+  // Alias solo del Dashboard (en la consola del Ruckus los AP conservan su nombre): nombre en la consola -> nombre que se muestra.
+  const REDCORP_AP_ALIAS = {
+    'AP_350_Sala_Juntas_Junt_Raf': 'AP_350_Sala_Juntas_Cibeles',
+    'AP_550_Mau_Alfred': 'AP_550_DireccionIT'
+  };
   const rcEsc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const REDCORP_AP_ESTADOS = {
     ok:{ txt:'Activo', color:'var(--ok, #1E8E5A)' },
     aviso:{ txt:'Advertencia', color:'#D99A00' },
-    caido:{ txt:'Caído', color:'var(--warn, #C6421B)' },
+    caido:{ txt:'Sin respuesta', color:'var(--warn, #C6421B)' },
     otro:{ txt:'Sin lectura', color:'var(--sub)' },
     sinsensor:{ txt:'Sin lectura', color:'var(--sub)' },
     sinrespuesta:{ txt:'Sin respuesta', color:'var(--warn, #C6421B)' }
@@ -9668,9 +9673,21 @@ auth.onAuthStateChanged(async function(user){
     return { pts, aps, porHora, horas, res, apActivos: Number.isInteger(d.ap_activos) ? d.ap_activos : null };
   }
   function listaApsRedcorp(w){
-    const lista = w.aps.map(a => ({ n:a.n, e: REDCORP_AP_ESTADOS[a.e] ? a.e : 'otro' }));
-    while(lista.length < REDCORP_WIFI_AP_TOTAL) lista.push({ n:'AP ' + (lista.length + 1), e:'sinsensor' });
+    const lista = w.aps.map(a => ({ n: REDCORP_AP_ALIAS[a.n] || a.n, e: REDCORP_AP_ESTADOS[a.e] ? a.e : 'otro', ip: a.ip || '' }));
+    while(lista.length < REDCORP_WIFI_AP_TOTAL) lista.push({ n:'AP ' + (lista.length + 1), e:'sinsensor', ip:'' });
     return lista;
+  }
+  // Lista de tarjetas y cuántos AP están activos. Con estado por AP (ping o sensores) el conteo sale de las tarjetas; sin
+  // eso solo se conoce el TOTAL de PRTG: con 12 de 12 todos están activos, y si baja no se sabe cuál cayó ("AP sin respuesta").
+  function apsEfectivosRedcorp(w){
+    let lista = listaApsRedcorp(w);
+    const conSensor = lista.some(a => a.e !== 'sinsensor');
+    if(!conSensor && w.apActivos !== null){
+      const n = Math.min(w.apActivos, REDCORP_WIFI_AP_TOTAL);
+      lista = lista.map((a, i) => i < n ? { n:a.n, e:'ok', ip:'' } : { n:'AP sin respuesta', e:'sinrespuesta', ip:'' });
+    }
+    const activos = conSensor ? lista.filter(a => a.e === 'ok').length : w.apActivos;
+    return { lista, conSensor, activos };
   }
   function wifiKpisHtml(w){
     const r = w.res, color = REDCORP_WIFI_COLOR;
@@ -9681,16 +9698,7 @@ auth.onAuthStateChanged(async function(user){
       ${kpi('Hora más cargada', rcHora(r.horaPico * 60), `promedio de ${fmtMX(Math.round(r.promHoraPico))} dispositivos`)}`;
   }
   function nocApsHtml(w){
-    let lista = listaApsRedcorp(w);
-    const conSensor = lista.some(a => a.e !== 'sinsensor');
-    // Sin sensores por AP, PRTG solo da el TOTAL de AP activos: con 12 de 12 es cierto que los 12 están activos (verde,
-    // titilando). Si el total baja no se sabe cuál AP cayó, así que las que faltan salen como "AP sin respuesta" y no
-    // con el nombre de un AP en concreto.
-    if(!conSensor && w.apActivos !== null){
-      const n = Math.min(w.apActivos, REDCORP_WIFI_AP_TOTAL);
-      lista = lista.map((a, i) => i < n ? { n:a.n, e:'ok' } : { n:'AP sin respuesta', e:'sinrespuesta' });
-    }
-    const activos = w.apActivos !== null ? w.apActivos : (conSensor ? lista.filter(a => a.e === 'ok').length : null);
+    const { lista, conSensor, activos } = apsEfectivosRedcorp(w);
     const falta = activos === null ? 0 : Math.max(0, REDCORP_WIFI_AP_TOTAL - activos);
     const color = activos === null ? 'var(--sub)' : falta === 0 ? 'var(--ok, #1E8E5A)' : 'var(--warn, #C6421B)';
     const nota = (!conSensor && falta > 0)
@@ -9698,24 +9706,28 @@ auth.onAuthStateChanged(async function(user){
       : '';
     return `<div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
         <span class="big" style="font-size:26px; color:${color};">${activos === null ? '—' : activos} / ${REDCORP_WIFI_AP_TOTAL}</span>
-        <span style="font-size:13px; font-weight:600;">AP radiando${falta ? ` · <span style="color:var(--warn, #C6421B);">faltan ${falta}</span>` : ''}</span>
+        <span style="font-size:13px; font-weight:600;">AP radiando${falta ? ` · <span style="color:var(--warn, #C6421B);">${falta === 1 ? 'falta 1' : 'faltan ' + falta}</span>` : ''}</span>
         ${nota ? `<span style="font-size:12px; color:var(--sub);">${nota}</span>` : ''}
       </div>
-      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(205px, 1fr)); gap:8px;">
         ${lista.map(a => { const st = REDCORP_AP_ESTADOS[a.e], cae = a.e === 'caido' || a.e === 'sinrespuesta', ok = a.e === 'ok';
-          return `<div style="display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid ${cae ? 'var(--warn, #C6421B)' : ok ? 'color-mix(in srgb, var(--ok, #1E8E5A) 45%, transparent)' : 'var(--line)'}; border-radius:8px; background:${cae ? 'var(--warn-soft, #FBE9E4)' : ok ? 'var(--ok-soft, #E6F5EC)' : 'var(--row-alt-bg)'};">
+          return `<div style="display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid ${cae ? 'var(--warn, #C6421B)' : ok ? 'color-mix(in srgb, var(--ok, #1E8E5A) 45%, transparent)' : 'var(--line)'}; border-radius:8px; background:${cae ? 'var(--warn-soft, #FBE9E4)' : ok ? 'var(--ok-soft, #E6F5EC)' : 'var(--row-alt-bg)'}; min-width:0;">
             <span${ok ? ' class="rc-ap-dot"' : ''} style="width:10px; height:10px; border-radius:50%; background:${st.color}; flex:none;"></span>
             <div style="min-width:0;"><div style="font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${rcEsc(a.n)}">${rcEsc(a.n)}</div>
-            <div style="font-size:12px; color:${st.color}; font-weight:${a.e === 'sinsensor' || a.e === 'otro' ? 400 : 600};">${st.txt}</div></div></div>`; }).join('')}
+            <div style="font-size:12px; color:${st.color}; font-weight:${a.e === 'sinsensor' || a.e === 'otro' ? 400 : 600};">${st.txt}${a.ip ? ` <span style="color:var(--sub); font-weight:400;">· ${rcEsc(a.ip)}</span>` : ''}</div></div></div>`; }).join('')}
       </div>`;
   }
   function interpretarWifiRedcorp(w){
     if(!w.res) return ['Todavía no llegan datos del sensor de dispositivos conectados. Aparecen en cuanto el servidor de PRTG mande su siguiente actualización.'];
-    const r = w.res, t = [];
+    const r = w.res, t = [], { conSensor, activos, lista } = apsEfectivosRedcorp(w);
     t.push(`Ahorita hay <b>${fmtMX(r.ahora[1])}</b> dispositivos conectados al WiFi (último dato a las ${rcHora(r.ahora[0])}). El máximo de hoy fue de <b>${fmtMX(r.max[1])}</b> a las <b>${rcHora(r.max[0])}</b>.`);
     t.push(`La hora más cargada en promedio fue de <b>${rcHora(r.horaPico * 60)} a ${rcHora(r.horaPico * 60 + 59)}</b> (${fmtMX(Math.round(r.promHoraPico))} dispositivos).`);
-    if(w.apActivos){ t.push(`Con ${w.apActivos} AP radiando, el reparto ahorita es de unos <b>${fmtMX(Math.round(r.ahora[1] / w.apActivos))}</b> dispositivos por AP.`); }
-    if(w.apActivos !== null && w.apActivos < REDCORP_WIFI_AP_TOTAL) t.push(`⚠️ Solo <b>${w.apActivos} de ${REDCORP_WIFI_AP_TOTAL}</b> AP están radiando: ${REDCORP_WIFI_AP_TOTAL - w.apActivos} sin respuesta.`);
+    if(activos){ t.push(`Con ${activos} AP radiando, el reparto ahorita es de unos <b>${fmtMX(Math.round(r.ahora[1] / activos))}</b> dispositivos por AP.`); }
+    if(activos !== null && activos < REDCORP_WIFI_AP_TOTAL){
+      const caidos = conSensor ? lista.filter(a => a.e === 'caido').map(a => a.n) : [];
+      t.push(`⚠️ Solo <b>${activos} de ${REDCORP_WIFI_AP_TOTAL}</b> AP están radiando${caidos.length ? ': sin respuesta <b>' + caidos.map(rcEsc).join(', ') + '</b>' : ': ' + (REDCORP_WIFI_AP_TOTAL - activos) + ' sin respuesta'}.`);
+    }
+    if(conSensor && w.apActivos !== null && w.apActivos !== activos) t.push(`PRTG reporta <b>${w.apActivos}</b> AP activos y el ping responde en <b>${activos}</b>; conviene revisar el AP que no coincide en la consola del Ruckus.`);
     t.push('Ojo: se cuentan <b>dispositivos</b>, no personas (un usuario puede tener celular y laptop conectados).');
     return t;
   }
