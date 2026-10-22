@@ -9645,11 +9645,12 @@ auth.onAuthStateChanged(async function(user){
   const REDCORP_WIFI_AP_TOTAL = 12;
   const rcEsc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const REDCORP_AP_ESTADOS = {
-    ok:{ txt:'Radiando', color:'var(--ok, #1E8E5A)' },
+    ok:{ txt:'Activo', color:'var(--ok, #1E8E5A)' },
     aviso:{ txt:'Advertencia', color:'#D99A00' },
     caido:{ txt:'Caído', color:'var(--warn, #C6421B)' },
     otro:{ txt:'Sin lectura', color:'var(--sub)' },
-    sinsensor:{ txt:'Sin sensor', color:'var(--sub)' }
+    sinsensor:{ txt:'Sin lectura', color:'var(--sub)' },
+    sinrespuesta:{ txt:'Sin respuesta', color:'var(--warn, #C6421B)' }
   };
   function datosWifiRedcorp(d){
     let pts = [], aps = [];
@@ -9680,14 +9681,20 @@ auth.onAuthStateChanged(async function(user){
       ${kpi('Hora más cargada', rcHora(r.horaPico * 60), `promedio de ${fmtMX(Math.round(r.promHoraPico))} dispositivos`)}`;
   }
   function nocApsHtml(w){
-    const lista = listaApsRedcorp(w);
+    let lista = listaApsRedcorp(w);
     const conSensor = lista.some(a => a.e !== 'sinsensor');
+    // Sin sensores por AP, PRTG solo da el TOTAL de AP activos: con 12 de 12 es cierto que los 12 están activos (verde,
+    // titilando). Si el total baja no se sabe cuál AP cayó, así que las que faltan salen como "AP sin respuesta" y no
+    // con el nombre de un AP en concreto.
+    if(!conSensor && w.apActivos !== null){
+      const n = Math.min(w.apActivos, REDCORP_WIFI_AP_TOTAL);
+      lista = lista.map((a, i) => i < n ? { n:a.n, e:'ok' } : { n:'AP sin respuesta', e:'sinrespuesta' });
+    }
     const activos = w.apActivos !== null ? w.apActivos : (conSensor ? lista.filter(a => a.e === 'ok').length : null);
     const falta = activos === null ? 0 : Math.max(0, REDCORP_WIFI_AP_TOTAL - activos);
     const color = activos === null ? 'var(--sub)' : falta === 0 ? 'var(--ok, #1E8E5A)' : 'var(--warn, #C6421B)';
-    const nota = !conSensor ? (falta > 0
-        ? `<b style="color:var(--warn, #C6421B);">Faltan ${falta} AP por responder.</b> Todavía no se puede saber cuál: el detalle por AP aparece cuando se agreguen sensores por AP en PRTG.`
-        : 'Las tarjetas se llenan solas cuando se agreguen los sensores por AP en PRTG (hoy PRTG solo mide el total).')
+    const nota = (!conSensor && falta > 0)
+      ? `<b style="color:var(--warn, #C6421B);">Faltan ${falta} AP por responder.</b> Todavía no se puede saber cuál: el detalle por AP aparece cuando se agreguen sensores por AP en PRTG.`
       : '';
     return `<div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
         <span class="big" style="font-size:26px; color:${color};">${activos === null ? '—' : activos} / ${REDCORP_WIFI_AP_TOTAL}</span>
@@ -9695,9 +9702,9 @@ auth.onAuthStateChanged(async function(user){
         ${nota ? `<span style="font-size:12px; color:var(--sub);">${nota}</span>` : ''}
       </div>
       <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px;">
-        ${lista.map(a => { const st = REDCORP_AP_ESTADOS[a.e], cae = a.e === 'caido';
-          return `<div style="display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid ${cae ? 'var(--warn, #C6421B)' : 'var(--line)'}; border-radius:8px; background:${cae ? 'var(--warn-soft, #FBE9E4)' : 'var(--row-alt-bg)'};">
-            <span style="width:10px; height:10px; border-radius:50%; background:${st.color}; flex:none;"></span>
+        ${lista.map(a => { const st = REDCORP_AP_ESTADOS[a.e], cae = a.e === 'caido' || a.e === 'sinrespuesta', ok = a.e === 'ok';
+          return `<div style="display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid ${cae ? 'var(--warn, #C6421B)' : ok ? 'color-mix(in srgb, var(--ok, #1E8E5A) 45%, transparent)' : 'var(--line)'}; border-radius:8px; background:${cae ? 'var(--warn-soft, #FBE9E4)' : ok ? 'var(--ok-soft, #E6F5EC)' : 'var(--row-alt-bg)'};">
+            <span${ok ? ' class="rc-ap-dot"' : ''} style="width:10px; height:10px; border-radius:50%; background:${st.color}; flex:none;"></span>
             <div style="min-width:0;"><div style="font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${rcEsc(a.n)}">${rcEsc(a.n)}</div>
             <div style="font-size:12px; color:${st.color}; font-weight:${a.e === 'sinsensor' || a.e === 'otro' ? 400 : 600};">${st.txt}</div></div></div>`; }).join('')}
       </div>`;
@@ -9787,6 +9794,7 @@ auth.onAuthStateChanged(async function(user){
         .rc-vivo{font-size:12px; font-weight:600; padding:3px 10px; border-radius:999px; background:var(--ok-soft); color:var(--ok); display:inline-flex; align-items:center; gap:6px;}
         .rc-vivo.rc-off{background:var(--row-alt-bg); color:var(--sub);}
         .rc-dot{width:8px; height:8px; border-radius:50%; background:var(--ok); display:inline-block; animation:rcLatido 1.4s ease-in-out infinite;}
+        .rc-ap-dot{animation:rcLatido 1.4s ease-in-out infinite;}
         @keyframes rcLatido{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:.35; transform:scale(.7);}}
         .rc-nuevo{animation:rcNuevo 1.6s ease-out;}
         @keyframes rcNuevo{0%{color:var(--ok);} 100%{color:inherit;}}
