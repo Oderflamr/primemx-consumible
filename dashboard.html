@@ -9887,7 +9887,7 @@ auth.onAuthStateChanged(async function(user){
     return true;
   }
 
-  // ---------- Mapa de cobertura del WiFi (v2) ----------
+  // ---------- Mapa de cobertura del WiFi (v4, estilo oscuro) ----------
   // Solo cobertura ESTIMADA. Cada AP activo "irradia" (ondas que se expanden); un AP caido sale en rojo, parpadea y se
   // quita del calculo, asi la cobertura de su zona baja. El estado de cada AP sale del ping del agente (aps de redcorp_trafico).
   const REDCORP_MAPA = {
@@ -9912,7 +9912,7 @@ auth.onAuthStateChanged(async function(user){
   const MAPA_N = 2.8;
   const MAPA_DB_MURO = 4, MAPA_DB_MURO_MAX = 24;
   const MAPA_OSCURO_MURO = 120;
-  const MAPA_RSSI_MEJOR = -50, MAPA_RSSI_PEOR = -85;
+  const MAPA_RSSI_MEJOR = -50, MAPA_RSSI_PEOR = -75;   // escala mas cerrada: se notan mas las diferencias
   const MAPA_ONDA_RADIO = 62;      // hasta donde llega cada onda, en pixeles del plano (~4.5 m)
   const MAPA_ONDA_MS = 2400;       // duracion de un ciclo de ondas
   function rssiEstimadoMapa(px){ return -30 - 10 * MAPA_N * Math.log10(Math.max(1, px * MAPA_M_POR_PX)); }
@@ -9947,6 +9947,9 @@ auth.onAuthStateChanged(async function(user){
     const mascara = m.dentro, muro = m.muro;
     const W = REDCORP_MAPA.ancho, H = REDCORP_MAPA.alto, F = 3, w = Math.ceil(W / F), h = Math.ceil(H / F);
     const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'), im = g.createImageData(w, h);
+    const banda = new Int8Array(w * h).fill(-1); c.banda = banda; c.celdas = [w, h, F];
+    // 1) senal estimada (dBm) en cada celda interior, con el mejor de los AP activos
+    let senal = new Float32Array(w * h).fill(NaN);
     for(let j = 0; j < h; j++) for(let i = 0; i < w; i++){
       const x = Math.min(W-1, i*F + F/2), y = Math.min(H-1, j*F + F/2);
       if(!mascara[(y|0)*W + (x|0)]) continue;
@@ -9954,8 +9957,23 @@ auth.onAuthStateChanged(async function(user){
         let r = rssiEstimadoMapa(Math.hypot(a.x - x, a.y - y));
         r -= Math.min(MAPA_DB_MURO_MAX, MAPA_DB_MURO * murosEntreMapa(muro, a.x, a.y, x, y));
         if(r > mejor) mejor = r; });
-      const t = Math.max(0, Math.min(1, (mejor - MAPA_RSSI_PEOR) / (MAPA_RSSI_MEJOR - MAPA_RSSI_PEOR)));
-      const k = (j*w + i) * 4, col = hslARgb(130 * t, 0.85, 0.46);
+      senal[j*w + i] = mejor;
+    }
+    // 2) suavizado (media 3x3, 2 pasadas): quita el "ruido" que dejan los muros celda por celda y da manchas continuas
+    for(let pasada = 0; pasada < 2; pasada++){
+      const sig = senal.slice();
+      for(let j = 0; j < h; j++) for(let i = 0; i < w; i++){
+        const v = senal[j*w + i]; if(v !== v) continue; let suma = 0, n = 0;
+        for(let dj = -1; dj <= 1; dj++) for(let di = -1; di <= 1; di++){ const jj = j + dj, ii = i + di; if(jj < 0 || jj >= h || ii < 0 || ii >= w) continue; const u = senal[jj*w + ii]; if(u === u){ suma += u; n++; } }
+        sig[j*w + i] = suma / n;
+      }
+      senal = sig;
+    }
+    // 3) color y banda
+    for(let j = 0; j < h; j++) for(let i = 0; i < w; i++){
+      const v = senal[j*w + i]; if(v !== v) continue;
+      const t = Math.max(0, Math.min(1, (v - MAPA_RSSI_PEOR) / (MAPA_RSSI_MEJOR - MAPA_RSSI_PEOR)));
+      const k = (j*w + i) * 4, col = hslARgb(130 * t, 0.85, 0.46); banda[j*w + i] = Math.min(5, Math.floor(t * 6));
       im.data[k] = col[0]; im.data[k+1] = col[1]; im.data[k+2] = col[2]; im.data[k+3] = 150;
     }
     g.putImageData(im, 0, 0); capaCoberturaCache = { m, llave, c }; return c;
@@ -9968,15 +9986,38 @@ auth.onAuthStateChanged(async function(user){
     if(canvas.width !== Math.round(cssW * dpr)){ canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(H * esc * dpr); }
     return { esc, dpr };
   }
-  // Base fija: plano + cobertura estimada de los AP que estan activos
+  // Plano en "negativo" (lineas claras sobre transparente) para el estilo oscuro
+  let planoNegativoCache = null;
+  function planoNegativoMapa(img){
+    if(planoNegativoCache && planoNegativoCache.img === img) return planoNegativoCache.c;
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0);
+    const id = g.getImageData(0, 0, c.width, c.height), d = id.data;
+    for(let i = 0; i < d.length; i += 4){ const lum = (d[i] + d[i+1] + d[i+2]) / 3, a = Math.max(0, Math.min(1, (255 - lum) / 200)); d[i] = 175; d[i+1] = 198; d[i+2] = 222; d[i+3] = Math.round(a * 255); }
+    g.putImageData(id, 0, 0); planoNegativoCache = { img, c }; return c;
+  }
+  // Isolineas: donde cambia la banda de senal entre celdas vecinas
+  function dibujarIsolineasMapa(g, capa, color, grosor){
+    const [w, h, F] = capa.celdas, b = capa.banda; g.strokeStyle = color; g.lineWidth = grosor; g.beginPath();
+    for(let j = 0; j < h - 1; j++) for(let i = 0; i < w - 1; i++){
+      const v = b[j*w + i]; if(v < 0) continue;
+      const dr = b[j*w + i + 1], db = b[(j+1)*w + i];
+      if(dr >= 0 && dr !== v){ g.moveTo((i+1)*F, j*F); g.lineTo((i+1)*F, (j+1)*F); }
+      if(db >= 0 && db !== v){ g.moveTo(i*F, (j+1)*F); g.lineTo((i+1)*F, (j+1)*F); }
+    }
+    g.stroke();
+  }
+  // Base fija: plano en negativo sobre fondo oscuro + cobertura estimada de los AP activos (la cobertura "brilla")
   function dibujarBaseMapa(canvas, img, mascara, activos){
     const W = REDCORP_MAPA.ancho, H = REDCORP_MAPA.alto, { esc, dpr } = ajustarCanvasMapa(canvas), g = canvas.getContext('2d');
     g.setTransform(dpr * esc, 0, 0, dpr * esc, 0, 0);
-    g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, W, H);
     g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
-    if(img){ g.globalAlpha = 0.5; g.drawImage(img, 0, 0, W, H); g.globalAlpha = 1; }
-    g.drawImage(capaCoberturaMapa(mascara, activos), 0, 0, W, H);
-    if(img){ g.globalAlpha = 0.35; g.globalCompositeOperation = 'multiply'; g.drawImage(img, 0, 0, W, H); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; }
+    const capa = capaCoberturaMapa(mascara, activos);
+    const fondo = g.createLinearGradient(0, 0, 0, H); fondo.addColorStop(0, '#0B1320'); fondo.addColorStop(1, '#101C2E');
+    g.fillStyle = fondo; g.fillRect(0, 0, W, H);
+    g.globalAlpha = 0.9; g.globalCompositeOperation = 'screen'; g.drawImage(capa, 0, 0, W, H); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+    g.globalAlpha = 0.85; g.drawImage(planoNegativoMapa(img), 0, 0, W, H); g.globalAlpha = 1;
+    dibujarIsolineasMapa(g, capa, 'rgba(255,255,255,0.28)', 0.8);
   }
   // Capa animada (se redibuja en cada cuadro): ondas desde cada AP activo; AP caido en rojo y parpadeando.
   // estado: { [nombre del AP]: true (activo) | false (caido) | null (sin dato) }; t en milisegundos.
@@ -9991,8 +10032,7 @@ auth.onAuthStateChanged(async function(user){
         for(let k = 0; k < 3; k++){
           const f = (ciclo + k / 3) % 1, r = 9 + f * (MAPA_ONDA_RADIO - 9), alfa = Math.pow(1 - f, 0.9);
           g.beginPath(); g.arc(a.x, a.y, r, 0, Math.PI * 2); g.fillStyle = `rgba(255, 255, 255, ${(alfa * 0.16).toFixed(3)})`; g.fill();   // "luz" que sale del AP
-          g.lineWidth = 4.6; g.strokeStyle = `rgba(255, 255, 255, ${(alfa * 0.85).toFixed(3)})`; g.stroke();                              // halo claro
-          g.lineWidth = 2.6; g.strokeStyle = `rgba(4, 92, 44, ${Math.min(1, alfa * 1.05).toFixed(3)})`; g.stroke();                          // onda verde oscuro
+          g.lineWidth = 3.4; g.strokeStyle = `rgba(120, 255, 190, ${(alfa * 0.9).toFixed(3)})`; g.stroke(); g.lineWidth = 1.2; g.strokeStyle = `rgba(255, 255, 255, ${(alfa * 0.9).toFixed(3)})`; g.stroke();
         }
         const pulso = 0.5 + 0.5 * Math.sin((ciclo * 2 * Math.PI) + idx);        // "prende y apaga"
         g.beginPath(); g.arc(a.x, a.y, 7.5, 0, Math.PI * 2); g.fillStyle = `rgba(10, 135, 62, ${(0.55 + 0.45 * pulso).toFixed(3)})`; g.fill();
@@ -10022,7 +10062,7 @@ auth.onAuthStateChanged(async function(user){
     return est;
   }
   function leyendaMapaRedcorp(){
-    const bandas = [['Excelente', '-50 o mejor', 1], ['Muy buena', '-60', .75], ['Buena', '-67', .55], ['Justa', '-72', .38], ['Débil', '-80', .15], ['Sin cobertura útil', '-85 o peor', 0]];
+    const bandas = [['Excelente', '-50 o mejor', 1], ['Muy buena', '-58', .8], ['Buena', '-64', .6], ['Justa', '-69', .4], ['Débil', '-73', .2], ['Sin cobertura útil', '-75 o peor', 0]];
     const chips = bandas.map(b => { const c = hslARgb(130 * b[2], .85, .46); return `<span style="display:inline-flex; align-items:center; gap:5px; margin-right:12px;"><span style="width:14px; height:10px; border-radius:3px; background:rgb(${c.join(',')});"></span>${b[0]} (${b[1]} dBm)</span>`; }).join('');
     return `${chips}<span style="display:inline-flex; align-items:center; gap:5px; margin-right:12px;"><span style="width:10px; height:10px; border-radius:50%; background:#0A873E;"></span>AP activo</span><span style="display:inline-flex; align-items:center; gap:5px;"><span style="width:10px; height:10px; border-radius:50%; background:#D32F2F;"></span>AP caído</span>`;
   }
@@ -10079,14 +10119,14 @@ auth.onAuthStateChanged(async function(user){
       <h3 style="margin:0 0 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="width:12px; height:12px; border-radius:3px; background:${REDCORP_WIFI_COLOR}; display:inline-block;"></span>Cobertura estimada del WiFi
         <span style="font-size:12px; font-weight:500; color:var(--sub);">12 AP sobre el plano de la oficina</span></h3>
       <div id="rcMapaResumen" style="margin-bottom:8px; font-size:13px;"></div>
-      <div style="position:relative; max-width:1100px; margin:0 auto; background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden;">
+      <div style="position:relative; max-width:1100px; margin:0 auto; background:#0B1320; border:1px solid #1D2A3D; border-radius:8px; overflow:hidden;">
         <canvas id="rcMapaCanvas" style="display:block; width:100%;"></canvas>
         <canvas id="rcMapaOndas" style="position:absolute; left:0; top:0; display:block;"></canvas>
         <div id="rcMapaTip" style="display:none; position:absolute; pointer-events:none; background:rgba(20,24,28,.94); color:#fff; padding:6px 10px; border-radius:6px; font-size:12px; line-height:1.5; width:190px;"></div>
       </div>
       <div id="rcMapaLeyenda" style="margin-top:8px; font-size:12px; color:var(--sub); line-height:1.8;"></div>
       <div style="margin-top:8px; padding:8px 12px; border-left:4px solid ${REDCORP_WIFI_COLOR}; background:var(--row-alt-bg); border-radius:6px; font-size:12px; line-height:1.5;">
-        <b>Es una estimación, no una medición:</b> calcula la señal por distancia al AP más cercano y descuenta los muros que marca el plano (escala tomada de las cotas del plano). No conoce el material de las paredes, los vidrios ni los muebles. Sirve para ver zonas probablemente flojas; confírmalas midiendo en sitio.
+        <b>Es una estimación, no una medición:</b> calcula la señal por distancia al AP más cercano y descuenta los muros que marca el plano (escala tomada de las cotas del plano). La escala de color va de -50 a -75 dBm para resaltar las diferencias; no significa que lo naranja o rojo sea inservible. No conoce el material de las paredes, los vidrios ni los muebles. Sirve para ver zonas probablemente flojas; confírmalas midiendo en sitio.
         El estado de cada AP sale del ping cada 5 minutos: si uno deja de responder se pone en rojo y la cobertura se recalcula sin él.</div>
     </div></div>`;
   }
