@@ -1831,6 +1831,7 @@ auth.onAuthStateChanged(async function(user){
     {id:'inventario', label:'Adquisición de Equipo'},
     {id:'migracion_win11', label:'Migración Win11'},
     {id:'redcorp', label:'RedCorp'},
+    {id:'servidores_aws', label:'Servidores AWS'},
     {id:'expansion', label:'Plan de expansión'},
     {id:'budget_it', label:'Budget IT'},
     {id:'actualizaciones', label:'Actualizaciones'},
@@ -1941,6 +1942,7 @@ auth.onAuthStateChanged(async function(user){
     { tab: 'resumen', segundos: 30 },
     { tab: 'tendencia', segundos: 25 },
     { tab: 'redcorp', slides: 4, segundosPorSlide: 15 }, // vista 1 Total Play, 2 Telmex, 3 WiFi, 4 mapa de calor
+    { tab: 'servidores_aws', segundos: 20 }, // los 8 servidores de AWS en una sola vista
     { tab: 'ingenieros', slides: 4, segundosPorSlide: 8 },
     { tab: 'pdv_region', slides: 2, segundosPorSlide: 15 }, // vista 1 tarjetas y regiones, vista 2 gráfica de equipos y HeadCount
     { tab: 'ticketsmc', slides: 6, segundosPorSlide: 8 },
@@ -3742,6 +3744,7 @@ auth.onAuthStateChanged(async function(user){
     if(tab==='cargas') return renderCargas(c);
     if(tab==='mis_tickets') return renderMisTickets(c);
     if(tab==='redcorp') return renderRedcorp(c);
+    if(tab==='servidores_aws') return renderServidoresAws(c);
   }
 
   // ---------- Apartados nuevos (agosto 2026) — indicadores reales a partir del PowerPoint ----------
@@ -10200,6 +10203,209 @@ auth.onAuthStateChanged(async function(user){
     // Modo pantalla: si la pestaña se vuelve a pintar a media vuelta (llegó un envío nuevo de PRTG y no
     // se pudo actualizar en su lugar), se conserva la vista que le toca (Total Play o Telmex).
     if(carruselActivo) actualizarSlideCarrusel();
+  }
+
+  // ---------- SERVIDORES AWS (oct. 2026): estado de los 8 servidores del dashboard "PrimeMX-Monitoreo" de CloudWatch ----------
+  // La Cloud Function leerServidoresAws (functions-alertas/aws.js) lee CloudWatch (us-west-1) cada 5 minutos con un usuario IAM
+  // de solo lectura y deja el resumen en aws_servidores/actual; aquí solo se escucha ese documento (onSnapshot) y se dibuja.
+  // El documento NO trae IDs de instancia ni de cuenta (este archivo se sube a GitHub). Las reglas de Firestore lo niegan a Mesa
+  // de control y a las cuentas .checador, y tabPermitida() oculta la pestaña a Mesa. Memoria y disco van siempre como % USADO
+  // (en Windows CloudWatch da % libre y la función ya lo convirtió).
+  const AWS_COLECCION = 'aws_servidores';
+  const AWS_USO_ALERTA = 90, AWS_USO_AVISO = 75;  // % usado de memoria/disco: de 75 a 90 amarillo, 90 o más rojo
+  const AWS_MIN_VIVO = 15;                         // con una lectura más vieja que esto ya no se muestra "En vivo"
+  const AWS_MIN_ATRASO = 20;                       // más viejo que esto = la función dejó de actualizar: aviso
+  const AWS_ALARMAS = [['c', 'CPU'], ['m', 'Memoria'], ['d', 'Disco'], ['s', 'StatusCheck']];
+  const AWS_NO_ENCENDIDO = { 'stopped':'Apagado', 'stopping':'Apagándose', 'shutting-down':'Apagándose', 'terminated':'Eliminado', 'pending':'Iniciando' };
+  let awsSrv = { unsub:null, cargado:false, error:null, doc:null };
+  let awsReloj = null;
+
+  function suscribirAwsServidores(){
+    if(awsSrv.unsub) return;
+    awsSrv.unsub = db.collection(AWS_COLECCION).doc('actual').onSnapshot(snap => {
+      awsSrv = { ...awsSrv, cargado:true, error:null, doc: snap.exists ? snap.data() : null };
+      if(tab === 'servidores_aws') renderTab();
+    }, err => {
+      console.error('No se pudo leer Servidores AWS', err);
+      // unsub con una función vacía (no null) para que no se reintente en bucle al volver a pintar
+      awsSrv = { ...awsSrv, unsub:() => {}, cargado:true, error:'No se pudo leer el estado de los servidores. Recarga la página.' };
+      if(tab === 'servidores_aws') renderTab();
+    });
+  }
+  const awsColorUso = v => v >= AWS_USO_ALERTA ? 'var(--warn)' : v >= AWS_USO_AVISO ? '#D99A00' : 'var(--ok)';
+  const awsVelocidad = b => b >= 1e6 ? (b / 1e6).toFixed(1) + ' MB/s' : b >= 1000 ? Math.round(b / 1000) + ' KB/s' : b + ' B/s';
+  function awsMinutos(iso){ return iso ? (Date.now() - new Date(iso).getTime()) / 60000 : Infinity; }
+  // Horario de encendido: varias instancias se prenden y apagan solas según sus etiquetas schedule/days (hora de México; la función
+  // lo resuelve en horarioDe(), functions-alertas/aws.js). Así "apagado por horario" no se confunde con una falla.
+  function awsCuando(ms){
+    const zona = 'America/Mexico_City', d = new Date(ms);
+    const dia = x => x.toLocaleDateString('en-CA', { timeZone:zona });
+    const hora = d.toLocaleTimeString('es-MX', { timeZone:zona, hour:'numeric', minute:'2-digit', hour12:true });
+    const dif = Math.round((new Date(dia(d) + 'T12:00:00') - new Date(dia(new Date()) + 'T12:00:00')) / 86400000);
+    return (dif === 0 ? 'hoy' : dif === 1 ? 'mañana' : d.toLocaleDateString('es-MX', { timeZone:zona, weekday:'long' })) + ' a las ' + hora;
+  }
+  const awsHorarioTxt = h => h ? `${h.texto.replace('-', '–')} · ${h.dias}` : '';
+  // 'por_horario' = apagado y así debe estar · 'falla' = apagado cuando debería estar encendido · 'fuera_horario' = encendido fuera de
+  // su horario. Se da 15 minutos de margen desde el último cambio de horario: el programador tarda unos segundos en actuar.
+  function awsEstadoHorario(s, recibido){
+    const h = s.horario;
+    if(!h || !h.desde) return null;
+    const margen = (new Date(recibido).getTime() - h.desde) / 60000 > 15;
+    if(s.estado === 'stopped') return h.esperado === 'apagado' ? 'por_horario' : (margen ? 'falla' : null);
+    if(s.estado === 'running' && h.esperado === 'apagado' && margen) return 'fuera_horario';
+    return null;
+  }
+  function awsEtqSinLectura(s, eh){
+    if(eh === 'por_horario') return 'apagado por horario';
+    if(eh === 'falla') return 'apagado fuera de horario';
+    return AWS_NO_ENCENDIDO[s.estado] ? AWS_NO_ENCENDIDO[s.estado].toLowerCase() : 'sin datos';
+  }
+  function awsBadgeVivo(iso){
+    return awsMinutos(iso) <= AWS_MIN_VIVO ? `<span class="aws-vivo"><span class="aws-dot"></span>En vivo</span>` : `<span class="aws-vivo aws-off">Sin datos recientes</span>`;
+  }
+  // Tendencia de CPU: serie de 37 puntos (3 h cada 5 min), null donde faltó dato = hueco en la línea. SVG sin ejes: el valor
+  // actual va escrito al lado. El punto final es un <span> (no un círculo del SVG) para que no se deforme al estirar el ancho.
+  function awsSparkHtml(serie){
+    const w = 300, h = 32, v = (serie || []).filter(x => x !== null);
+    if(!v.length) return '';
+    const mx = Math.max(...v, 10), segs = [];
+    let cur = [];
+    serie.forEach((x, i) => {
+      if(x === null){ if(cur.length) segs.push(cur); cur = []; }
+      else cur.push([i * (w - 8) / (serie.length - 1) + 4, h - 4 - x / mx * (h - 8)]);
+    });
+    if(cur.length) segs.push(cur);
+    const ult = segs[segs.length - 1][segs[segs.length - 1].length - 1];
+    return `<div style="position:relative; height:${h}px;"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" width="100%" height="${h}" role="img" aria-label="Tendencia de CPU de las últimas 3 horas">${
+      segs.map(sg => `<polyline points="${sg.map(q => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ')}" fill="none" style="stroke:var(--s1);" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>`).join('')
+    }</svg><span style="position:absolute; left:calc(${(ult[0] / w * 100).toFixed(2)}% - 5px); top:${(ult[1] - 5).toFixed(1)}px; width:10px; height:10px; box-sizing:border-box; border-radius:50%; background:var(--s1); border:2px solid var(--card-bg);"></span></div>`;
+  }
+  function awsMedidorHtml(etq, v, extra){
+    return `<div title="${escEsv(extra || '')}"><span class="aws-num">${etq ? etq + ' ' : ''}${Math.round(v)} %</span><div class="aws-barra"><i style="width:${Math.min(100, v)}%; background:${awsColorUso(v)};"></i></div></div>`;
+  }
+  const AWS_SIN_DATOS = `<span style="color:var(--sub);">Sin datos</span>`;
+  function awsFilaHtml(s, eh){
+    const noEnc = AWS_NO_ENCENDIDO[s.estado];
+    const alarmas = AWS_ALARMAS.map(([k, n]) => {
+      const e = (s.alarmas || {})[k];
+      const cls = e === 'ok' ? 'ok' : e === 'alarma' ? 'mal' : 'nd';
+      const txt = e === 'ok' ? 'OK' : e === 'alarma' ? 'EN ALARMA' : e === 'sin_datos' ? 'sin datos' : 'no existe en AWS';
+      return `<b class="aws-al aws-al-${cls}" title="${n}: ${txt}">${k.toUpperCase()}</b>`;
+    }).join('');
+    const nombre = `<div class="aws-nom">${escEsv(s.nombre)}<small>${escEsv(s.so)}${s.horario ? ' · ' + escEsv(awsHorarioTxt(s.horario)) : ''}${eh === 'fuera_horario' ? ' · <span style="color:#D99A00; font-weight:700;">encendido fuera de horario</span>' : ''}</small></div>`;
+    if(noEnc){
+      return `<div class="aws-fila">${nombre}
+        <div class="aws-c aws-apagado" style="grid-column:2 / 6;">${
+          eh === 'falla' ? `<span class="aws-pill-off aws-pill-mal">Apagado fuera de horario</span><span style="font-size:12px;">Debería estar encendido (${escEsv(awsHorarioTxt(s.horario))}).</span>`
+          : eh === 'por_horario' ? `<span class="aws-pill-off">Apagado por horario</span><span style="color:var(--sub); font-size:12px;">${s.horario.cambio ? 'Enciende ' + awsCuando(s.horario.cambio) + '.' : 'Sin lecturas mientras está apagado.'}</span>`
+          : `<span class="aws-pill-off">${noEnc}</span><span style="color:var(--sub); font-size:12px;">La instancia no está encendida en AWS: no hay lecturas.</span>`}</div>
+        <div class="aws-c" data-l="Alarmas"><div class="aws-als">${alarmas}</div></div></div>`;
+    }
+    const discos = (s.discos || []).slice().sort((a, b) => b.u - a.u);
+    const peor = discos[0];
+    const todos = discos.map(d => `${d.n} ${Math.round(d.u)} %`).join(' · ');
+    const resto = discos.slice(1).map(d => `${escEsv(d.n)} ${Math.round(d.u)} %`).join(' · ');
+    const cpu = s.cpu === null || s.cpu === undefined
+      ? `<span style="color:var(--sub);">Sin datos recientes</span>`
+      : `<div style="display:flex; align-items:center; gap:8px;"><div style="flex:1; min-width:0;">${awsSparkHtml(s.cpu_serie)}</div><span class="aws-num" style="min-width:36px; text-align:right;">${Math.round(s.cpu)} %</span></div>`;
+    const red = (s.red_in === null || s.red_in === undefined) ? AWS_SIN_DATOS
+      : `<span class="aws-num" style="font-size:12px; color:var(--ink-soft);">↓ ${awsVelocidad(s.red_in)}<br>↑ ${awsVelocidad(s.red_out)}</span>`;
+    return `<div class="aws-fila">${nombre}
+      <div class="aws-c" data-l="CPU, últimas 3 h">${cpu}</div>
+      <div class="aws-c" data-l="Memoria">${s.mem === null || s.mem === undefined ? AWS_SIN_DATOS : awsMedidorHtml('', s.mem)}</div>
+      <div class="aws-c" data-l="Disco más lleno">${peor ? awsMedidorHtml(escEsv(peor.n), peor.u, todos) + (resto ? `<div class="aws-resto" title="${escEsv(todos)}">${resto}</div>` : '') : AWS_SIN_DATOS}</div>
+      <div class="aws-c" data-l="Red">${red}</div>
+      <div class="aws-c" data-l="Alarmas"><div class="aws-als">${alarmas}</div></div></div>`;
+  }
+  function arrancarRelojAws(){
+    if(awsReloj) return;
+    awsReloj = setInterval(() => {
+      const d = awsSrv.doc;
+      if(tab !== 'servidores_aws' || !d || !document.getElementById('awsRaiz')){ clearInterval(awsReloj); awsReloj = null; return; }
+      document.querySelectorAll('.aws-badge').forEach(el => { el.innerHTML = awsBadgeVivo(d.recibido); });
+      document.querySelectorAll('.aws-hace').forEach(el => { el.textContent = textoHaceRedcorp(d.recibido); });
+    }, 30000);
+  }
+  function renderServidoresAws(c){
+    suscribirAwsServidores();
+    if(!awsSrv.cargado){ c.innerHTML = `<div class="title">Servidores AWS</div><div class="panel">Cargando servidores…</div>`; return; }
+    if(awsSrv.error){ c.innerHTML = `<div class="title">Servidores AWS</div><div class="panel">${awsSrv.error}</div>`; return; }
+    const d = awsSrv.doc;
+    if(!d || !d.servidores){
+      c.innerHTML = `<div class="title">Servidores AWS</div><div class="placeholder"><h3>Todavía no llegan datos de AWS</h3>
+        <p>La lectura automática de CloudWatch corre cada 5 minutos; en cuanto termine la primera, aquí aparecen los servidores.${d && d.ok === false ? ' La última lectura falló, avisa a IT.' : ''}</p></div>`;
+      return;
+    }
+    let lista = [];
+    try{ lista = JSON.parse(d.servidores); }catch(e){ lista = []; }
+    const conDatos = lista.filter(s => !AWS_NO_ENCENDIDO[s.estado] && s.cpu !== null && s.cpu !== undefined);
+    const sinLectura = lista.filter(s => !conDatos.includes(s));
+    const estadoH = {};
+    lista.forEach(s => { estadoH[s.id] = awsEstadoHorario(s, d.recibido); });
+    const enAlarma = [];
+    lista.forEach(s => AWS_ALARMAS.forEach(([k, n]) => { if((s.alarmas || {})[k] === 'alarma') enAlarma.push(`${s.nombre}: ${n}`); }));
+    const atraso = awsMinutos(d.recibido);
+    const avisos = [];
+    if(d.ok === false) avisos.push(`⚠️ La última lectura de AWS falló. Se muestran los datos de las <b>${fmtHora(d.recibido)}</b>.`);
+    else if(atraso > AWS_MIN_ATRASO) avisos.push(`⚠️ La lectura automática de AWS no actualiza desde las <b>${fmtHora(d.recibido)}</b>. Revisar la función leerServidoresAws en Firebase.`);
+    lista.forEach(s => {
+      if(estadoH[s.id] === 'falla') avisos.push(`⚠️ <b>${escEsv(s.nombre)}</b> está apagado y debería estar encendido (${escEsv(awsHorarioTxt(s.horario))}).`);
+      if(estadoH[s.id] === 'fuera_horario') avisos.push(`ℹ️ <b>${escEsv(s.nombre)}</b> está encendido fuera de su horario (${escEsv(awsHorarioTxt(s.horario))}).`);
+    });
+    const aviso = avisos.join('<br>');
+    c.innerHTML = `
+      <style>
+        .aws-vivo{font-size:12px; font-weight:600; padding:3px 10px; border-radius:999px; background:var(--ok-soft); color:var(--ok); display:inline-flex; align-items:center; gap:6px;}
+        .aws-vivo.aws-off{background:var(--row-alt-bg); color:var(--sub);}
+        .aws-dot{width:8px; height:8px; border-radius:50%; background:var(--ok); display:inline-block; animation:awsLatido 1.4s ease-in-out infinite;}
+        @keyframes awsLatido{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:.35; transform:scale(.7);}}
+        .aws-tabla{border:1px solid var(--line); border-radius:14px; background:var(--card-bg); overflow:hidden; margin-bottom:10px;}
+        .aws-fila{display:grid; grid-template-columns:150px minmax(150px,1.6fr) 90px 130px 100px 100px; gap:14px; align-items:center; padding:11px 16px; border-bottom:1px solid var(--line); font-size:14px;}
+        .aws-fila:last-child{border-bottom:none;}
+        .aws-cab{font-size:12px; color:var(--sub); background:var(--row-alt-bg); padding-top:9px; padding-bottom:9px;}
+        .aws-c{min-width:0;}
+        .aws-nom{font-weight:700; line-height:1.25;}
+        .aws-nom small{display:block; font-weight:400; font-size:11px; color:var(--sub);}
+        .aws-num{font-variant-numeric:tabular-nums; font-weight:600;}
+        .aws-barra{height:6px; border-radius:3px; background:var(--track-bg); margin-top:5px; overflow:hidden;}
+        .aws-barra i{display:block; height:100%; border-radius:3px;}
+        .aws-resto{font-size:11px; color:var(--sub); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+        .aws-als{display:flex; gap:4px;}
+        .aws-al{width:22px; height:22px; border-radius:5px; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;}
+        .aws-al-ok{background:var(--ok-soft); color:var(--ok);}
+        .aws-al-mal{background:var(--warn); color:#fff;}
+        .aws-al-nd{background:var(--row-alt-bg); color:var(--sub); border:1px dashed var(--sub);}
+        .aws-apagado{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+        .aws-pill-off{font-size:12px; font-weight:700; padding:3px 12px; border-radius:999px; background:var(--track-bg); color:var(--ink); border:1px solid var(--line);}
+        .aws-pill-mal{background:var(--warn); color:#fff; border-color:var(--warn);}
+        @media (max-width:900px){
+          .aws-cab{display:none;}
+          .aws-fila{grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 14px;}
+          .aws-fila > .aws-nom{grid-column:1 / -1;}
+          .aws-apagado{grid-column:1 / -1 !important;}
+          .aws-c[data-l]::before{content:attr(data-l); display:block; font-size:11px; color:var(--sub); margin-bottom:2px;}
+        }
+      </style>
+      <div class="title">Servidores AWS</div>
+      <div id="awsRaiz" class="oculto-en-carrusel" style="height:2px;"></div>
+      <div class="cards cards-3">
+        <div class="card"><div class="head" style="background:${cardGrad('#0C8599')}">Servidores con datos</div><div class="body"><div class="big">${conDatos.length} de ${lista.length}</div>
+          <div class="lbl">${sinLectura.length ? sinLectura.map(s => `${escEsv(s.nombre)}: ${awsEtqSinLectura(s, estadoH[s.id])}`).join(' · ') : 'Todos reportando'}</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(enAlarma.length ? '#C00000' : '#1E8E5A')}">Alarmas en ALARM</div><div class="body"><div class="big">${enAlarma.length}</div>
+          <div class="lbl">${enAlarma.length ? enAlarma.map(escEsv).join(' · ') : 'Ninguna alarma activa'}</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad('#212121')}">Última lectura</div><div class="body"><div class="big">${fmtHora(d.recibido)}</div>
+          <div class="lbl"><span class="aws-badge">${awsBadgeVivo(d.recibido)}</span> <span class="aws-hace">${textoHaceRedcorp(d.recibido)}</span></div></div></div>
+      </div>
+      ${aviso ? `<div class="panel" style="margin-bottom:16px; background:var(--warn-soft); border-color:var(--warn);">${aviso}</div>` : ''}
+      <div class="aws-tabla">
+        <div class="aws-fila aws-cab"><span>Servidor</span><span>CPU, últimas 3 h</span><span>Memoria</span><span>Disco más lleno</span><span>Red</span><span>Alarmas</span></div>
+        ${lista.map(s => awsFilaHtml(s, estadoH[s.id])).join('')}
+      </div>
+      <div style="font-size:12px; color:var(--sub); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <span>Alarmas: C = CPU, M = Memoria, D = Disco, S = StatusCheck · Memoria y disco como % usado: amarillo desde ${AWS_USO_AVISO} %, rojo desde ${AWS_USO_ALERTA} %</span>
+        <span>Fuente: AWS CloudWatch (PrimeMX-Prod, us-west-1) · cada 5 minutos</span>
+      </div>`;
+    arrancarRelojAws();
   }
 
   function renderExpansion(c){
