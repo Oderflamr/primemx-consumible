@@ -8608,6 +8608,8 @@ auth.onAuthStateChanged(async function(user){
     const t = oscuro
       ? { sup:'#1B2126', tinta:'#F0EFEC', tenue:'#C3C2B7', rejilla:'#2C2C2A', desk:'#3987e5', lap:'#d95926', hc:'#199e70' }
       : { sup:'#FFFFFF', tinta:'#0B0B0B', tenue:'#52514E', rejilla:'#E1E0D9', desk:'#2a78d6', lap:'#eb6834', hc:'#1baf7a' };
+    // Orden del recuadro al pasar el puntero: Desktop, HeadCount, Laptop; luego Total equipos y Diferencia (= Desktop - HeadCount, igual que "Dif. Equipo" de las tarjetas).
+    const ORDEN_TT = { 'Desktop':0, 'HeadCount':1, 'Laptop (PDV + cambaceo)':2 };
     const desk = regs.map(r => Number(r.desktop||0)), lap = regs.map(r => Number(r.pdv_laptop||0) + Number(r.cambaceo||0)), hc = regs.map(r => Number(r.headcount||0));
     const etiquetasHC = { id:'etiquetasHCPdv', afterDatasetsDraw(ch){
       const meta = ch.getDatasetMeta(2), g = ch.ctx;
@@ -8622,7 +8624,8 @@ auth.onAuthStateChanged(async function(user){
       ] },
       options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, layout:{ padding:{ top:6, right:8 } },
         plugins:{ legend:{ position:'bottom', labels:{ color:t.tenue, boxWidth:10, boxHeight:10, padding:16 } },
-          tooltip:{ callbacks:{ footer: items => { const i = items[0].dataIndex, tot = desk[i] + lap[i]; return `Total equipos: ${tot.toLocaleString('es-MX')} · Dif. vs HeadCount: ${(tot - hc[i]).toLocaleString('es-MX')}`; } } } },
+          tooltip:{ itemSort:(a, b) => ORDEN_TT[a.dataset.label] - ORDEN_TT[b.dataset.label],
+            callbacks:{ footer: items => { const i = items[0].dataIndex; return [`Total equipos: ${(desk[i] + lap[i]).toLocaleString('es-MX')}`, `Diferencia: ${(desk[i] - hc[i]).toLocaleString('es-MX')}`]; } } } },
         scales:{ x:{ stacked:true, grid:{ display:false }, border:{ color:t.rejilla }, ticks:{ color:t.tenue } },
                  y:{ stacked:true, beginAtZero:true, grid:{ color:t.rejilla }, border:{ display:false }, ticks:{ color:t.tenue }, title:{ display:true, text:'Equipos / personas', color:t.tenue } } },
         datasets:{ bar:{ maxBarThickness:46 } } },
