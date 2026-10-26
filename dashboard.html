@@ -999,7 +999,6 @@ auth.onAuthStateChanged(async function(user){
   const COLOR_SOPORTE_CLARO = '#93C5FD'; // Tickets Soporte — comparativo año anterior
   const COLOR_MESA = '#7C3AED';          // Tickets Mesa de control — violeta
   const COLOR_PDV = '#4C1D95';           // Equipos PDV Región — púrpura profundo
-  const COLOR_PDV_CERRADO = '#D97706';   // Equipos PDV Región — acento ámbar para "Laptop PDV cerrado"
   const COLOR_EXPANSION = '#1E3A8A';     // Plan de expansión — azul marino
   const COLOR_CIERRE = '#7F1D1D';        // Cierre de tiendas — rojo vino (agosto 2026)
   const COLOR_WIN11 = '#0F6E56';         // Migración Win11 — verde esmeralda (avance)
@@ -1673,10 +1672,6 @@ auth.onAuthStateChanged(async function(user){
         {nombre:'Pacífico', pdv_laptop:74, cambaceo:8, desktop:384, headcount:0, dif_equipo:0, gerentes:[]},
         {nombre:'Sur Península', pdv_laptop:63, cambaceo:9, desktop:298, headcount:0, dif_equipo:0, gerentes:[]}
       ],
-      // Laptops de tiendas ya cerradas, pendientes de reasignar/recoger — se resta de "PDV con laptop".
-      // Es un solo número global (no por región). A propósito, cualquier usuario puede editarlo excepto
-      // mgiron (ver canEditLaptopCerrado) — es la única excepción al modelo de permisos por lista blanca.
-      laptop_pdv_cerrado: 3,
       carga: null
     },
     inventario: {
@@ -2098,8 +2093,8 @@ auth.onAuthStateChanged(async function(user){
     if(canEdit) return true;
     return !!(typeof currentUser !== 'undefined' && currentUser && USUARIOS_PDV_REGION.includes(currentUser.username));
   }
-  // Excepción a propósito: "Laptop PDV cerrado" lo puede editar CUALQUIER usuario logueado (incluidos
-  // los de solo consulta, que no pueden editar nada más en esta pestaña), menos mgiron.
+  // (Oct. 2026) La tarjeta "Laptop PDV cerrado" se quitó y se reemplazó por "Total HeadCount". Esta función se deja tal cual
+  // porque save() la usa y quitarla cambiaría quién puede guardar; antes: cualquier usuario logueado menos mgiron.
   function canEditLaptopCerrado(){
     return !!(typeof currentUser !== 'undefined' && currentUser && currentUser.username !== 'mgiron');
   }
@@ -2281,7 +2276,6 @@ auth.onAuthStateChanged(async function(user){
   let guardiaOtrosMesesAbiertos = false;
   let historialExpandido = null;
   let historialPdvExpandido = null;
-  let editandoLaptopCerrado = false; // control independiente del botón "Editar" general de la pestaña
   let cargaPendientePdvRegion = null; // vista previa antes de aplicar la carga de "Equipos PDV Región"
   let pdvRegionModalRegion = null; // índice de la región cuyo drill-down está abierto (o null)
   let pdvRegionModalGerente = null; // nombre del gerente regional cuyas tiendas se muestran (o null = vista de gerentes)
@@ -2626,7 +2620,6 @@ auth.onAuthStateChanged(async function(user){
       if(!state.inventario_historial) state.inventario_historial = clone(DEFAULTS.inventario_historial);
       if(!state.equipos_pdv_region) state.equipos_pdv_region = clone(DEFAULTS.equipos_pdv_region);
       if(!state.equipos_pdv_region_historial) state.equipos_pdv_region_historial = clone(DEFAULTS.equipos_pdv_region_historial);
-      if(state.equipos_pdv_region.laptop_pdv_cerrado===undefined) state.equipos_pdv_region.laptop_pdv_cerrado = DEFAULTS.equipos_pdv_region.laptop_pdv_cerrado;
       // Migración de 9 regiones (Centro I/II, Noroeste I/II) a 7 (sept. 2026) — esa división ya no
       // existe, así que si detectamos las regiones viejas se reemplaza el arreglo completo por el nuevo
       // de 7; los números se recalculan con la próxima "Cargar Excel", no se intenta fusionar a mano.
@@ -8466,8 +8459,6 @@ auth.onAuthStateChanged(async function(user){
   function renderPdvRegion(c){
     const data = state.equipos_pdv_region;
     const puedeEditar = canEditPdvRegion();
-    const puedeEditarCerrado = canEditLaptopCerrado();
-    const laptopCerrado = Number(data.laptop_pdv_cerrado||0);
     // _i conserva el índice real dentro de data.regiones — las tarjetas se muestran ordenadas de mayor a
     // menor total, pero el guardado siempre debe escribir en la región correcta, no en la posición visual.
     const regs = data.regiones
@@ -8479,7 +8470,7 @@ auth.onAuthStateChanged(async function(user){
     const totalCambaceo = regs.reduce((s,r)=>s+Number(r.cambaceo||0),0);
     const totalDifEquipo = regs.reduce((s,r)=>s+Number(r.dif_equipo||0),0);
     const totalLaptop = totalPdvLaptop + totalCambaceo;
-    const laptopNeto = Math.max(0, totalLaptop - laptopCerrado);
+    const totalHeadcount = regs.reduce((s,r)=>s+Number(r.headcount||0),0);
     c.innerHTML = `
       <div class="title">Equipos PDV Región</div>
       <div class="oculto-en-carrusel">
@@ -8508,24 +8499,8 @@ auth.onAuthStateChanged(async function(user){
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total general</div><div class="body"><div class="big">${totalGeneral.toLocaleString('es-MX')}</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Desktop</div><div class="body"><div class="big">${totalDesktop.toLocaleString('es-MX')}</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total laptop</div>
-          <div class="body"><div class="big">${laptopNeto.toLocaleString('es-MX')}</div><div class="lbl">${totalLaptop.toLocaleString('es-MX')} (PDV + cambaceo) − ${laptopCerrado.toLocaleString('es-MX')} cerradas</div></div></div>
-        <div class="card" style="${puedeEditarCerrado ? 'border-color:'+COLOR_PDV_CERRADO+'; box-shadow:0 0 0 2px rgba(217,119,6,.15);' : ''}">
-          <div class="head" style="background:${cardGrad(COLOR_PDV_CERRADO)}; display:flex; justify-content:space-between; align-items:center; gap:6px;">
-            <span>Laptop PDV cerrado</span>
-            ${puedeEditarCerrado ? `<button id="btnPencilCerrado" title="Editar" style="background:rgba(255,255,255,.25); border:none; border-radius:6px; width:22px; height:22px; color:#fff; cursor:pointer; flex:none;">✎</button>` : ''}
-          </div>
-          <div class="body">
-            ${editandoLaptopCerrado && puedeEditarCerrado ? `
-              <div style="display:flex; align-items:center; gap:8px;">
-                <input type="number" id="inputLaptopCerrado" min="0" value="${laptopCerrado}" style="width:70px; font-size:16px; font-weight:700; padding:4px 6px; border:1px solid var(--line); border-radius:6px;">
-                <button class="primary" id="btnGuardarCerrado" style="padding:5px 12px;">Guardar</button>
-              </div>
-              <div class="lbl">Editable por cualquier usuario, excepto mgiron</div>
-            ` : `
-              <div class="big">${laptopCerrado.toLocaleString('es-MX')}</div><div class="lbl">Se resta de "Total laptop"</div>
-            `}
-          </div>
-        </div>
+          <div class="body"><div class="big">${totalLaptop.toLocaleString('es-MX')}</div><div class="lbl">${totalPdvLaptop.toLocaleString('es-MX')} PDV + ${totalCambaceo.toLocaleString('es-MX')} cambaceo</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total HeadCount</div><div class="body"><div class="big">${totalHeadcount.toLocaleString('es-MX')}</div><div class="lbl">Suma de las ${regs.length} regiones</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total Dif. Equipo</div><div class="body"><div class="big">${totalDifEquipo.toLocaleString('es-MX')}</div></div></div>
       </div>
       <div class="pdv-region-grid">
@@ -8600,25 +8575,6 @@ auth.onAuthStateChanged(async function(user){
       };
     } else if(puedeEditar){
       document.getElementById('btnEdit').onclick = ()=>{ editing=true; render(); };
-    }
-    if(puedeEditarCerrado){
-      const btnPencilCerrado = document.getElementById('btnPencilCerrado');
-      if(btnPencilCerrado) btnPencilCerrado.onclick = ()=>{ editandoLaptopCerrado = true; render(); };
-      const btnGuardarCerrado = document.getElementById('btnGuardarCerrado');
-      if(btnGuardarCerrado) btnGuardarCerrado.onclick = ()=>{
-        const val = Math.max(0, Number(document.getElementById('inputLaptopCerrado').value || 0));
-        data.laptop_pdv_cerrado = val;
-        if(!state.equipos_pdv_region_historial) state.equipos_pdv_region_historial = [];
-        state.equipos_pdv_region_historial.unshift({
-          fecha: new Date().toISOString(),
-          usuario: (typeof currentUser!=='undefined' && currentUser) ? currentUser.username : 'desconocido',
-          snapshot: JSON.parse(JSON.stringify(data))
-        });
-        if(state.equipos_pdv_region_historial.length > 30) state.equipos_pdv_region_historial.length = 30;
-        descripcionActualizacion = 'Edición manual — Laptop PDV cerrado';
-        editandoLaptopCerrado = false;
-        save();
-      };
     }
     if(canEdit){
       document.querySelectorAll('[data-hist-pdv-ver]').forEach(btn=>{
