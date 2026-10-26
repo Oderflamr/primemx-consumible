@@ -1942,7 +1942,7 @@ auth.onAuthStateChanged(async function(user){
     { tab: 'tendencia', segundos: 25 },
     { tab: 'redcorp', slides: 4, segundosPorSlide: 15 }, // vista 1 Total Play, 2 Telmex, 3 WiFi, 4 mapa de calor
     { tab: 'ingenieros', slides: 4, segundosPorSlide: 8 },
-    { tab: 'pdv_region', segundos: 20 },
+    { tab: 'pdv_region', slides: 2, segundosPorSlide: 15 }, // vista 1 tarjetas y regiones, vista 2 gráfica de equipos y HeadCount
     { tab: 'ticketsmc', slides: 6, segundosPorSlide: 8 },
     { tab: 'migracion_win11', slides: 2, segundosPorSlide: 15 },
     { tab: 'reemplazo_laptop', segundos: 15 },
@@ -8495,11 +8495,12 @@ auth.onAuthStateChanged(async function(user){
       ${resumenCarga(data.carga)}
       ${cargaPendientePdvRegion ? panelConfirmacionPdvRegion() : ''}
       </div>
+      <div class="carrusel-slide activo">
       <div class="cards cards-5" style="margin-top:10px;">
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total general</div><div class="body"><div class="big">${totalGeneral.toLocaleString('es-MX')}</div></div></div>
-        <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Desktop</div><div class="body"><div class="big">${totalDesktop.toLocaleString('es-MX')}</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total laptop</div>
           <div class="body"><div class="big">${totalLaptop.toLocaleString('es-MX')}</div><div class="lbl">${totalPdvLaptop.toLocaleString('es-MX')} PDV + ${totalCambaceo.toLocaleString('es-MX')} cambaceo</div></div></div>
+        <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Desktop</div><div class="body"><div class="big">${totalDesktop.toLocaleString('es-MX')}</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total HeadCount</div><div class="body"><div class="big">${totalHeadcount.toLocaleString('es-MX')}</div><div class="lbl">Suma de las ${regs.length} regiones</div></div></div>
         <div class="card"><div class="head" style="background:${cardGrad(COLOR_PDV)}">Total Dif. Equipo</div><div class="body"><div class="big">${totalDifEquipo.toLocaleString('es-MX')}</div></div></div>
       </div>
@@ -8539,10 +8540,19 @@ auth.onAuthStateChanged(async function(user){
           </div>
         `).join('')}
       </div>
+      </div>
+      <div class="carrusel-slide">
+      <div class="panel" style="margin-top:20px;">
+        <h3>Equipos y HeadCount por región</h3>
+        <div style="position:relative; height:340px;"><canvas id="chartPdvRegion"></canvas></div>
+      </div>
+      </div>
       <div class="oculto-en-carrusel">${canEdit ? renderHistorialPdvRegion() : ''}</div>
       <div id="pdvRegionModalRoot"></div>
       <div id="pdvFiltroTiendaModalRoot"></div>
     `;
+    crearGraficaPdvRegion(regs);
+    if(carruselActivo) actualizarSlideCarrusel();
     wirePdvRegionUpload();
     wirePdvRegionFiltros();
     renderPdvRegionModal();
@@ -8585,6 +8595,39 @@ auth.onAuthStateChanged(async function(user){
         };
       });
     }
+  }
+
+  // Gráfica de Equipos PDV Región (oct. 2026): barras apiladas Desktop + Laptop (PDV + cambaceo) por región y, encima, la línea del
+  // HeadCount en la misma escala, para ver de un vistazo cuánto equipo hay contra cuánta gente. Colores: slots 1-3 de la paleta
+  // categórica (azul, naranja, aqua), con su versión para modo oscuro. Solo el HeadCount lleva número sobre el punto.
+  function crearGraficaPdvRegion(regs){
+    const el = document.getElementById('chartPdvRegion');
+    if(!el || typeof Chart === 'undefined') return;
+    if(charts.pdvRegion) charts.pdvRegion.destroy();
+    const oscuro = esTemaOscuro();
+    const t = oscuro
+      ? { sup:'#1B2126', tinta:'#F0EFEC', tenue:'#C3C2B7', rejilla:'#2C2C2A', desk:'#3987e5', lap:'#d95926', hc:'#199e70' }
+      : { sup:'#FFFFFF', tinta:'#0B0B0B', tenue:'#52514E', rejilla:'#E1E0D9', desk:'#2a78d6', lap:'#eb6834', hc:'#1baf7a' };
+    const desk = regs.map(r => Number(r.desktop||0)), lap = regs.map(r => Number(r.pdv_laptop||0) + Number(r.cambaceo||0)), hc = regs.map(r => Number(r.headcount||0));
+    const etiquetasHC = { id:'etiquetasHCPdv', afterDatasetsDraw(ch){
+      const meta = ch.getDatasetMeta(2), g = ch.ctx;
+      g.save(); g.font = '600 12px sans-serif'; g.textAlign = 'center'; g.fillStyle = t.tinta; g.strokeStyle = t.sup; g.lineWidth = 4;
+      meta.data.forEach((pt, i) => { const txt = hc[i].toLocaleString('es-MX'); g.strokeText(txt, pt.x, pt.y - 14); g.fillText(txt, pt.x, pt.y - 14); });
+      g.restore(); } };
+    charts.pdvRegion = new Chart(el, {
+      data:{ labels: regs.map(r => r.nombre), datasets:[
+        { type:'bar', label:'Desktop', data:desk, backgroundColor:t.desk, stack:'eq', order:2 },
+        { type:'bar', label:'Laptop (PDV + cambaceo)', data:lap, backgroundColor:t.lap, stack:'eq', borderRadius:{ topLeft:4, topRight:4 }, borderColor:t.sup, borderWidth:{ top:2 }, order:2 },
+        { type:'line', label:'HeadCount', data:hc, borderColor:t.hc, backgroundColor:t.hc, borderWidth:2.5, tension:.25, pointRadius:5.5, pointHoverRadius:7, pointBackgroundColor:t.hc, pointBorderColor:t.sup, pointBorderWidth:2, order:1 }
+      ] },
+      options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, layout:{ padding:{ top:6, right:8 } },
+        plugins:{ legend:{ position:'bottom', labels:{ color:t.tenue, boxWidth:10, boxHeight:10, padding:16 } },
+          tooltip:{ callbacks:{ footer: items => { const i = items[0].dataIndex, tot = desk[i] + lap[i]; return `Total equipos: ${tot.toLocaleString('es-MX')} · Dif. vs HeadCount: ${(tot - hc[i]).toLocaleString('es-MX')}`; } } } },
+        scales:{ x:{ stacked:true, grid:{ display:false }, border:{ color:t.rejilla }, ticks:{ color:t.tenue } },
+                 y:{ stacked:true, beginAtZero:true, grid:{ color:t.rejilla }, border:{ display:false }, ticks:{ color:t.tenue }, title:{ display:true, text:'Equipos / personas', color:t.tenue } } },
+        datasets:{ bar:{ maxBarThickness:46 } } },
+      plugins:[etiquetasHC]
+    });
   }
 
   function renderHistorialPdvRegion(){
