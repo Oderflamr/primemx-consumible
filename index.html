@@ -1197,7 +1197,7 @@ function openModal(id) {
   </div>
   <div class="modal-footer">
     <button class="btn" onclick="closeModal()">Cancelar</button>
-  !t?'<button class="btn" style="color:var(--blue-text);border-color:var(--blue)" onclick="doSaveAndEmail()">✉ Crear y enviar correo</button>':''  }
+  ${!t?'<button class="btn" style="color:var(--blue-text);border-color:var(--blue)" onclick="doSaveAndEmail()">✉ Crear y enviar correo</button>':''}
     <button class="btn primary" onclick="doSave()">${svgIcon("check")} ${t?"Guardar cambios":"Crear ticket"}</button>
   </div>
 </div>`;
@@ -1245,6 +1245,28 @@ window.setObs = function(idx) {
   if(el) el.value = OBS_PRESETS[idx] || "";
 }
 
+// Aviso grande dentro del modal, pegado a los botones (el footer es sticky, siempre se ve). A diferencia del toast,
+// no desaparece solo: se quita al corregir el campo o al cerrar el modal (5-nov-2026).
+function avisoModal(msg, campoId) {
+  const foot = document.querySelector("#modal-overlay .modal-footer");
+  if(!foot) { toast(msg, true); return; }
+  let box = document.getElementById("modal-aviso");
+  if(!box) {
+    box = document.createElement("div");
+    box.id = "modal-aviso";
+    box.setAttribute("role", "alert");
+    foot.style.flexWrap = "wrap";
+    foot.insertBefore(box, foot.firstChild);
+  }
+  box.style.cssText = "flex:1 1 100%;padding:12px 14px;border-radius:8px;background:var(--red-bg);border:1px solid var(--red-text);color:var(--red-text);font-size:14px;font-weight:700;line-height:1.4";
+  box.textContent = "⚠️ " + msg;
+  const el = campoId ? document.getElementById(campoId) : null;
+  if(el) {
+    el.style.borderColor = "var(--red-text)";
+    el.focus();
+    el.addEventListener("input", () => { el.style.borderColor = ""; box.remove(); }, { once:true });
+  }
+}
 function closeModal() { document.getElementById("modal-overlay")?.remove(); }
 
 async function doSave() {
@@ -1256,9 +1278,9 @@ async function doSave() {
     const parts = tiendaSearch.split(' — ');
     tienda = parts.length > 1 ? parts.slice(1).join(' — ') : tiendaSearch;
   }
-  if(!id_||!tienda){ toast("Ticket y tienda son obligatorios", true); return; }
-  if(!editId && !/^[A-Za-z0-9_-]{1,30}$/.test(id_)){ toast("El número de ticket solo puede llevar letras, números y guion (máx. 30)", true); return; }
-  if(!editId && tickets.find(t=>t.id===id_)){ toast("Ya existe ese número de ticket", true); return; }
+  if(!id_||!tienda){ avisoModal(!id_?"Falta el número de ticket":"Falta seleccionar la tienda", !id_?"m-id":"m-tienda-search"); return; }
+  if(!editId && !/^[A-Za-z0-9_-]{1,30}$/.test(id_)){ avisoModal("El número de ticket solo puede llevar letras, números y guion (máx. 30 caracteres).", "m-id"); return; }
+  if(!editId && tickets.find(t=>t.id===id_)){ const _d=tickets.find(t=>t.id===id_); avisoModal("Ya existe el ticket "+id_+" ("+_d.tipo+" · "+_d.tienda+" · "+_d.estatus+"). Revisa el número o búscalo en la lista.", "m-id"); return; }
 
   const ceco   = document.getElementById("m-ceco")?.value.trim()||"";
   const tipo   = document.getElementById("m-tipo")?.value||"TONER";
@@ -1804,9 +1826,9 @@ async function doSaveInternal() {
     const parts = tiendaSearch.split(' — ');
     tienda = parts.length > 1 ? parts.slice(1).join(' — ') : tiendaSearch;
   }
-  if(!id_||!tienda){ toast("Ticket y tienda son obligatorios", true); return false; }
-  if(!editId && !/^[A-Za-z0-9_-]{1,30}$/.test(id_)){ toast("El número de ticket solo puede llevar letras, números y guion (máx. 30)", true); return false; }
-  if(!editId && tickets.find(t=>t.id===id_)){ toast("Ya existe ese número de ticket", true); return false; }
+  if(!id_||!tienda){ avisoModal(!id_?"Falta el número de ticket":"Falta seleccionar la tienda", !id_?"m-id":"m-tienda-search"); return false; }
+  if(!editId && !/^[A-Za-z0-9_-]{1,30}$/.test(id_)){ avisoModal("El número de ticket solo puede llevar letras, números y guion (máx. 30 caracteres).", "m-id"); return false; }
+  if(!editId && tickets.find(t=>t.id===id_)){ const _d=tickets.find(t=>t.id===id_); avisoModal("Ya existe el ticket "+id_+" ("+_d.tipo+" · "+_d.tienda+" · "+_d.estatus+"). Revisa el número o búscalo en la lista.", "m-id"); return false; }
   const ceco   = document.getElementById("m-ceco")?.value.trim()||"";
   const tipo   = document.getElementById("m-tipo")?.value||"TONER";
   // Ticket NUEVO: la fecha de solicitud es siempre el día de hoy (hora local), sin importar el campo (5-nov-2026).
