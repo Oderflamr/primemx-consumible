@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>PrimeMX · Directorio de Tiendas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -568,7 +569,8 @@ function toast(msg, type=""){
   setTimeout(()=> el.className = 'toast', 2500);
 }
 function esc(v){
-  return (v===undefined||v===null) ? '' : String(v).replace(/</g,'&lt;');
+  // Escapa también & > " ' (antes solo <): sirve dentro de atributos (data-id="...", value="...") — revisión de seguridad 5-nov-2026.
+  return (v===undefined||v===null) ? '' : String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 // Color de contorno de la tarjeta según el proveedor de servicio (carrier)
 function getCarrierBorderColor(carrier){
@@ -920,8 +922,8 @@ function openOpenTicketsModal(){
           <tr>
             <td>${esc(f.plaza)}</td><td>${esc(f.carrier)}</td><td>${esc(f.tipo)}</td><td>${esc(f.folio_proveedor)||'—'}</td><td>${esc(f.ticket)||'—'}</td>
             <td>${fmtFechaHora(f.fecha_captura)}</td>
-            ${canManage?`<td><button data-id="${f.id}" data-store="${f.storeId}" class="btn-guardar-cierre-open" style="font-size:11px;padding:3px 8px;">Cerrar ahora</button></td>`:''}
-            ${isAdmin?`<td><button data-id="${f.id}" data-store="${f.storeId}" class="btn-editar-falla-open" style="font-size:11px;padding:3px 8px;margin-right:4px;">Editar</button><button data-id="${f.id}" data-store="${f.storeId}" class="btn-eliminar-falla-open" style="font-size:11px;padding:3px 8px;color:var(--warn);">Eliminar</button></td>`:''}
+            ${canManage?`<td><button data-id="${esc(f.id)}" data-store="${esc(f.storeId)}" class="btn-guardar-cierre-open" style="font-size:11px;padding:3px 8px;">Cerrar ahora</button></td>`:''}
+            ${isAdmin?`<td><button data-id="${esc(f.id)}" data-store="${esc(f.storeId)}" class="btn-editar-falla-open" style="font-size:11px;padding:3px 8px;margin-right:4px;">Editar</button><button data-id="${esc(f.id)}" data-store="${esc(f.storeId)}" class="btn-eliminar-falla-open" style="font-size:11px;padding:3px 8px;color:var(--warn);">Eliminar</button></td>`:''}
           </tr>
         `).join('')}
         </tbody>
@@ -1019,7 +1021,7 @@ function renderGrid(){
     const borderColor = getCarrierBorderColor(s.carrier);
     const borderStyle = borderColor ? `style="border:3px solid ${borderColor};"` : '';
     return `
-    <div class="store-card" data-id="${s.id}" ${borderStyle}>
+    <div class="store-card" data-id="${esc(s.id)}" ${borderStyle}>
       <div class="row-top">
         <span class="cc">${esc(s.cc||'—')}</span>
         ${tiendasConFallaAbierta.has(s.id) ? `<span style="font-size:10.5px; font-weight:700; color:#fff; letter-spacing:.3px; background:#C0392B; border-radius:6px; padding:2px 8px;">ABIERTO</span>` : ''}
@@ -1211,13 +1213,13 @@ function renderFallasList(storeId, fallas){
   const cierreHtml = abierta
     ? (canManage ? `
         <div class="falla-cierre-row">
-          <button data-id="${ultima.id}" class="btn-guardar-cierre">Cerrar ahora</button>
+          <button data-id="${esc(ultima.id)}" class="btn-guardar-cierre">Cerrar ahora</button>
         </div>` : '')
     : `<div style="margin-top:8px;font-size:11.5px;color:var(--ink-soft);">Cerrado: <strong>${fmtFechaHora(ultima.fecha_cierre)}</strong></div>`;
   const adminFallaActions = isAdmin ? `
     <div class="falla-cierre-row">
-      <button data-id="${ultima.id}" class="btn-editar-falla-card" style="font-size:11px;padding:4px 9px;">Editar</button>
-      <button data-id="${ultima.id}" class="btn-eliminar-falla-card" style="font-size:11px;padding:4px 9px;color:var(--warn);">Eliminar</button>
+      <button data-id="${esc(ultima.id)}" class="btn-editar-falla-card" style="font-size:11px;padding:4px 9px;">Editar</button>
+      <button data-id="${esc(ultima.id)}" class="btn-eliminar-falla-card" style="font-size:11px;padding:4px 9px;color:var(--warn);">Eliminar</button>
     </div>` : '';
   container.innerHTML = `
     <div class="falla-card ${abierta?'abierta':'cerrada'}">
@@ -1621,11 +1623,11 @@ function renderFallaSearchResults(){
         ${matches.map(f=>{
           const abierta = !f.fecha_cierre;
           const cierreCell = abierta
-            ? (canManage ? `<button data-id="${f.id}" data-store="${f.storeId}" class="btn-guardar-cierre-search" style="font-size:11px;padding:3px 8px;">Cerrar ahora</button>` : '—')
+            ? (canManage ? `<button data-id="${esc(f.id)}" data-store="${esc(f.storeId)}" class="btn-guardar-cierre-search" style="font-size:11px;padding:3px 8px;">Cerrar ahora</button>` : '—')
             : fmtFechaHora(f.fecha_cierre);
           const acciones = isAdmin ? `
-            <button data-id="${f.id}" data-store="${f.storeId}" class="btn-editar-falla" style="font-size:11px;padding:3px 8px;margin-right:4px;">Editar</button>
-            <button data-id="${f.id}" data-store="${f.storeId}" class="btn-eliminar-falla" style="font-size:11px;padding:3px 8px;color:var(--warn);">Eliminar</button>` : '';
+            <button data-id="${esc(f.id)}" data-store="${esc(f.storeId)}" class="btn-editar-falla" style="font-size:11px;padding:3px 8px;margin-right:4px;">Editar</button>
+            <button data-id="${esc(f.id)}" data-store="${esc(f.storeId)}" class="btn-eliminar-falla" style="font-size:11px;padding:3px 8px;color:var(--warn);">Eliminar</button>` : '';
           return `<tr>
             <td>${esc(f.plaza)}</td><td>${esc(f.carrier)}</td><td>${esc(f.tipo)}</td><td>${esc(f.folio_proveedor)||'—'}</td><td>${esc(f.ticket)||'—'}</td>
             <td>${fmtFechaHora(f.fecha_captura)}</td>
