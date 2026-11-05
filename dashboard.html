@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Dashboard IT · PrimeMX</title>
 <script>
@@ -2309,7 +2310,7 @@ auth.onAuthStateChanged(async function(user){
     const puedeVer = typeof currentUser !== 'undefined' && currentUser &&
       (currentUser.username === carga.usuario || currentUser.username === 'amartinez');
     if(!puedeVer) return '';
-    return `<div class="upload-summary">Última actualización: ${carga.archivo} · ${fmtFecha(carga.fecha)}</div>`;
+    return `<div class="upload-summary">Última actualización: ${escEsv(carga.archivo)} · ${fmtFecha(carga.fecha)}</div>`;
   }
   function fmtFechaCorta(iso){
     if(!iso) return '—';
@@ -2326,7 +2327,7 @@ auth.onAuthStateChanged(async function(user){
   }
 
   // ===== Estatus de Servicio: helpers, carga desde Firestore y render =====
-  function escEsv(v){ return (v===undefined||v===null) ? '' : String(v).replace(/</g,'&lt;'); }
+  function escEsv(v){ return (v===undefined||v===null) ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   // Copia un elemento del DOM como imagen al portapapeles (sept. 2026) — para pegar una ventana como
   // si fuera un recorte de pantalla. Cualquier botón dentro del elemento con `data-html2canvas-ignore`
   // se excluye de la imagen (así no salen "Copiar"/"Cerrar" en la captura). `btnTexto` es el <span>
@@ -4049,7 +4050,7 @@ auth.onAuthStateChanged(async function(user){
           <tbody>${hist.map((h,i)=>`
             <tr>
               <td style="text-align:left;">${fmtFecha(h.fecha)}</td>
-              <td style="text-align:left;">${h.usuario}</td>
+              <td style="text-align:left;">${escEsv(h.usuario)}</td>
               <td><button data-hist-rr-ver="${i}" style="padding:3px 8px;">${historialResumenReemplazosExpandido===i ? 'Ocultar' : 'Ver'}</button></td>
             </tr>
             ${historialResumenReemplazosExpandido===i ? `
@@ -4985,7 +4986,7 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel" style="margin-top:16px;">
         ${editando ? `
           <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Hub de recolección</label>
-          <input type="text" id="hubMapCampoHub" value="${String(f.hub||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:14px; font-weight:600; margin-bottom:8px;">
+          <input type="text" id="hubMapCampoHub" value="${escEsv(f.hub)}" style="width:100%; padding:6px 8px; font-size:14px; font-weight:600; margin-bottom:8px;">
           <div id="hubMapAvisoDup"></div>
           <label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Estado</label>
           <select id="hubMapCampoEstado" style="width:100%; padding:6px 8px; font-size:13px; margin-bottom:8px;">
@@ -4994,11 +4995,11 @@ auth.onAuthStateChanged(async function(user){
           </select>
           <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px;">
             <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Ciudad</label>
-              <input type="text" id="hubMapCampoCiudad" value="${String(f.ciudad||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+              <input type="text" id="hubMapCampoCiudad" value="${escEsv(f.ciudad)}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
             <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Región</label>
-              <input type="text" id="hubMapCampoRegion" value="${String(f.region||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+              <input type="text" id="hubMapCampoRegion" value="${escEsv(f.region)}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
             <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Responsable</label>
-              <input type="text" id="hubMapCampoResponsable" value="${String(f.responsable||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
+              <input type="text" id="hubMapCampoResponsable" value="${escEsv(f.responsable)}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
             <div><label style="display:block; font-size:10.5px; color:var(--sub); margin-bottom:2px;">Teléfono</label>
               <input type="text" id="hubMapCampoTelefono" value="${String(f.telefono||'').replace(/"/g,'&quot;')}" style="width:100%; padding:6px 8px; font-size:13px;"></div>
           </div>
@@ -5012,10 +5013,10 @@ auth.onAuthStateChanged(async function(user){
           // Migración, ver 3.2) — Dirección/Latitud/Longitud/Gerente Regional no viven en el propio
           // directorio de HUB, se toman de la tienda con el mismo nombre si existe.
           const tienda = catalogoVivo.porNombre[String(f.hub||'').toUpperCase().trim()];
-          const dato = (v)=> `<div><span style="color:var(--sub); font-size:11.5px;">${v.label}</span><br><b style="font-size:13.5px;">${v.valor}</b></div>`;
+          const dato = (v)=> `<div><span style="color:var(--sub); font-size:11.5px;">${v.label}</span><br><b style="font-size:13.5px;">${escEsv(v.valor)}</b></div>`;
           return `
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <h3 style="margin:0;">${f.hub || 'Sin nombre'}</h3>
+            <h3 style="margin:0;">${escEsv(f.hub) || 'Sin nombre'}</h3>
             <span id="hubMapModalCloseBtn" style="font-size:13px; color:var(--sub); cursor:pointer;">✕ Cerrar</span>
           </div>
           <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;">
@@ -5188,7 +5189,7 @@ auth.onAuthStateChanged(async function(user){
       const n = r.nuevos.length + r.cambian.length;
       const etiqueta = { region:'región', estado:'estado', ciudad:'ciudad', responsable:'responsable', telefono:'teléfono' };
       const fila = (t,v,color)=>`<div class="noc-modal-row"><span>${t}</span><b${color?` style="color:${color};"`:''}>${v}</b></div>`;
-      const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      const esc = s => (s===undefined||s===null) ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
       cuerpo = `
         <h3>Importar HUBs</h3>
         <div class="noc-modal-sub">${esc(hubExcelArchivo)} · ${(hubExcelFilas||[]).length} filas leídas</div>
@@ -6297,7 +6298,7 @@ auth.onAuthStateChanged(async function(user){
       const E = chkEstadoEquipo(x.u);
       const btnJ = (['sinchecar','falta'].includes(E.tipo) && chkPuedeJustificar(x.u)) ? `<button class="chk-btn alt chk-mini" data-chkjhoy="${x.u}">Justificar</button>` : '';
       const estado = `<div class="chk-estado">${E.html}${btnJ}</div>`;
-      return `<tr class="chk-click ${chk.equipoDetalle===x.u?'chk-sel':''}" data-chku="${x.u}"><td>${x.nombre}<div class="chk-muted" style="font-size:11.5px;font-weight:400">${x.u}</div></td>
+      return `<tr class="chk-click ${chk.equipoDetalle===x.u?'chk-sel':''}" data-chku="${x.u}"><td>${escEsv(x.nombre)}<div class="chk-muted" style="font-size:11.5px;font-weight:400">${x.u}</div></td>
         <td class="chk-hor">${chkHorario(x.u)}</td>
         <td>${esActual?estado:''}</td>
         <td class="n">${R.dias} / 5</td><td class="n">${R.justif?`<span class="chk-tag just">${R.justif}</span>`:'—'}</td><td class="n">${(()=>{ const S = chkSemanaHoras(x.u, lun); return chkH(S.h)+' <span class="chk-muted" style="font-size:11px">/ '+CHK_HORAS_SEMANA+'</span>'; })()}</td>
@@ -6375,7 +6376,7 @@ auth.onAuthStateChanged(async function(user){
       };
       const fila = x=>{
         const S = chkSemanaHoras(x.u, lun), t = conteo(x.u, lun, dom);
-        return `<tr><td class="chk-rs-nom">${x.nombre}<div class="chk-muted" style="font-size:11px;font-weight:400">${chkHorario(x.u)}</div></td>
+        return `<tr><td class="chk-rs-nom">${escEsv(x.nombre)}<div class="chk-muted" style="font-size:11px;font-weight:400">${chkHorario(x.u)}</div></td>
           ${dias.map((d,i)=>celda(x.u, d, i)).join('')}
           <td class="n chk-rs-tot"><b>${chkH(S.h)}</b><span class="chk-muted" style="font-size:11px"> / ${CHK_HORAS_SEMANA}</span></td>
           <td class="n chk-rs-tot" ${S.ext?'style="color:var(--crit);font-weight:700"':''}>${chkH(S.ext)}</td>
@@ -6402,7 +6403,7 @@ auth.onAuthStateChanged(async function(user){
                              : `<span class="chk-muted" title="Horas y extras de esta semana se cuentan en ${MESES12[dom.getMonth()].toLowerCase()}">en ${MESES12[dom.getMonth()].toLowerCase()}</span>`;
           return `<td class="chk-rs-d chk-click" data-chkrsw="${chkYmd(w.lun)}" title="Ver la semana"><div>${horas}</div><div class="chk-rs-h">${marcas(t)||'<span class="chk-muted">—</span>'}</div></td>`;
         }).join('');
-        return `<tr><td class="chk-rs-nom">${x.nombre}<div class="chk-muted" style="font-size:11px;font-weight:400">${chkHorario(x.u)}</div></td>${celdas}
+        return `<tr><td class="chk-rs-nom">${escEsv(x.nombre)}<div class="chk-muted" style="font-size:11px;font-weight:400">${chkHorario(x.u)}</div></td>${celdas}
           <td class="n chk-rs-tot">${T.dias}</td>
           <td class="n chk-rs-tot"><b>${chkH(T.h)}</b></td>
           <td class="n chk-rs-tot" ${T.ext?'style="color:var(--crit);font-weight:700"':''}>${chkH(T.ext)}</td>
@@ -6793,7 +6794,7 @@ auth.onAuthStateChanged(async function(user){
           <div class="noc-modal-sub">Reporte de fallas · Directorio de Tiendas</div>
           ${detalleDia.length ? `<div style="overflow-x:auto;"><table>
             <thead><tr><th style="text-align:left;">Tienda</th><th>Carrier</th><th>Hora de alta</th><th>Hora de cierre</th><th>Tardó en cerrarse</th><th>Estatus</th></tr></thead>
-            <tbody>${detalleDia.map(x=>`<tr><td style="text-align:left;">${x.tienda}</td><td>${x.carrier}</td><td>${x.horaAlta}</td><td>${x.horaCierre || '—'}</td><td>${x.tardoHoras!=null ? x.tardoHoras+' h' : '—'}</td><td>${x.estatus}</td></tr>`).join('')}</tbody>
+            <tbody>${detalleDia.map(x=>`<tr><td style="text-align:left;">${escEsv(x.tienda)}</td><td>${escEsv(x.carrier)}</td><td>${escEsv(x.horaAlta)}</td><td>${escEsv(x.horaCierre) || '—'}</td><td>${x.tardoHoras!=null ? x.tardoHoras+' h' : '—'}</td><td>${escEsv(x.estatus)}</td></tr>`).join('')}</tbody>
           </table></div>` : `<div class="foot">Sin detalle capturado para este día.</div>`}
           <button class="noc-modal-close" id="btnCerrarDetalleDia">Cerrar</button>
         </div>
@@ -7002,9 +7003,9 @@ auth.onAuthStateChanged(async function(user){
           <tbody>${withTotals.map((r,i)=>`
             <tr>
               <td>${i+1}</td>
-              <td style="text-align:left;">${r.nombre}</td>
-              <td>${r.carrier||'—'}</td>
-              <td>${r.tecnologia||'—'}</td>
+              <td style="text-align:left;">${escEsv(r.nombre)}</td>
+              <td>${escEsv(r.carrier)||'—'}</td>
+              <td>${escEsv(r.tecnologia)||'—'}</td>
               ${mesesCortos.map((m,mi)=>`<td>${r.meses[mi]||'-'}</td>`).join('')}
               <td><b>${r.total}</b></td>
               <td><span class="status-badge alerta">Problema de velocidad</span></td>
@@ -7074,9 +7075,9 @@ auth.onAuthStateChanged(async function(user){
         const st = estatusTienda(r.total);
         return `<tr data-row="${r._idx}">
           <td>${i+1}</td>
-          <td>${edit ? `<input type="text" style="width:200px;" data-field="nombre" value="${r.nombre}">` : r.nombre}</td>
-          <td>${edit ? `<input type="text" style="width:80px;" data-field="carrier" value="${r.carrier||''}">` : (r.carrier||'—')}</td>
-          <td>${edit ? `<input type="text" style="width:80px;" data-field="tecnologia" value="${r.tecnologia||''}">` : (r.tecnologia||'—')}</td>
+          <td>${edit ? `<input type="text" style="width:200px;" data-field="nombre" value="${escEsv(r.nombre)}">` : escEsv(r.nombre)}</td>
+          <td>${edit ? `<input type="text" style="width:80px;" data-field="carrier" value="${escEsv(r.carrier)}">` : (escEsv(r.carrier)||'—')}</td>
+          <td>${edit ? `<input type="text" style="width:80px;" data-field="tecnologia" value="${escEsv(r.tecnologia)}">` : (escEsv(r.tecnologia)||'—')}</td>
           ${mesesCortos.map((m,mi)=> `<td>${edit ? `<input type="number" min="0" data-mes="${mi}" value="${r.meses[mi]||0}">` : (r.meses[mi]||'-')}</td>`).join('')}
           <td><b>${r.total}</b></td>
           <td><span class="status-badge ${st.cls}">${st.label}</span></td>
@@ -7137,18 +7138,18 @@ auth.onAuthStateChanged(async function(user){
           const st = estatusTienda(r.total);
           const comentario = state.migracion_comentarios[r.nombre] || '';
           return `<tr>
-            <td style="text-align:left;">${r.nombre}</td>
-            <td>${r.carrier||'—'}</td>
-            <td>${r.tecnologia||'—'}</td>
+            <td style="text-align:left;">${escEsv(r.nombre)}</td>
+            <td>${escEsv(r.carrier)||'—'}</td>
+            <td>${escEsv(r.tecnologia)||'—'}</td>
             ${mesesCortos.map((m,mi)=>`<td>${r.meses[mi]||'-'}</td>`).join('')}
             <td><b>${r.total}</b></td>
             <td><span class="status-badge ${st.cls}">${st.label}</span></td>
             <td><span class="status-badge alerta">${textoMigracion}</span></td>
             <td style="text-align:left; white-space:nowrap;">${MOTIVO_MIGRACION}</td>
             <td style="text-align:left;">${puedeEditarComentarios
-              ? `<input type="text" data-migracion-comentario="${r.nombre}" value="${comentario.replace(/"/g,'&quot;')}" placeholder="Nota de seguimiento" style="width:180px;">`
-              : (comentario ? comentario : '<span style="color:var(--sub);">—</span>')}</td>
-            ${puedeEditarLista ? `<td><button data-migracion-quitar="${listaKey}:${r.nombre}" style="padding:3px 8px;">✕</button></td>` : ''}
+              ? `<input type="text" data-migracion-comentario="${escEsv(r.nombre)}" value="${escEsv(comentario)}" placeholder="Nota de seguimiento" style="width:180px;">`
+              : (comentario ? escEsv(comentario) : '<span style="color:var(--sub);">—</span>')}</td>
+            ${puedeEditarLista ? `<td><button data-migracion-quitar="${listaKey}:${escEsv(r.nombre)}" style="padding:3px 8px;">✕</button></td>` : ''}
           </tr>`;
         }).join('')}</tbody>
       </table></div>
@@ -7236,7 +7237,7 @@ auth.onAuthStateChanged(async function(user){
     const puedeEditarW11 = canEditWin11();
     return `
       <div style="background:var(--card-bg); border:1px solid var(--line); border-radius:12px; padding:16px 18px;">
-        <div style="font-weight:700; font-size:14px; margin-bottom:2px;">Pendientes de migrar — ${esTotal ? 'Todas las regiones' : region}</div>
+        <div style="font-weight:700; font-size:14px; margin-bottom:2px;">Pendientes de migrar — ${esTotal ? 'Todas las regiones' : escEsv(region)}</div>
         ${filas.length ? `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse;">
           <thead><tr>
             <th style="text-align:left; padding:8px 10px; border-bottom:1px solid var(--line);">Tienda</th>
@@ -7246,13 +7247,13 @@ auth.onAuthStateChanged(async function(user){
           </tr></thead>
           <tbody>${filas.map(([pdv,c],i)=>`
             <tr style="background:${i%2===0 ? 'var(--card-bg)' : 'var(--row-alt-bg)'};">
-              <td style="padding:8px 10px; text-align:left; border-bottom:1px solid var(--line);">${pdv}</td>
+              <td style="padding:8px 10px; text-align:left; border-bottom:1px solid var(--line);">${escEsv(pdv)}</td>
               <td style="padding:8px 10px; text-align:center; border-bottom:1px solid var(--line);">${c.laptop||''}</td>
               <td style="padding:8px 10px; text-align:center; border-bottom:1px solid var(--line);">${c.desktop||''}</td>
               <td style="padding:6px 10px; text-align:left; border-bottom:1px solid var(--line);">
                 ${puedeEditarW11
-                  ? `<input type="text" data-win11-obs="${pdv.replace(/"/g,'&quot;')}" value="${(state.win11_observaciones[pdv]||'').replace(/"/g,'&quot;')}" placeholder="Agregar nota" style="width:100%;">`
-                  : (state.win11_observaciones[pdv] || '')}
+                  ? `<input type="text" data-win11-obs="${escEsv(pdv)}" value="${escEsv(state.win11_observaciones[pdv])}" placeholder="Agregar nota" style="width:100%;">`
+                  : escEsv(state.win11_observaciones[pdv])}
               </td>
             </tr>`).join('')}</tbody>
         </table></div>` : ``}
@@ -7362,8 +7363,8 @@ auth.onAuthStateChanged(async function(user){
         <table>
           <thead><tr><th>Región</th><th>Win10 Pro x64</th><th>Win11 Pro x64</th><th>Total</th><th>Avance</th></tr></thead>
           <tbody>
-            ${d.porRegion.map(r=>`<tr><td>${r.region}</td>
-              <td>${r.pendientes ? `<a href="#" data-win11-region="${r.region}" style="color:${COLOR_WIN11}; font-weight:700; text-decoration:underline;">${r.pendientes}</a>` : '—'}</td>
+            ${d.porRegion.map(r=>`<tr><td>${escEsv(r.region)}</td>
+              <td>${r.pendientes ? `<a href="#" data-win11-region="${escEsv(r.region)}" style="color:${COLOR_WIN11}; font-weight:700; text-decoration:underline;">${r.pendientes}</a>` : '—'}</td>
               <td>${r.win11.toLocaleString('es-MX')}</td>
               <td>${r.total.toLocaleString('es-MX')}</td><td>${pct(r.avance)}%</td></tr>`).join('')}
             <tr style="font-weight:700;"><td>Total general</td>
@@ -7540,7 +7541,7 @@ auth.onAuthStateChanged(async function(user){
         <h3>Historial de cambios</h3>
         <table>
           <thead><tr><th>Fecha</th><th>Usuario</th><th>Archivo</th><th>Equipos cargados</th></tr></thead>
-          <tbody>${hist.map(h=>`<tr><td>${fmtFecha(h.fecha)}</td><td>${h.usuario}</td><td>${h.archivo}</td><td>${h.total}</td></tr>`).join('')}</tbody>
+          <tbody>${hist.map(h=>`<tr><td>${fmtFecha(h.fecha)}</td><td>${escEsv(h.usuario)}</td><td>${escEsv(h.archivo)}</td><td>${h.total}</td></tr>`).join('')}</tbody>
         </table>
       </div>
     `;
@@ -7672,7 +7673,7 @@ auth.onAuthStateChanged(async function(user){
               <div style="min-width:0; display:flex; align-items:center; gap:8px;">
                 <span style="width:9px; height:9px; border-radius:50%; background:${color}; flex:none;"></span>
                 <div style="min-width:0;">
-                  <div style="font-size:13px; font-weight:600; color:var(--ink); ${esPrime?'font-style:italic;':''} white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${a.nombre}</div>
+                  <div style="font-size:13px; font-weight:600; color:var(--ink); ${esPrime?'font-style:italic;':''} white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escEsv(a.nombre)}</div>
                   <div style="height:6px; border-radius:4px; background:var(--line); margin-top:4px; overflow:hidden;">
                     <div style="height:100%; width:${pct}%; background:${color}; ${esPrime?'opacity:.55;':''}"></div>
                   </div>
@@ -7697,7 +7698,7 @@ auth.onAuthStateChanged(async function(user){
             return `
             <div style="display:grid; grid-template-columns:minmax(0,1fr) 80px; align-items:center; gap:12px;">
               <div style="min-width:0;">
-                <div style="font-size:13px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cat.categoria}${cat.categoria==='Reset de Token VPN' ? ' <span style="color:var(--sub); font-weight:400;">(ambas mesas)</span>' : ''}</div>
+                <div style="font-size:13px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escEsv(cat.categoria)}${cat.categoria==='Reset de Token VPN' ? ' <span style="color:var(--sub); font-weight:400;">(ambas mesas)</span>' : ''}</div>
                 <div style="height:6px; border-radius:4px; background:var(--line); margin-top:4px; overflow:hidden;">
                   <div style="height:100%; width:${pct}%; background:${PALETA_ING[i % PALETA_ING.length]};"></div>
                 </div>
@@ -7814,7 +7815,7 @@ auth.onAuthStateChanged(async function(user){
         <thead><tr><th style="text-align:left;">Mesa de Control</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th><th>Prom. atención</th></tr></thead>
         <tbody>${agentes.map(a=>`
           <tr>
-            <td style="text-align:left;">${a.nombre}</td>
+            <td style="text-align:left;">${escEsv(a.nombre)}</td>
             ${mesesCortos.map((m,mi)=>`<td>${a.meses[mi]||'-'}</td>`).join('')}
             <td><b>${a.total}</b></td>
             <td>${a.promedio!==null && a.promedio!==undefined ? a.promedio+'h' : 's/d'}</td>
@@ -7860,7 +7861,7 @@ auth.onAuthStateChanged(async function(user){
         <thead><tr><th style="text-align:left;">Categoría</th>${mesesCortos.map(m=>`<th>${m.slice(0,3)}</th>`).join('')}<th>Total</th></tr></thead>
         <tbody>${categorias.map(r=>`
           <tr>
-            <td style="text-align:left;">${r.categoria}</td>
+            <td style="text-align:left;">${escEsv(r.categoria)}</td>
             ${mesesCortos.map((m,mi)=>`<td>${r.meses[mi]||'-'}</td>`).join('')}
             <td><b>${r.total}</b></td>
           </tr>`).join('')}
@@ -7872,10 +7873,10 @@ auth.onAuthStateChanged(async function(user){
       <div class="carrusel-slide">
       <h3 style="margin-top:24px;">Categoría × Agente de Mesa de Control</h3>
       <div class="panel"><div style="overflow-x:auto;"><table>
-        <thead><tr><th style="text-align:left;">Categoría</th>${agentesCols.map(a=>`<th>${a}</th>`).join('')}</tr></thead>
+        <thead><tr><th style="text-align:left;">Categoría</th>${agentesCols.map(a=>`<th>${escEsv(a)}</th>`).join('')}</tr></thead>
         <tbody>${catAgenteRows.map(r=>`
           <tr>
-            <td style="text-align:left;">${r.categoria}</td>
+            <td style="text-align:left;">${escEsv(r.categoria)}</td>
             ${agentesCols.map(a=>{
               const d = r[a] || {count:0};
               return `<td>${d.count||'-'}</td>`;
@@ -7951,8 +7952,8 @@ auth.onAuthStateChanged(async function(user){
           ${data.asignaciones.map((a,i)=>`
             <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0;">
               ${editando
-                ? `<input type="text" data-inv-asig-nombre="${tipo}.${i}" value="${a.nombre}" style="flex:1; margin-right:8px;">`
-                : `<span>${a.nombre}</span>`}
+                ? `<input type="text" data-inv-asig-nombre="${tipo}.${i}" value="${escEsv(a.nombre)}" style="flex:1; margin-right:8px;">`
+                : `<span>${escEsv(a.nombre)}</span>`}
               ${editando
                 ? `<input type="number" data-inv-asig-valor="${tipo}.${i}" value="${a.valor}" style="width:70px; text-align:right;">`
                 : `<b>${a.valor}</b>`}
@@ -8090,8 +8091,8 @@ auth.onAuthStateChanged(async function(user){
           <div style="margin-top:10px;">
             <div style="font-size:11px; font-weight:700; color:var(--sub); letter-spacing:.5px; margin-bottom:6px;">OBSERVACIONES (a quién se asignó)</div>
             ${det.observaciones.map((obs,i)=> editando
-              ? `<input type="text" data-masaryk-obs="${i}" value="${(obs||'').replace(/"/g,'&quot;')}" placeholder="Nombre de quién recibió esta laptop" style="width:100%; margin-bottom:6px;">`
-              : `<div style="padding:4px 0;">${obs || '<span style="color:var(--sub);">— sin capturar —</span>'}</div>`
+              ? `<input type="text" data-masaryk-obs="${i}" value="${escEsv(obs)}" placeholder="Nombre de quién recibió esta laptop" style="width:100%; margin-bottom:6px;">`
+              : `<div style="padding:4px 0;">${escEsv(obs) || '<span style="color:var(--sub);">— sin capturar —</span>'}</div>`
             ).join('')}
           </div>` : ''}
           <div style="border-top:1px solid var(--line); margin-top:8px;"></div>
@@ -8116,7 +8117,7 @@ auth.onAuthStateChanged(async function(user){
           <tbody>${hist.map((h,i)=>`
             <tr>
               <td>${fmtFecha(h.fecha)}</td>
-              <td>${h.usuario}</td>
+              <td>${escEsv(h.usuario)}</td>
               <td><button data-hist-ver="${i}" style="padding:3px 8px;">${historialExpandido===i ? 'Ocultar' : 'Ver'}</button></td>
             </tr>
             ${historialExpandido===i ? `
@@ -8126,7 +8127,7 @@ auth.onAuthStateChanged(async function(user){
                   <b>Laptop</b>
                   <div style="font-size:12.5px; margin-top:4px;">
                     Adquiridas: ${h.snapshot.laptop.adquiridas} · Entregadas: ${h.snapshot.laptop.entregadas} · Inventariadas: ${h.snapshot.laptop.inventariadas}<br>
-                    Asignación: ${h.snapshot.laptop.asignaciones.map(a=>a.nombre+': '+a.valor).join(' · ')}<br>
+                    Asignación: ${h.snapshot.laptop.asignaciones.map(a=>escEsv(a.nombre)+': '+escEsv(a.valor)).join(' · ')}<br>
                     Proyección Anual: ${h.snapshot.laptop.proyeccion_anual}
                   </div>
                 </div>
@@ -8134,14 +8135,14 @@ auth.onAuthStateChanged(async function(user){
                   <b>CPU</b>
                   <div style="font-size:12.5px; margin-top:4px;">
                     Adquiridas: ${h.snapshot.cpu.adquiridas} · Entregadas: ${h.snapshot.cpu.entregadas} · Inventariadas: ${h.snapshot.cpu.inventariadas}<br>
-                    Asignación: ${h.snapshot.cpu.asignaciones.map(a=>a.nombre+': '+a.valor).join(' · ')}<br>
+                    Asignación: ${h.snapshot.cpu.asignaciones.map(a=>escEsv(a.nombre)+': '+escEsv(a.valor)).join(' · ')}<br>
                     Proyección Anual: ${h.snapshot.cpu.proyeccion_anual}
                   </div>
                 </div>
               </div>
               <div style="font-size:12.5px;">
                 <b>Detalle Masaryk</b> — Utilizadas: ${h.snapshot.masaryk_detalle.utilizadas} ·
-                Observaciones: ${h.snapshot.masaryk_detalle.observaciones.filter(o=>o).join(', ') || '—'}
+                Observaciones: ${h.snapshot.masaryk_detalle.observaciones.filter(o=>o).map(o=>escEsv(o)).join(', ') || '—'}
               </div>
             </td></tr>` : ''}
           `).join('')}
@@ -8296,7 +8297,7 @@ auth.onAuthStateChanged(async function(user){
       const t = todasTiendas.find(x=>x.nombre===inpTienda.value);
       if(!t){ box.style.display='none'; return; }
       box.style.display='block';
-      box.innerHTML = `<b>${escEsv(t.nombre)}</b> — Región: <b>${escEsv(t.region)}</b> · Gerente regional: <b>${escEsv(t.gerenteRegional)}</b> · Gerente de tienda: <b>${escEsv(t.gerente_tienda||'—')}</b> · Desktop: <b>${t.desktop}</b> · HeadCount: <b>${t.headcount!==undefined ? t.headcount : '—'}</b> · Dif. Equipo: <b>${t.dif_equipo}</b> · Laptop: <b>${t.lap}</b>
+      box.innerHTML = `<b>${escEsv(t.nombre)}</b> — Región: <b>${escEsv(t.region)}</b> · Gerente regional: <b>${escEsv(t.gerenteRegional)}</b> · Gerente de tienda: <b>${escEsv(t.gerente_tienda||'—')}</b> · Desktop: <b>${t.desktop}</b> · HeadCount: <b>${t.headcount!==undefined ? t.headcount : '—'}</b> · Dif. Equipo: <b>${t.dif_equipo}</b> · Laptop: <b>${escEsv(t.lap)}</b>
         &nbsp; <button id="btnPdvVerDetalleTienda" style="padding:3px 10px; font-size:12px;">Ver detalle →</button>`;
       document.getElementById('btnPdvVerDetalleTienda').onclick = ()=>{
         pdvFiltroTiendaModal = t;
@@ -8346,7 +8347,7 @@ auth.onAuthStateChanged(async function(user){
           <div class="noc-modal-row"><span>Desktop</span><b>${t.desktop}</b></div>
           <div class="noc-modal-row"><span>HeadCount</span><b>${t.headcount!==undefined ? t.headcount : '—'}</b></div>
           <div class="noc-modal-row"><span>Dif. Equipo</span><b>${t.dif_equipo}</b></div>
-          <div class="noc-modal-row"><span>Laptop</span><b>${t.lap}</b></div>
+          <div class="noc-modal-row"><span>Laptop</span><b>${escEsv(t.lap)}</b></div>
           <button class="noc-modal-close" id="pdvFiltroTiendaModalCloseBtn" data-html2canvas-ignore="true">Cerrar</button>
         </div>
       </div>
@@ -8371,14 +8372,14 @@ auth.onAuthStateChanged(async function(user){
       <div class="noc-overlay" id="pdvRegionOverlay">
         <div class="noc-modal" id="pdvRegionModalBox" style="max-width:${gerente ? '920px' : '800px'}; width:auto;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            ${gerente ? `<button id="btnPdvRegionRegresar" style="background:none; border:none; color:var(--tp); font-size:12.5px; cursor:pointer; padding:0; font-family:inherit;">← Regresar</button>` : `<h3 style="margin:0;">Gerentes regionales — ${region.nombre}</h3>`}
+            ${gerente ? `<button id="btnPdvRegionRegresar" style="background:none; border:none; color:var(--tp); font-size:12.5px; cursor:pointer; padding:0; font-family:inherit;">← Regresar</button>` : `<h3 style="margin:0;">Gerentes regionales — ${escEsv(region.nombre)}</h3>`}
             <div style="display:flex; align-items:center; gap:14px;" data-html2canvas-ignore="true">
               <button id="btnPdvRegionCopiar" style="background:none; border:1px solid var(--line); border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer; color:var(--sub);">Copiar</button>
               <button id="btnPdvRegionCerradorX" style="background:none; border:none; font-size:16px; cursor:pointer; color:var(--sub);" aria-label="Cerrar">✕</button>
             </div>
           </div>
           ${gerente ? `
-            <h3 style="margin-bottom:12px;">Tiendas de ${gerente.nombre} (${gerente.tiendas.length})</h3>
+            <h3 style="margin-bottom:12px;">Tiendas de ${escEsv(gerente.nombre)} (${gerente.tiendas.length})</h3>
             <div style="overflow-x:auto; max-height:50vh; overflow-y:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
               <thead><tr>
@@ -8396,7 +8397,7 @@ auth.onAuthStateChanged(async function(user){
                   <td style="text-align:center; padding:6px 10px;">${t.desktop}</td>
                   <td style="text-align:center; padding:6px 10px;">${t.headcount!==undefined ? t.headcount : '—'}</td>
                   <td style="text-align:center; padding:6px 10px;">${t.dif_equipo}</td>
-                  <td style="text-align:center; padding:6px 10px;">${t.lap}</td>
+                  <td style="text-align:center; padding:6px 10px;">${escEsv(t.lap)}</td>
                 </tr>`).join('')}
                 <tr style="border-top:2px solid var(--ink);">
                   <td style="padding:8px 10px; font-weight:700;">Total</td>
@@ -8515,8 +8516,8 @@ auth.onAuthStateChanged(async function(user){
           <div class="pdv-region-card" data-pdv-region-idx="${r._i}" style="border:1px solid var(--line); border-radius:10px; overflow:hidden; ${!editing ? 'cursor:pointer;' : ''}">
             <div style="background:${cardGrad(COLOR_PDV)}; color:#fff; font-weight:700; font-size:14px; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
               ${editing && puedeEditar
-                ? `<input type="text" data-pdv-nombre="${r._i}" value="${r.nombre}" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,.5); color:#fff; padding:2px 6px;" onclick="event.stopPropagation()">`
-                : `<span>${r.nombre}</span>`}
+                ? `<input type="text" data-pdv-nombre="${r._i}" value="${escEsv(r.nombre)}" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,.5); color:#fff; padding:2px 6px;" onclick="event.stopPropagation()">`
+                : `<span>${escEsv(r.nombre)}</span>`}
               <span style="font-size:11px; font-weight:700; background:rgba(255,255,255,.25); border-radius:20px; padding:2px 8px; flex:none;">#${rank+1}</span>
             </div>
             <div style="padding:14px 16px;">
@@ -8652,13 +8653,13 @@ auth.onAuthStateChanged(async function(user){
           <tbody>${hist.map((h,i)=>`
             <tr>
               <td>${fmtFecha(h.fecha)}</td>
-              <td>${h.usuario}</td>
+              <td>${escEsv(h.usuario)}</td>
               <td><button data-hist-pdv-ver="${i}" style="padding:3px 8px;">${historialPdvExpandido===i ? 'Ocultar' : 'Ver'}</button></td>
             </tr>
             ${historialPdvExpandido===i ? `
             <tr><td colspan="3">
               <div style="font-size:12.5px; padding:8px 0;">
-                ${h.snapshot.regiones.map(r=>`${r.nombre}: PDV laptop ${r.pdv_laptop} · Cambaceo ${r.cambaceo} · Desktop ${r.desktop}`).join('<br>')}
+                ${h.snapshot.regiones.map(r=>`${escEsv(r.nombre)}: PDV laptop ${r.pdv_laptop} · Cambaceo ${r.cambaceo} · Desktop ${r.desktop}`).join('<br>')}
               </div>
             </td></tr>` : ''}
           `).join('')}
@@ -8812,7 +8813,7 @@ auth.onAuthStateChanged(async function(user){
               const presupCell = (editing && puedeEditar)
                 ? `<input type="number" step="1" data-bi-presup="${vi}" value="${v.presupuesto_mes}" style="width:80px;">`
                 : moneyIT(v.presupuesto_mes);
-              let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${v.categoria}</td><td class="bi-moneda">${monedaProveedor(v.proveedor)}</td><td class="bi-presup">${presupCell}</td>`;
+              let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${escEsv(v.categoria)}</td><td class="bi-moneda">${monedaProveedor(v.proveedor)}</td><td class="bi-presup">${presupCell}</td>`;
               valores.forEach((o,i)=>{
                 const esFuturo = i > mesActualIdxBI;
                 const enVentanaEditable = i <= mesActualIdxBI && i >= mesActualIdxBI - 2;
@@ -9058,7 +9059,7 @@ auth.onAuthStateChanged(async function(user){
           <tbody>${hist.map((h,i)=>`
             <tr>
               <td style="text-align:left;">${fmtFecha(h.fecha)}</td>
-              <td style="text-align:left;">${h.usuario}</td>
+              <td style="text-align:left;">${escEsv(h.usuario)}</td>
               <td><button data-hist-bi-ver="${i}" style="padding:3px 8px;">${historialBudgetItExpandido===i ? 'Ocultar' : 'Ver'}</button></td>
             </tr>
             ${historialBudgetItExpandido===i ? `
@@ -9113,7 +9114,7 @@ auth.onAuthStateChanged(async function(user){
           <thead><tr><th style="text-align:left;">Usuario</th><th style="text-align:left;">Archivo o tipo de actualización</th><th>Fecha</th><th>Hora</th></tr></thead>
           <tbody>${log.map(h=>`
             <tr>
-              <td style="text-align:left;">${h.usuario}</td>
+              <td style="text-align:left;">${escEsv(h.usuario)}</td>
               <td style="text-align:left;">${h.tipo}</td>
               <td>${fmtFechaSolo(h.fecha)}</td>
               <td>${fmtHora(h.fecha)}</td>
@@ -9166,7 +9167,7 @@ auth.onAuthStateChanged(async function(user){
           <thead><tr><th style="text-align:left;">Usuario</th><th>Fecha</th><th>Hora</th></tr></thead>
           <tbody>${registros.map(r=>`
             <tr>
-              <td style="text-align:left;">${r.usuario}</td>
+              <td style="text-align:left;">${escEsv(r.usuario)}</td>
               <td>${fmtFechaSolo(r.fecha)}</td>
               <td>${fmtHora(r.fecha)}</td>
             </tr>`).join('')}
@@ -9202,7 +9203,7 @@ auth.onAuthStateChanged(async function(user){
   ];
   function describirCarga(x){
     if(!x) return '—';
-    const quien = x.origen === 'InvGate' ? 'Sincronización automática InvGate' : `Excel${x.archivo ? ' "' + x.archivo + '"' : ''}${x.usuario ? ' · ' + x.usuario : ''}`;
+    const quien = x.origen === 'InvGate' ? 'Sincronización automática InvGate' : `Excel${x.archivo ? ' "' + escEsv(x.archivo) + '"' : ''}${x.usuario ? ' · ' + escEsv(x.usuario) : ''}`;
     return `${fmtFechaSolo(x.fecha)} ${fmtHora(x.fecha)} · ${quien}`;
   }
   function renderCargas(c){
@@ -9266,7 +9267,7 @@ auth.onAuthStateChanged(async function(user){
           <div style="font-size:12px; color:var(--sub); margin:6px 0;">${t.ayuda}${filas.length < conteo[t.id] ? ` Se muestran ${fmtMX(filas.length)} de ${fmtMX(conteo[t.id])}.` : ''}</div>
           <div style="overflow-x:auto; max-height:420px; overflow-y:auto;"><table>
             <thead><tr><th style="text-align:left;">Ticket</th><th style="text-align:left;">Antes</th><th style="text-align:left;">Ahora</th></tr></thead>
-            <tbody>${filas.map(x => `<tr><td style="text-align:left;">#${x.id}</td><td style="text-align:left;">${nombreApartado(x.antes) || '—'}</td><td style="text-align:left;">${nombreApartado(x.ahora) || '—'}</td></tr>`).join('')}</tbody>
+            <tbody>${filas.map(x => `<tr><td style="text-align:left;">#${escEsv(x.id)}</td><td style="text-align:left;">${nombreApartado(x.antes) || '—'}</td><td style="text-align:left;">${nombreApartado(x.ahora) || '—'}</td></tr>`).join('')}</tbody>
           </table></div>
         </details>`;
       }).join('') : ''}
@@ -9307,7 +9308,7 @@ auth.onAuthStateChanged(async function(user){
         <p>Se llenan solos con la sincronización de InvGate (lunes a viernes, 9:15). Después de la primera corrida con esta función aparecen aquí tus tickets abiertos.</p></div>`;
       return;
     }
-    const esc = v => (v===undefined||v===null) ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const esc = v => (v===undefined||v===null) ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     const ahora = Date.now();
     const abiertos = (d.abiertos || []).map(t => ({ ...t, dias: t.creado ? Math.max(0, Math.floor((ahora - new Date(t.creado).getTime())/86400000)) : 0 }));
     abiertos.sort((a,b) => b.dias - a.dias || String(a.creado).localeCompare(String(b.creado)));
@@ -9657,7 +9658,7 @@ auth.onAuthStateChanged(async function(user){
     'AP_350_Sala_Juntas_Junt_Raf': 'AP_350_Sala_Juntas_Cibeles',
     'AP_550_Mau_Alfred': 'AP_550_DireccionIT'
   };
-  const rcEsc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const rcEsc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const REDCORP_AP_ESTADOS = {
     ok:{ txt:'Activo', color:'var(--ok, #1E8E5A)' },
     aviso:{ txt:'Advertencia', color:'#D99A00' },
@@ -10178,7 +10179,7 @@ auth.onAuthStateChanged(async function(user){
       ${REDCORP_CARRIERS.map((k, i) => {
         const r = res[k.id], otro = res[REDCORP_CARRIERS.find(x => x.id !== k.id).id];
         return `<div class="carrusel-slide${i === 0 ? ' activo' : ''}"><div class="panel" style="margin-bottom:22px;">
-          <h3 style="margin:0 0 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="width:12px; height:12px; border-radius:3px; background:${k.color}; display:inline-block;"></span>${k.nombre}
+          <h3 style="margin:0 0 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="width:12px; height:12px; border-radius:3px; background:${k.color}; display:inline-block;"></span>${escEsv(k.nombre)}
             <span class="rc-badge">${d.fecha === hoy ? badgeVivoRedcorp(d.recibido) : ''}</span>
             <span style="font-size:12px; font-weight:500; color:var(--sub);">${k.sensor}${redcorpVista === 'hora' ? ' · últimos 60 minutos' : ''}</span></h3>
           ${r ? `<div class="cards" id="rcKpis_${k.id}" style="margin-bottom:14px;">${kpisRedcorpHtml(k, r, datos[k.id].length)}</div>` : ''}
@@ -10496,35 +10497,35 @@ auth.onAuthStateChanged(async function(user){
           </tr></thead>
           <tbody>${ordenExpansion.map(({t,i})=> editing ? `
             <tr data-exp-row="${i}">
-              <td><input type="text" style="width:44px;" data-exp-field="numero" data-exp-row="${i}" value="${t.numero!==null && t.numero!==undefined ? t.numero : ''}"></td>
-              <td><input type="text" style="width:110px;" data-exp-field="clave" data-exp-row="${i}" value="${t.clave||''}"></td>
-              <td><input type="text" style="width:220px; text-align:left;" data-exp-field="nombre" data-exp-row="${i}" value="${(t.nombre||'').replace(/"/g,'&quot;')}"></td>
-              <td><input type="text" style="width:90px;" data-exp-field="region" data-exp-row="${i}" value="${t.region||''}"></td>
-              <td><input type="text" style="width:80px;" data-exp-field="mes" data-exp-row="${i}" value="${t.mes||''}"></td>
-              <td><input type="text" style="width:36px;" data-exp-field="pc" data-exp-row="${i}" value="${t.pc||''}"></td>
-              <td><input type="text" style="width:36px;" data-exp-field="lap" data-exp-row="${i}" value="${t.lap||''}"></td>
-              <td><input type="text" style="width:70px;" data-exp-field="internet" data-exp-row="${i}" value="${t.internet||''}"></td>
-              <td><input type="text" style="width:80px;" data-exp-field="entregado_arq" data-exp-row="${i}" value="${t.entregado_arq||''}"></td>
-              <td><input type="text" style="width:80px;" data-exp-field="entrega_impresora" data-exp-row="${i}" value="${t.entrega_impresora||''}"></td>
+              <td><input type="text" style="width:44px;" data-exp-field="numero" data-exp-row="${i}" value="${t.numero!==null && t.numero!==undefined ? escEsv(t.numero) : ''}"></td>
+              <td><input type="text" style="width:110px;" data-exp-field="clave" data-exp-row="${i}" value="${escEsv(t.clave)}"></td>
+              <td><input type="text" style="width:220px; text-align:left;" data-exp-field="nombre" data-exp-row="${i}" value="${escEsv(t.nombre)}"></td>
+              <td><input type="text" style="width:90px;" data-exp-field="region" data-exp-row="${i}" value="${escEsv(t.region)}"></td>
+              <td><input type="text" style="width:80px;" data-exp-field="mes" data-exp-row="${i}" value="${escEsv(t.mes)}"></td>
+              <td><input type="text" style="width:36px;" data-exp-field="pc" data-exp-row="${i}" value="${escEsv(t.pc)}"></td>
+              <td><input type="text" style="width:36px;" data-exp-field="lap" data-exp-row="${i}" value="${escEsv(t.lap)}"></td>
+              <td><input type="text" style="width:70px;" data-exp-field="internet" data-exp-row="${i}" value="${escEsv(t.internet)}"></td>
+              <td><input type="text" style="width:80px;" data-exp-field="entregado_arq" data-exp-row="${i}" value="${escEsv(t.entregado_arq)}"></td>
+              <td><input type="text" style="width:80px;" data-exp-field="entrega_impresora" data-exp-row="${i}" value="${escEsv(t.entrega_impresora)}"></td>
               <td><select data-exp-field="estatus" data-exp-row="${i}">
                 ${['Abierta','En proceso','Prospecto','Cerrada'].map(op=>`<option value="${op}" ${t.estatus===op?'selected':''}>${op}</option>`).join('')}
               </select></td>
-              <td><input type="text" style="width:220px; text-align:left;" data-exp-field="nota" data-exp-row="${i}" value="${(t.nota||'').replace(/"/g,'&quot;')}"></td>
+              <td><input type="text" style="width:220px; text-align:left;" data-exp-field="nota" data-exp-row="${i}" value="${escEsv(t.nota)}"></td>
               <td><button data-exp-remove="${i}" style="padding:3px 8px;">✕</button></td>
             </tr>` : `
             <tr data-exp-row="${i}">
-              <td>${t.numero!==null && t.numero!==undefined ? t.numero : '—'}</td>
-              <td>${t.clave||'—'}</td>
-              <td style="text-align:left;">${t.nombre}</td>
-              <td>${t.region}</td>
-              <td>${t.mes||'—'}</td>
-              <td>${t.pc}</td>
-              <td>${t.lap}</td>
-              <td>${t.internet}</td>
-              <td>${t.entregado_arq}</td>
-              <td>${t.entrega_impresora}</td>
-              <td><span class="status-badge ${estatusExpClass(t.estatus)}">${t.estatus}</span></td>
-              <td style="text-align:left;">${t.nota||'<span style="color:var(--sub)">—</span>'}</td>
+              <td>${t.numero!==null && t.numero!==undefined ? escEsv(t.numero) : '—'}</td>
+              <td>${escEsv(t.clave)||'—'}</td>
+              <td style="text-align:left;">${escEsv(t.nombre)}</td>
+              <td>${escEsv(t.region)}</td>
+              <td>${escEsv(t.mes)||'—'}</td>
+              <td>${escEsv(t.pc)}</td>
+              <td>${escEsv(t.lap)}</td>
+              <td>${escEsv(t.internet)}</td>
+              <td>${escEsv(t.entregado_arq)}</td>
+              <td>${escEsv(t.entrega_impresora)}</td>
+              <td><span class="status-badge ${estatusExpClass(t.estatus)}">${escEsv(t.estatus)}</span></td>
+              <td style="text-align:left;">${escEsv(t.nota)||'<span style="color:var(--sub)">—</span>'}</td>
             </tr>`).join('')}
           </tbody>
         </table></div>
@@ -10532,8 +10533,8 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel">
         <h3>Notas generales de expansión</h3>
         ${editing
-          ? `<textarea id="notasGenerales" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: Tienda CITY SHOP — cierre de tienda para el 03 de agosto">${exp.notas_generales||''}</textarea>`
-          : `<div style="font-size:13px; white-space:pre-wrap; color:${exp.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${exp.notas_generales || 'Sin notas capturadas todavía. Da clic en "Editar todo" arriba para agregar.'}</div>`}
+          ? `<textarea id="notasGenerales" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: Tienda CITY SHOP — cierre de tienda para el 03 de agosto">${escEsv(exp.notas_generales)}</textarea>`
+          : `<div style="font-size:13px; white-space:pre-wrap; color:${exp.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${escEsv(exp.notas_generales) || 'Sin notas capturadas todavía. Da clic en "Editar todo" arriba para agregar.'}</div>`}
       </div>
       </div>
       <div class="carrusel-slide">${seccionCierreTiendas()}</div>
@@ -10630,7 +10631,7 @@ auth.onAuthStateChanged(async function(user){
       <div style="font-size:13px; line-height:1.7;">
         Se moverán <b>${candidatas.length}</b> tienda(s) marcada(s) como "Cerrada" en Plan de expansión a este apartado. Se quitan de Expansión y se agregan aquí con los mismos campos que ya tenían (Observaciones queda vacío para captura nueva).
         <ul style="margin:8px 0 0 18px; padding:0;">
-          ${candidatas.map(t=>`<li>${t.nombre}${t.clave?` (${t.clave})`:''}</li>`).join('')}
+          ${candidatas.map(t=>`<li>${escEsv(t.nombre)}${t.clave?` (${escEsv(t.clave)})`:''}</li>`).join('')}
         </ul>
       </div>
       <div class="editbar" style="margin-top:10px;">
@@ -10682,38 +10683,38 @@ auth.onAuthStateChanged(async function(user){
           </tr></thead>
           <tbody>${tiendas.map((t,i)=> editingCierre ? `
             <tr data-cz-row="${i}">
-              <td><input type="text" style="width:44px;" data-cz-field="numero" data-cz-row="${i}" value="${t.numero!==null && t.numero!==undefined ? t.numero : ''}"></td>
-              <td><input type="text" style="width:110px;" data-cz-field="clave" data-cz-row="${i}" value="${t.clave||''}"></td>
-              <td><input type="text" style="width:220px; text-align:left;" data-cz-field="nombre" data-cz-row="${i}" value="${(t.nombre||'').replace(/"/g,'&quot;')}"></td>
-              <td><input type="text" style="width:90px;" data-cz-field="region" data-cz-row="${i}" value="${t.region||''}"></td>
-              <td><input type="text" style="width:80px;" data-cz-field="mes" data-cz-row="${i}" value="${t.mes||''}"></td>
-              <td><input type="text" style="width:36px;" data-cz-field="pc" data-cz-row="${i}" value="${t.pc||''}"></td>
-              <td><input type="text" style="width:36px;" data-cz-field="lap" data-cz-row="${i}" value="${t.lap||''}"></td>
-              <td><input type="text" style="width:70px;" data-cz-field="internet" data-cz-row="${i}" value="${t.internet||''}"></td>
-              <td><input type="text" style="width:80px;" data-cz-field="entregado_arq" data-cz-row="${i}" value="${t.entregado_arq||''}"></td>
-              <td><input type="text" style="width:80px;" data-cz-field="entrega_impresora" data-cz-row="${i}" value="${t.entrega_impresora||''}"></td>
+              <td><input type="text" style="width:44px;" data-cz-field="numero" data-cz-row="${i}" value="${t.numero!==null && t.numero!==undefined ? escEsv(t.numero) : ''}"></td>
+              <td><input type="text" style="width:110px;" data-cz-field="clave" data-cz-row="${i}" value="${escEsv(t.clave)}"></td>
+              <td><input type="text" style="width:220px; text-align:left;" data-cz-field="nombre" data-cz-row="${i}" value="${escEsv(t.nombre)}"></td>
+              <td><input type="text" style="width:90px;" data-cz-field="region" data-cz-row="${i}" value="${escEsv(t.region)}"></td>
+              <td><input type="text" style="width:80px;" data-cz-field="mes" data-cz-row="${i}" value="${escEsv(t.mes)}"></td>
+              <td><input type="text" style="width:36px;" data-cz-field="pc" data-cz-row="${i}" value="${escEsv(t.pc)}"></td>
+              <td><input type="text" style="width:36px;" data-cz-field="lap" data-cz-row="${i}" value="${escEsv(t.lap)}"></td>
+              <td><input type="text" style="width:70px;" data-cz-field="internet" data-cz-row="${i}" value="${escEsv(t.internet)}"></td>
+              <td><input type="text" style="width:80px;" data-cz-field="entregado_arq" data-cz-row="${i}" value="${escEsv(t.entregado_arq)}"></td>
+              <td><input type="text" style="width:80px;" data-cz-field="entrega_impresora" data-cz-row="${i}" value="${escEsv(t.entrega_impresora)}"></td>
               <td><select data-cz-field="estatus" data-cz-row="${i}">
                 ${['Abierta','En proceso','Prospecto','Cerrada'].map(op=>`<option value="${op}" ${t.estatus===op?'selected':''}>${op}</option>`).join('')}
               </select></td>
-              <td><input type="text" style="width:220px; text-align:left;" data-cz-field="nota" data-cz-row="${i}" value="${(t.nota||'').replace(/"/g,'&quot;')}"></td>
-              <td><input type="text" style="width:220px; text-align:left;" data-cz-field="observaciones" data-cz-row="${i}" value="${(t.observaciones||'').replace(/"/g,'&quot;')}"></td>
+              <td><input type="text" style="width:220px; text-align:left;" data-cz-field="nota" data-cz-row="${i}" value="${escEsv(t.nota)}"></td>
+              <td><input type="text" style="width:220px; text-align:left;" data-cz-field="observaciones" data-cz-row="${i}" value="${escEsv(t.observaciones)}"></td>
               <td style="text-align:center;"><input type="checkbox" data-cz-field="correo_borrado" data-cz-row="${i}" ${t.correo_borrado?'checked':''}></td>
               <td><button data-cz-remove="${i}" style="padding:3px 8px;">✕</button></td>
             </tr>` : `
             <tr data-cz-row="${i}">
-              <td>${t.numero!==null && t.numero!==undefined ? t.numero : '—'}</td>
-              <td>${t.clave||'—'}</td>
-              <td style="text-align:left;">${t.nombre}</td>
-              <td>${t.region}</td>
-              <td>${t.mes||'—'}</td>
-              <td>${t.pc}</td>
-              <td>${t.lap}</td>
-              <td>${t.internet}</td>
-              <td>${t.entregado_arq}</td>
-              <td>${t.entrega_impresora}</td>
-              <td><span class="status-badge ${estatusExpClass(t.estatus)}">${t.estatus}</span></td>
-              <td style="text-align:left;">${t.nota||'<span style="color:var(--sub)">—</span>'}</td>
-              <td style="text-align:left;">${t.observaciones||'<span style="color:var(--sub)">—</span>'}</td>
+              <td>${t.numero!==null && t.numero!==undefined ? escEsv(t.numero) : '—'}</td>
+              <td>${escEsv(t.clave)||'—'}</td>
+              <td style="text-align:left;">${escEsv(t.nombre)}</td>
+              <td>${escEsv(t.region)}</td>
+              <td>${escEsv(t.mes)||'—'}</td>
+              <td>${escEsv(t.pc)}</td>
+              <td>${escEsv(t.lap)}</td>
+              <td>${escEsv(t.internet)}</td>
+              <td>${escEsv(t.entregado_arq)}</td>
+              <td>${escEsv(t.entrega_impresora)}</td>
+              <td><span class="status-badge ${estatusExpClass(t.estatus)}">${escEsv(t.estatus)}</span></td>
+              <td style="text-align:left;">${escEsv(t.nota)||'<span style="color:var(--sub)">—</span>'}</td>
+              <td style="text-align:left;">${escEsv(t.observaciones)||'<span style="color:var(--sub)">—</span>'}</td>
               <td>${t.correo_borrado
                 ? `<span class="status-badge" style="background:#E7F7EC; color:#1E7A3D;">✓ Borrado</span>`
                 : `<span class="status-badge" style="background:#FFF9DB; color:#8A6D00;">Pendiente</span>`}</td>
@@ -10724,8 +10725,8 @@ auth.onAuthStateChanged(async function(user){
       <div class="panel">
         <h3>Notas generales de cierre de tiendas</h3>
         ${editingCierre
-          ? `<textarea id="notasGeneralesCierre" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: pendiente confirmar recolección de equipo en Obregón Sonora Puerta">${cz.notas_generales||''}</textarea>`
-          : `<div style="font-size:13px; white-space:pre-wrap; color:${cz.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${cz.notas_generales || 'Sin notas capturadas todavía.'}</div>`}
+          ? `<textarea id="notasGeneralesCierre" rows="6" style="width:100%; font-family:inherit; font-size:13px; padding:10px; border:1px solid var(--line); border-radius:8px;" placeholder="Ejemplo: pendiente confirmar recolección de equipo en Obregón Sonora Puerta">${escEsv(cz.notas_generales)}</textarea>`
+          : `<div style="font-size:13px; white-space:pre-wrap; color:${cz.notas_generales ? 'var(--ink)' : 'var(--sub)'};">${escEsv(cz.notas_generales) || 'Sin notas capturadas todavía.'}</div>`}
       </div>
     `;
   }
