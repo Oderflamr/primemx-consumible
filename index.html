@@ -801,11 +801,14 @@ ${(()=>{
   // Tiendas activas sin solicitudes en el mes seleccionado
   const cecosConTicket = new Set(delMes.map(t=>t.ceco).filter(Boolean));
   const sinPedido = CATALOGO.filter(t=>!cecosConTicket.has(t.ceco));
+  const conPedido = CATALOGO.length - sinPedido.length;
+  const pctConPedido = CATALOGO.length ? Math.round(conPedido/CATALOGO.length*100) : 0;
   return `<div style="background:var(--green-bg);border:1px solid rgba(59,109,17,.15);border-radius:var(--rl);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
     <div style="font-size:13px;color:var(--green-text)">
-      <strong>${sinPedido.length} tiendas</strong> de ${CATALOGO.length} activas no han solicitado consumibles en <strong>${mesVer} ${anioVer}</strong>
+      <div><strong>${conPedido} tiendas</strong> de ${CATALOGO.length} activas han solicitado consumibles en <strong>${esc(mesVer)} ${esc(anioVer)}</strong> (${pctConPedido}%)</div>
+      <div style="font-size:12px;opacity:.8;margin-top:2px">${sinPedido.length} tiendas aún sin solicitud</div>
     </div>
-    <button class="btn sm" style="font-size:12px" onclick="navigate('bottom-tiendas')">Ver tiendas →</button>
+    <button class="btn sm" style="font-size:12px" onclick="navigate('bottom-tiendas')">Ver las que faltan →</button>
   </div>`;
 })()}
 <div class="card">
