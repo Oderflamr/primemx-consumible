@@ -378,11 +378,12 @@ tbody tr:hover td{background:var(--surface2)}
         <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         Tiendas
       </button>
-      <button class="nav-btn" id="nav-top-tiendas" onclick="navigate('top-tiendas')">
+      <!-- Ocultos (no eliminados) por pedido del cliente, nov-2026: para mostrarlos quitar style="display:none" -->
+      <button class="nav-btn" id="nav-top-tiendas" style="display:none" onclick="navigate('top-tiendas')">
         <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
         Más solicitudes
       </button>
-      <button class="nav-btn" id="nav-bottom-tiendas" onclick="navigate('bottom-tiendas')">
+      <button class="nav-btn" id="nav-bottom-tiendas" style="display:none" onclick="navigate('bottom-tiendas')">
         <svg viewBox="0 0 24 24"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
         Menos solicitudes
       </button>
@@ -1483,9 +1484,6 @@ function renderDashboard() {
   const base = monthFilter(tickets);
   const porTipo = {}; TIPOS.forEach(t=>porTipo[t]=0);
   base.forEach(t=>{ if(porTipo[t.tipo]!==undefined) porTipo[t.tipo]++; });
-  const maxT = Math.max(...Object.values(porTipo),1);
-  const porMes = {}; tickets.forEach(t=>{ porMes[t.mes]=(porMes[t.mes]||0)+1; });
-  const maxM = Math.max(...Object.values(porMes),1);
   const porTienda = {}; base.forEach(t=>{ porTienda[t.tienda]=(porTienda[t.tienda]||0)+1; });
   const top = Object.entries(porTienda).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const maxTi = top[0]?top[0][1]:1;
@@ -1498,7 +1496,6 @@ function renderDashboard() {
   };
   const tiempos = base.filter(t=>t.entregado&&t.solicitud).map(t=>(new Date(t.entregado)-new Date(t.solicitud))/86400000);
   const prom = tiempos.length ? Math.round(tiempos.reduce((a,b)=>a+b,0)/tiempos.length) : 0;
-  const MES_COLORS=["#1a56db","#0f766e","#b45309","#6d28d9","#b91c1c","#166534","#0369a1","#7c3aed"];
   const allMesesDash = dashAnio ? [...new Set(tickets.filter(t=>t.anio===dashAnio).map(t=>t.mes).filter(Boolean))] : meses();
   return `
 <div class="page-hdr">
@@ -1517,24 +1514,6 @@ function renderDashboard() {
   <div class="mc"><div class="mc-label">Promedio entrega</div><div class="mc-value">${prom} d</div><div class="mc-sub">días hasta entrega</div></div>
 </div>
 ${graficasMensualesHtml()}
-<div class="chart-grid">
-  <div class="chart-card">
-    <h4>Por tipo de consumible</h4>
-    ${TIPOS.map(tipo=>`<div class="bar-row">
-      <div class="bar-lbl">${tipo}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(porTipo[tipo]/maxT*100)}%;background:${COLORES[tipo]}"></div></div>
-      <div class="bar-cnt">${porTipo[tipo]}</div>
-    </div>`).join("")}
-  </div>
-  <div class="chart-card">
-    <h4>Solicitudes por mes</h4>
-    ${Object.entries(porMes).map(([mes,cnt],i)=>`<div class="bar-row">
-      <div class="bar-lbl">${mes}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(cnt/maxM*100)}%;background:${MES_COLORS[i%MES_COLORS.length]}"></div></div>
-      <div class="bar-cnt">${cnt}</div>
-    </div>`).join("")}
-  </div>
-</div>
 <div class="chart-card">
   <h4>Top tiendas con más solicitudes${dashMes?" — "+dashMes:""}</h4>
   ${top.length===0?`<div class="empty" style="padding:20px">${svgIcon("inbox")}<p>Sin datos</p></div>`:top.map(([tienda,cnt])=>`
