@@ -158,6 +158,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 
 /* ── METRIC CARDS ────────────────────────────────── */
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.metrics.m6{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .mc{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;box-shadow:var(--shadow)}
 .mc-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .mc-value{font-size:26px;font-weight:700;letter-spacing:-.03em;line-height:1}
@@ -1406,15 +1407,35 @@ function confirmDel(id) {
 // Cinco gráficas de columnas por mes (general, tóner, unidad de imagen, kit y fallas).
 // Cuentan tickets por FECHA DE SOLICITUD (no por el campo "mes" capturado) desde el primer
 // registro; solo respetan el selector de año (el de mes no aplica: la idea es ver todos los meses).
-function graficasMensualesHtml() {
-  const MC = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const base = tickets.filter(t=>/^\d{4}-\d{2}-\d{2}/.test(t.solicitud||"") && (!dashAnio || t.solicitud.slice(0,4)===String(dashAnio)));
-  if (!base.length) return "";
+// Tickets con fecha de solicitud válida, filtrados solo por el selector de año del Dashboard.
+function ticketsConFechaDash() {
+  return tickets.filter(t=>/^\d{4}-\d{2}-\d{2}/.test(t.solicitud||"") && (!dashAnio || t.solicitud.slice(0,4)===String(dashAnio)));
+}
+// Lista continua de meses ("2026-01"…) desde el primer hasta el último ticket (incluye meses en cero).
+function mesesDashRango(base) {
+  if (!base.length) return [];
   const claves = base.map(t=>t.solicitud.slice(0,7)).sort();
   const [a0,m0] = claves[0].split("-").map(Number), [a1,m1] = claves[claves.length-1].split("-").map(Number);
   const meses = [];
   for (let a=a0, m=m0; a<a1 || (a===a1 && m<=m1); m++) { if (m>12) { m=1; a++; if (a>a1) break; } meses.push(a+"-"+String(m).padStart(2,"0")); }
-  const multiAnio = a0!==a1;
+  return meses;
+}
+// Promedio de tickets por mes (de un tipo, o de todos si tipo es null) sin contar el mes en curso, que va incompleto.
+function promMensualDash(tipo) {
+  const base = ticketsConFechaDash();
+  const meses = mesesDashRango(base);
+  if (!meses.length) return 0;
+  const mesActual = fechaHoyLocal().slice(0,7);
+  const cerrados = meses.filter(k=>k!==mesActual).length || 1;
+  const suma = base.filter(t=>t.solicitud.slice(0,7)!==mesActual && (!tipo || t.tipo===tipo)).length;
+  return Math.round(suma/cerrados*10)/10;
+}
+function graficasMensualesHtml() {
+  const MC = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const base = ticketsConFechaDash();
+  if (!base.length) return "";
+  const meses = mesesDashRango(base);
+  const multiAnio = meses[0].slice(0,4) !== meses[meses.length-1].slice(0,4);
   const mesActual = fechaHoyLocal().slice(0,7);
   const conteo = (tipo) => meses.map(k=>base.filter(t=>t.solicitud.slice(0,7)===k && (!tipo || t.tipo===tipo)).length);
   const series = [
@@ -1468,8 +1489,13 @@ function renderDashboard() {
   const porTienda = {}; base.forEach(t=>{ porTienda[t.tienda]=(porTienda[t.tienda]||0)+1; });
   const top = Object.entries(porTienda).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const maxTi = top[0]?top[0][1]:1;
-  const cerr = base.filter(t=>["CERRADO","ENTREGADO"].includes(t.estatus)).length;
-  const activos = base.filter(t=>["ABIERTO","PENDIENTE"].includes(t.estatus)).length;
+  // Tarjeta de un tipo de consumible: total del período y, sin mes elegido, promedio por mes
+  // (con mes elegido el promedio no tiene sentido: se muestra el % de las solicitudes).
+  const tarjetaTipo = (etiqueta, tipo) => {
+    const n = porTipo[tipo]||0, c = COLORES[tipo];
+    const sub = dashMes ? `${base.length?Math.round(n/base.length*100):0}% de las solicitudes` : `prom. ${promMensualDash(tipo)} por mes`;
+    return `<div class="mc"><div class="mc-label" style="color:${c}">${etiqueta}</div><div class="mc-value" style="color:${c}">${n}</div><div class="mc-sub">${sub}</div></div>`;
+  };
   const tiempos = base.filter(t=>t.entregado&&t.solicitud).map(t=>(new Date(t.entregado)-new Date(t.solicitud))/86400000);
   const prom = tiempos.length ? Math.round(tiempos.reduce((a,b)=>a+b,0)/tiempos.length) : 0;
   const MES_COLORS=["#1a56db","#0f766e","#b45309","#6d28d9","#b91c1c","#166534","#0369a1","#7c3aed"];
@@ -1482,13 +1508,15 @@ function renderDashboard() {
     <select id="d-mes" style="height:32px"><option value="">Todos los meses</option>${allMesesDash.map(m=>`<option value="${m}"${dashMes===m?" selected":""}>${m}</option>`).join("")}</select>
   </div>
 </div>
-${graficasMensualesHtml()}
-<div class="metrics">
+<div class="metrics m6">
   <div class="mc"><div class="mc-label">Solicitudes</div><div class="mc-value">${base.length}</div><div class="mc-sub">${dashAnio||''} ${dashMes||'período completo'}</div></div>
-  <div class="mc"><div class="mc-label" style="color:var(--blue-text)">Activos</div><div class="mc-value" style="color:var(--blue)">${activos}</div><div class="mc-sub">abiertos o enviados</div></div>
-  <div class="mc"><div class="mc-label" style="color:var(--green-text)">Resueltos</div><div class="mc-value" style="color:var(--green)">${cerr}</div><div class="mc-sub">${base.length?Math.round(cerr/base.length*100):0}% del total</div></div>
+  ${tarjetaTipo("Tóner","TONER")}
+  ${tarjetaTipo("Unidad de imagen","UNIDAD DE IMAGEN")}
+  ${tarjetaTipo("Kit de mantenimiento","KIT MANTENIMIENTO")}
+  ${tarjetaTipo("Fallas de impresora","FALLA IMPRESORA")}
   <div class="mc"><div class="mc-label">Promedio entrega</div><div class="mc-value">${prom} d</div><div class="mc-sub">días hasta entrega</div></div>
 </div>
+${graficasMensualesHtml()}
 <div class="chart-grid">
   <div class="chart-card">
     <h4>Por tipo de consumible</h4>
