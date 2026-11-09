@@ -418,10 +418,10 @@ tbody tr:hover td{background:var(--surface2)}
 
 <!-- ══ SCRIPTS ════════════════════════════════════════ -->
 <!-- Firebase (compat SDK via CDN — no bundler needed) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" integrity="sha384-ajMUFBUFMCyjh8uxJg6bkGcKe9RTolyjwbxB3yES0QQMenP3Oztj/W9vA2SJPcIh" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" integrity="sha384-xD1t9dGSVKobUztxDkv6xUI0H4AnFz0NxwlgDJJ7FDlblG9xxr1Z9iauCZuJYj6p" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js" integrity="sha384-XMIl1b2Ez9tKAM0R5q67/iLdfnlLBl9kfo40X5WMtCPb+3OLplrjnOxZTYCg1SKY" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
 
 <script>
 /* ═══════════════════════════════════════════════════
@@ -1402,6 +1402,61 @@ function confirmDel(id) {
   deleteTicket(id).then(()=>toast("Ticket eliminado"));
 }
 
+/* ══════════════ ADMIN — DASHBOARD: GRÁFICAS MENSUALES ══════════════ */
+// Cinco gráficas de columnas por mes (general, tóner, unidad de imagen, kit y fallas).
+// Cuentan tickets por FECHA DE SOLICITUD (no por el campo "mes" capturado) desde el primer
+// registro; solo respetan el selector de año (el de mes no aplica: la idea es ver todos los meses).
+function graficasMensualesHtml() {
+  const MC = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const base = tickets.filter(t=>/^\d{4}-\d{2}-\d{2}/.test(t.solicitud||"") && (!dashAnio || t.solicitud.slice(0,4)===String(dashAnio)));
+  if (!base.length) return "";
+  const claves = base.map(t=>t.solicitud.slice(0,7)).sort();
+  const [a0,m0] = claves[0].split("-").map(Number), [a1,m1] = claves[claves.length-1].split("-").map(Number);
+  const meses = [];
+  for (let a=a0, m=m0; a<a1 || (a===a1 && m<=m1); m++) { if (m>12) { m=1; a++; if (a>a1) break; } meses.push(a+"-"+String(m).padStart(2,"0")); }
+  const multiAnio = a0!==a1;
+  const mesActual = fechaHoyLocal().slice(0,7);
+  const conteo = (tipo) => meses.map(k=>base.filter(t=>t.solicitud.slice(0,7)===k && (!tipo || t.tipo===tipo)).length);
+  const series = [
+    { titulo:"Solicitudes en general", color:"#1a56db", datos:conteo(null), ancho:true },
+    { titulo:"Tóner",                  color:COLORES["TONER"],             datos:conteo("TONER") },
+    { titulo:"Unidad de imagen",       color:COLORES["UNIDAD DE IMAGEN"],  datos:conteo("UNIDAD DE IMAGEN") },
+    { titulo:"Kit de mantenimiento",   color:COLORES["KIT MANTENIMIENTO"], datos:conteo("KIT MANTENIMIENTO") },
+    { titulo:"Fallas de impresora",    color:COLORES["FALLA IMPRESORA"],   datos:conteo("FALLA IMPRESORA") }
+  ];
+  const etq = k => { const [a,m]=k.split("-").map(Number); return MC[m-1] + (multiAnio ? " "+String(a).slice(2) : ""); };
+  const hayParcial = meses.includes(mesActual);
+  const cerrados = meses.filter(k=>k!==mesActual).length || 1;
+  const colW = multiAnio ? 38 : 0; // con varios años se permite desplazamiento horizontal
+  const card = s => {
+    const total = s.datos.reduce((x,y)=>x+y,0);
+    const sumaCerr = s.datos.reduce((x,y,i)=>x+(meses[i]===mesActual?0:y),0);
+    const prom = Math.round(sumaCerr/cerrados*10)/10;
+    const mx = Math.max(...s.datos,1), H = s.ancho ? 150 : 100;
+    const cols = s.datos.map((v,i)=>{
+      const parcial = meses[i]===mesActual;
+      const h = v ? Math.max(Math.round(v/mx*H),2) : 0;
+      return `<div style="flex:1;min-width:${colW?colW+"px":"0"};display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${H+18}px">
+        <span style="font-size:11px;color:var(--text2);font-variant-numeric:tabular-nums;margin-bottom:2px">${v}</span>
+        <div title="${esc(etq(meses[i]))}: ${v}${parcial?" (mes en curso)":""}" style="width:100%;max-width:${s.ancho?34:24}px;height:${h}px;background:${s.color};opacity:${parcial?.45:1};border-radius:4px 4px 0 0"></div></div>`;
+    }).join("");
+    const lbl = meses.map(k=>`<div style="flex:1;min-width:${colW?colW+"px":"0"};text-align:center;font-size:11px;color:var(--text3)">${esc(etq(k))}</div>`).join("");
+    const gap = s.ancho ? 8 : 4;
+    return `<div class="chart-card"${s.ancho?' style="grid-column:1/-1"':''}>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        <h4 style="margin:0">${esc(s.titulo)}</h4>
+        <span style="font-size:12px;color:var(--text2)"><b style="font-size:15px;color:var(--text)">${total}</b> en total · prom. ${prom}/mes</span>
+      </div>
+      <div style="overflow-x:auto"><div style="${colW?`min-width:${meses.length*(colW+gap)}px;`:""}">
+        <div style="display:flex;gap:${gap}px;align-items:flex-end;border-bottom:1px solid var(--border2)">${cols}</div>
+        <div style="display:flex;gap:${gap}px;margin-top:4px">${lbl}</div>
+      </div></div>
+    </div>`;
+  };
+  return `<div class="chart-grid">${series.map(card).join("")}</div>
+  <div style="font-size:12px;color:var(--text3);margin:-4px 0 14px">Conteo por fecha de solicitud, desde el primer registro${dashAnio?" de "+esc(dashAnio):""}.${hayParcial?" El mes en curso aparece más claro (va incompleto) y no entra en el promedio.":""}</div>`;
+}
+
 /* ══════════════ ADMIN — DASHBOARD ══════════════ */
 function renderDashboard() {
   const base = monthFilter(tickets);
@@ -1427,6 +1482,7 @@ function renderDashboard() {
     <select id="d-mes" style="height:32px"><option value="">Todos los meses</option>${allMesesDash.map(m=>`<option value="${m}"${dashMes===m?" selected":""}>${m}</option>`).join("")}</select>
   </div>
 </div>
+${graficasMensualesHtml()}
 <div class="metrics">
   <div class="mc"><div class="mc-label">Solicitudes</div><div class="mc-value">${base.length}</div><div class="mc-sub">${dashAnio||''} ${dashMes||'período completo'}</div></div>
   <div class="mc"><div class="mc-label" style="color:var(--blue-text)">Activos</div><div class="mc-value" style="color:var(--blue)">${activos}</div><div class="mc-sub">abiertos o enviados</div></div>
