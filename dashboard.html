@@ -681,6 +681,8 @@ main{flex:1;padding:20px 32px;width:100%;}
   #tbl-budget-it tr.bi-presupuesto td{color:var(--sub); font-style:italic;}
   #tbl-budget-it tr.bi-ahorro td.pos{color:var(--good); font-weight:700;}
   #tbl-budget-it tr.bi-ahorro td.neg{color:var(--crit); font-weight:700;}
+  #tbl-budget-it td.bi-tiene-flag{position:relative;}
+  #tbl-budget-it .bi-flag{position:absolute; top:1px; right:2px; font-size:11px; line-height:1; cursor:help;}
   .bi-legend{display:flex; gap:16px; margin:10px 0 0; font-size:11.5px; color:var(--sub); flex-wrap:wrap;}
   .bi-legend span{display:inline-flex; align-items:center; gap:5px;}
   .bi-swatch{width:10px; height:10px; border-radius:3px; display:inline-block; border:1px solid var(--line);}
@@ -2697,6 +2699,10 @@ auth.onAuthStateChanged(async function(user){
       if(!state.budget_it) state.budget_it = clone(DEFAULTS.budget_it);
       if(!state.budget_it.historial) state.budget_it.historial = [];
       state.budget_it.capex.forEach(cx=>{ if(cx.incluir===undefined) cx.incluir = true; });
+      // Banderín "Desmantelación de tiendas" (nov. 2026, pedido de amartinez): en REDSLOG, septiembre (8) y octubre (9)
+      // llevan un monto que no es mensajería. Se precarga una sola vez (mientras el campo no exista); después manda
+      // lo que se marque/desmarque al editar y se guarde.
+      state.budget_it.opex.forEach(v=>{ if(v.proveedor === 'REDSLOG' && v.desmantelacion === undefined) v.desmantelacion = [8, 9]; });
       // Budget IT 2027 (oct. 2026): misma estructura de rubros que 2026 pero todo en cero y sin captura, para ir
       // cargando el presupuesto 2027. Es una llave aparte del estado (budget_it_2027): no toca nada de 2026.
       if(!state.budget_it_2027) state.budget_it_2027 = crearBudgetVacio(state.budget_it);
@@ -8678,10 +8684,18 @@ auth.onAuthStateChanged(async function(user){
   // proveedor USD se entiende en dólares, y se convierte a pesos con este factor antes de guardarse —
   // en Firestore y en toda la tabla siempre se ve en pesos, nunca en dólares.
   const TIPO_CAMBIO_USD = 20;
-  function esProveedorUSD(proveedor){ return PROVEEDORES_MONEDA_USD.includes(proveedor); }
-  function monedaProveedor(proveedor){ return esProveedorUSD(proveedor) ? 'USD' : 'MX'; }
+  // Acepta el nombre del proveedor (texto) o el registro completo. Los proveedores agregados desde la pantalla
+  // de Budget 2027 (nov. 2026) traen su propia marca `usd` / `doble`; los de siempre siguen por nombre.
+  function esProveedorUSD(v){
+    const reg = (v && typeof v === 'object') ? v : null;
+    return (reg && reg.usd === true) || PROVEEDORES_MONEDA_USD.includes(reg ? reg.proveedor : v);
+  }
+  function monedaProveedor(v){ return esProveedorUSD(v) ? 'USD' : 'MX'; }
   // Proveedores que meten 2 facturas por mes — en edición se capturan por separado y se suman;
   // solo se guarda el total, nunca las 2 cantidades por separado (agosto 2026).
+  // Proveedores cuyos meses se pueden marcar con el banderín "Desmantelación de tiendas" (nov. 2026): ese monto
+  // incluye algo que no es el servicio del proveedor. Solo es un indicador: no cambia ningún total ni gráfica.
+  const PROVEEDORES_BANDERA_DESMANTELACION = ['REDSLOG'];
   const PROVEEDORES_DOBLE_FACTURA = ['COLOUR KLUB', 'GRUPO LEYMARK', 'MEGACABLE', 'MARAFIC', 'RED', 'REDSLOG'];
   // Semáforo de fondo (tenue) para medir cualquier monto real contra el presupuesto/mes de ese proveedor —
   // aplica a los 14 proveedores, tanto en los meses ya cerrados (Ene–Jun) como en cualquier mes de
@@ -8744,10 +8758,52 @@ auth.onAuthStateChanged(async function(user){
       totalPresupuestoAnual, totalProyeccionAnual, ahorroTotalProyectado, catTotals, valoresPorVendor};
   }
 
+  // Altas y bajas de renglones en Budget 2027 (nov. 2026). Mientras se edita NADA se escribe en `state`: los
+  // renglones nuevos y los quitados viven aquí y solo se aplican al estado al dar "Guardar cambios"
+  // (Cancelar los descarta). `quitar` solo admite renglones que se agregaron desde la pantalla (`agregado`).
+  let biCambios = { opex:[], capex:[], quitar:new Set(), notas:[] };
+  let biFormProv = false, biFormCapex = false;
+  let biBorrador = null; // lo ya tecleado en la tabla, para no perderlo al repintar (agregar/quitar renglón)
+  function biReiniciarCambios(){ biCambios = { opex:[], capex:[], quitar:new Set(), notas:[] }; biFormProv = false; biFormCapex = false; biBorrador = null; }
+  // Guarda lo tecleado en las casillas, ligado al OBJETO del renglón (no al índice, que cambia al agregar/quitar).
+  function biGuardarBorrador(vista){
+    const b = [];
+    document.querySelectorAll('[data-bi-v]').forEach(i=>b.push({k:'v', rec:vista.opex[Number(i.dataset.biV)], m:i.dataset.biM, val:i.value}));
+    document.querySelectorAll('[data-bi-presup]').forEach(i=>b.push({k:'p', rec:vista.opex[Number(i.dataset.biPresup)], val:i.value}));
+    document.querySelectorAll('[data-bi-capex-presup]').forEach(i=>b.push({k:'cp', rec:vista.capex[Number(i.dataset.biCapexPresup)], val:i.value}));
+    document.querySelectorAll('[data-bi-capex]').forEach(i=>b.push({k:'cm', rec:vista.capex[Number(i.dataset.biCapex)], val:i.value}));
+    document.querySelectorAll('[data-bi-capex-incluir]').forEach(i=>b.push({k:'ci', rec:vista.capex[Number(i.dataset.biCapexIncluir)], val:i.checked}));
+    biBorrador = b;
+  }
+  function biRestaurarBorrador(vista){
+    if(!biBorrador) return;
+    biBorrador.forEach(e=>{
+      if(!e.rec) return;
+      let sel = null;
+      if(e.k==='v'){ const ix = vista.opex.indexOf(e.rec); if(ix>=0) sel = `[data-bi-v="${ix}"][data-bi-m="${e.m}"]`; }
+      else if(e.k==='p'){ const ix = vista.opex.indexOf(e.rec); if(ix>=0) sel = `[data-bi-presup="${ix}"]`; }
+      else { const ix = vista.capex.indexOf(e.rec); if(ix>=0) sel = e.k==='cp' ? `[data-bi-capex-presup="${ix}"]` : e.k==='cm' ? `[data-bi-capex="${ix}"]` : `[data-bi-capex-incluir="${ix}"]`; }
+      const el = sel && document.querySelector(sel);
+      if(!el) return;
+      if(e.k==='ci') el.checked = !!e.val; else el.value = e.val;
+    });
+    biBorrador = null;
+  }
+
   function renderBudgetIT(c){
     const anio = budgetAnioVista;
-    const data = datosBI();
+    const baseBI = datosBI();
     const puedeEditar = canEditBudgetIT();
+    // Vista de edición de 2027: lo guardado, menos lo quitado, más lo agregado en esta sesión de edición.
+    const data = (anio===2027 && editing && puedeEditar)
+      ? { opex: baseBI.opex.filter(x=>!biCambios.quitar.has(x)).concat(biCambios.opex),
+          capex: baseBI.capex.filter(x=>!biCambios.quitar.has(x)).concat(biCambios.capex),
+          historial: baseBI.historial }
+      : baseBI;
+    const puedeAgregarBI = anio===2027 && editing && puedeEditar;
+    // Casilla "Desmantelación" bajo el campo del mes (nov. 2026): solo en 2026 y solo para los proveedores de esta lista.
+    const chkDesm = (v, vi, i) => (editing && puedeEditar && anio===2026 && PROVEEDORES_BANDERA_DESMANTELACION.includes(v.proveedor))
+      ? `<br><label style="font-size:10.5px; color:var(--sub); display:inline-flex; gap:3px; align-items:center; margin-top:2px; white-space:nowrap;"><input type="checkbox" data-bi-desm="${vi}" data-bi-desm-m="${i}" ${(v.desmantelacion||[]).includes(i)?'checked':''}> Desmantelación</label>` : '';
     const d = computeBudgetIT(data);
     const denBI = d.opexAnnualBudget || 1;  // 2027 arranca con presupuesto 0: evita dividir entre cero
     const pctAhorro = d.ahorroProyectado/denBI*100;
@@ -8807,13 +8863,15 @@ auth.onAuthStateChanged(async function(user){
             ${data.opex.map((v,vi)=>{
               const valores = d.valoresPorVendor[vi];
               const anual = valores.reduce((s,o)=>s+o.valor,0);
-              const dobleFactura = PROVEEDORES_DOBLE_FACTURA.includes(v.proveedor);
-              const esUSD = esProveedorUSD(v.proveedor);
+              const dobleFactura = v.doble === true || PROVEEDORES_DOBLE_FACTURA.includes(v.proveedor);
+              const esUSD = esProveedorUSD(v);
               const unidadFactura = esUSD ? ' (USD)' : '';
               const presupCell = (editing && puedeEditar)
                 ? `<input type="number" step="1" data-bi-presup="${vi}" value="${v.presupuesto_mes}" style="width:80px;">`
                 : moneyIT(v.presupuesto_mes);
-              let cells = `<td class="bi-prov">${v.proveedor}</td><td class="bi-cat">${escEsv(v.categoria)}</td><td class="bi-moneda">${monedaProveedor(v.proveedor)}</td><td class="bi-presup">${presupCell}</td>`;
+              const btnQuitarProv = (v.agregado && editing && puedeEditar && anio===2027)
+                ? ` <button data-bi-del-opex="${vi}" title="Quitar este proveedor" style="padding:0 5px; font-size:11px; line-height:16px;">🗑</button>` : '';
+              let cells = `<td class="bi-prov">${escEsv(v.proveedor)}${btnQuitarProv}</td><td class="bi-cat">${escEsv(v.categoria)}</td><td class="bi-moneda">${monedaProveedor(v)}</td><td class="bi-presup">${presupCell}</td>`;
               valores.forEach((o,i)=>{
                 const esFuturo = i > mesActualIdxBI;
                 const enVentanaEditable = i <= mesActualIdxBI && i >= mesActualIdxBI - 2;
@@ -8833,13 +8891,19 @@ auth.onAuthStateChanged(async function(user){
                   // Un solo campo de texto (sept. 2026) — se escriben las facturas del mes separadas por
                   // "+" (ej. 2250+19500) y btnSaveBI las suma. Si el mes ya traía un dato real (dentro de
                   // la ventana editable actual/anterior), se precarga el total para poder corregirlo.
-                  cells += `<td><input type="text" data-bi-v="${vi}" data-bi-m="${i}" value="${o.esReal ? valorPrecargado : ''}" placeholder="ej. 2250+19500${unidadFactura}" style="width:72px; font-size:11px; background:${o.esReal?bgPresupuesto(o.valor, v.presupuesto_mes):''};"></td>`;
+                  cells += `<td><input type="text" data-bi-v="${vi}" data-bi-m="${i}" value="${o.esReal ? valorPrecargado : ''}" placeholder="ej. 2250+19500${unidadFactura}" style="width:72px; font-size:11px; background:${o.esReal?bgPresupuesto(o.valor, v.presupuesto_mes):''};">${chkDesm(v, vi, i)}</td>`;
                 } else if(editing && puedeEditar){
-                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${o.esReal ? valorPrecargado : ''}" placeholder="${esUSD?'USD':''}" style="width:72px; background:${o.esReal?bgPresupuesto(o.valor, v.presupuesto_mes):''};"></td>`;
+                  cells += `<td><input type="number" step="1" data-bi-v="${vi}" data-bi-m="${i}" value="${o.esReal ? valorPrecargado : ''}" placeholder="${esUSD?'USD':''}" style="width:72px; background:${o.esReal?bgPresupuesto(o.valor, v.presupuesto_mes):''};">${chkDesm(v, vi, i)}</td>`;
                 } else if(o.esReal){
                   cells += `<td class="bi-locked" style="background:${bgPresupuesto(o.valor, v.presupuesto_mes)};">${moneyIT(o.valor)}</td>`;
                 } else {
                   cells += `<td><span style="color:var(--sub);">—</span></td>`;
+                }
+                // Banderín "Desmantelación de tiendas": se pega en la celda recién armada de este mes.
+                if(Array.isArray(v.desmantelacion) && v.desmantelacion.includes(i)){
+                  const desde = cells.lastIndexOf('<td');
+                  cells = cells.slice(0, desde) + cells.slice(desde).replace(/<td([^>]*)>/, (m, attrs)=>
+                    `<td${/class="/.test(attrs) ? attrs.replace('class="', 'class="bi-tiene-flag ') : attrs + ' class="bi-tiene-flag"'}><span class="bi-flag" title="Desmantelación de tiendas: parte de este monto no es mensajería">🚩</span>`);
                 }
               });
               cells += `<td><b>${moneyIT(anual)}</b></td>`;
@@ -8864,7 +8928,21 @@ auth.onAuthStateChanged(async function(user){
             </tr>
           </tfoot>
         </table></div>
+        ${puedeAgregarBI ? `
+        <div style="margin-top:10px;">
+          ${biFormProv ? `
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; padding:10px; border:1px dashed var(--line); border-radius:8px;">
+            <label style="font-size:12px;">Proveedor<br><input type="text" id="biNuevoProv" maxlength="60" style="width:180px;"></label>
+            <label style="font-size:12px;">Categoría<br><input type="text" id="biNuevaCat" list="biListaCats" maxlength="40" style="width:150px;"></label>
+            <datalist id="biListaCats">${[...new Set(data.opex.map(v=>v.categoria))].map(ct=>`<option value="${escEsv(ct)}">`).join('')}</datalist>
+            <label style="font-size:12px;">Presup./mes<br><input type="number" step="1" min="0" id="biNuevoPresup" style="width:100px;"></label>
+            <label style="font-size:12px;">Moneda<br><select id="biNuevaMoneda"><option value="MX">MX (pesos)</option><option value="USD">USD (dólares)</option></select></label>
+            <label style="font-size:12px; display:flex; gap:4px; align-items:center;"><input type="checkbox" id="biNuevaDoble"> Mete 2 facturas al mes</label>
+            <button class="primary" id="btnBiProvOk">Agregar</button><button id="btnBiProvNo">Cancelar</button>
+          </div>` : `<button id="btnBiAddProv">+ Agregar proveedor</button>`}
+        </div>` : ''}
         <div class="bi-legend">
+          ${data.opex.some(v=>Array.isArray(v.desmantelacion) && v.desmantelacion.length) ? `<span>🚩 Incluye desmantelación de tiendas (no es solo mensajería)</span>` : ''}
           <span><span class="bi-swatch locked"></span> Con dato capturado (no editable — Ene–Jun cerrado, o meses fuera de la ventana: solo se edita el mes actual y los dos anteriores)</span>
           <span><span class="bi-swatch" style="background:var(--badge-good-bg);"></span> Dentro de presupuesto</span>
           <span><span class="bi-swatch" style="background:var(--badge-crit-bg);"></span> Sobre presupuesto</span>
@@ -8889,9 +8967,22 @@ auth.onAuthStateChanged(async function(user){
               const sel = (incluido && (pendiente>0 || anio===2027) && editing && puedeEditar)
                 ? `<select data-bi-capex="${ci}">${(anio===2027 ? MESES12 : CAPEX_MESES_BI).map(m=>`<option value="${m}" ${m===cx.mes_plan?'selected':''}>${m}</option>`).join('')}</select>`
                 : (incluido && pendiente>0 ? (cx.mes_plan||'—') : (cx.mes_ejecucion||'—'));
-              return `<tr style="${incluido?'':'opacity:.5;'}"><td>${checkbox}</td><td style="text-align:left;">${cx.proveedor} ${status}</td><td>${(anio===2027 && editing && puedeEditar) ? `<input type="number" step="1" data-bi-capex-presup="${ci}" value="${cx.presupuesto}" style="width:90px;">` : moneyIT(cx.presupuesto)}</td><td>${moneyIT(cx.ejecutado)}</td><td>${moneyIT(pendiente)}</td><td style="text-align:left;">${sel}</td></tr>`;
+              const btnQuitarCx = (cx.agregado && puedeAgregarBI)
+                ? ` <button data-bi-del-capex="${ci}" title="Quitar este gasto" style="padding:0 5px; font-size:11px; line-height:16px;">🗑</button>` : '';
+              return `<tr style="${incluido?'':'opacity:.5;'}"><td>${checkbox}</td><td style="text-align:left;">${escEsv(cx.proveedor)}${btnQuitarCx} ${status}</td><td>${(anio===2027 && editing && puedeEditar) ? `<input type="number" step="1" data-bi-capex-presup="${ci}" value="${cx.presupuesto}" style="width:90px;">` : moneyIT(cx.presupuesto)}</td><td>${moneyIT(cx.ejecutado)}</td><td>${moneyIT(pendiente)}</td><td style="text-align:left;">${sel}</td></tr>`;
             }).join('')}</tbody>
-          </table></div>
+          </table>
+          ${puedeAgregarBI ? `
+          <div style="margin-top:10px;">
+            ${biFormCapex ? `
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; padding:10px; border:1px dashed var(--line); border-radius:8px; text-align:left;">
+              <label style="font-size:12px;">Gasto / proyecto<br><input type="text" id="biNuevoCapexNom" maxlength="60" style="width:200px;"></label>
+              <label style="font-size:12px;">Presupuesto<br><input type="number" step="1" min="0" id="biNuevoCapexPresup" style="width:110px;"></label>
+              <label style="font-size:12px;">Mes estimado<br><select id="biNuevoCapexMes">${MESES12.map(m=>`<option value="${m}">${m}</option>`).join('')}</select></label>
+              <button class="primary" id="btnBiCapexOk">Agregar</button><button id="btnBiCapexNo">Cancelar</button>
+            </div>` : `<button id="btnBiAddCapex">+ Agregar gasto CAPEX</button>`}
+          </div>` : ''}
+          </div>
           <div><canvas id="chartBudgetItCapex"></canvas></div>
         </div>
       </div>
@@ -8950,8 +9041,10 @@ auth.onAuthStateChanged(async function(user){
     }
 
     if(editing && puedeEditar){
-      document.getElementById('btnCancelBI').onclick = ()=>{ editing=false; render(); };
+      document.getElementById('btnCancelBI').onclick = ()=>{ biReiniciarCambios(); editing=false; render(); };
       document.getElementById('btnSaveBI').onclick = ()=>{
+        // Budget 2027: aplica al estado los renglones agregados/quitados en esta edición (ver biCambios).
+        if(puedeAgregarBI){ baseBI.opex = data.opex; baseBI.capex = data.capex; }
         // Los inputs solo existen para meses sin dato todavía (ver render de arriba) — si se deja en
         // blanco, no se toca nada (sigue "sin capturar", se ve como -). Nunca se sobreescribe un mes
         // que ya tenía un dato real guardado, porque para ese caso no se dibuja ningún input.
@@ -8964,12 +9057,22 @@ auth.onAuthStateChanged(async function(user){
           // lo capturado es dólares — se convierte a pesos con TIPO_CAMBIO_USD antes de guardarse. En
           // Firestore y en toda la tabla el dato siempre queda en pesos.
           const suma = raw.split('+').reduce((s,parte)=> s + (Number(parte.trim())||0), 0);
-          const factor = esProveedorUSD(data.opex[vi].proveedor) ? TIPO_CAMBIO_USD : 1;
+          const factor = esProveedorUSD(data.opex[vi]) ? TIPO_CAMBIO_USD : 1;
           data.opex[vi].meses[mi] = suma * factor;
         });
         document.querySelectorAll('[data-bi-presup]').forEach(inp=>{
           const raw = inp.value.trim();
           if(raw!=='') data.opex[Number(inp.dataset.biPresup)].presupuesto_mes = Number(raw);
+        });
+        // Banderín "Desmantelación de tiendas": solo toca los meses que tienen casilla (los editables).
+        const cambiosDesm = [];
+        document.querySelectorAll('[data-bi-desm]').forEach(chk=>{
+          const reg = data.opex[Number(chk.dataset.biDesm)], mi = Number(chk.dataset.biDesmM);
+          const actual = new Set(reg.desmantelacion || []);
+          if(chk.checked === actual.has(mi)) return;
+          if(chk.checked) actual.add(mi); else actual.delete(mi);
+          reg.desmantelacion = [...actual].sort((a,b)=>a-b);
+          cambiosDesm.push(`${chk.checked ? 'Marcó' : 'Quitó'} desmantelación ${reg.proveedor} ${MESES_CORTOS_BI[mi]}`);
         });
         document.querySelectorAll('[data-bi-capex-incluir]').forEach(chk=>{
           data.capex[Number(chk.dataset.biCapexIncluir)].incluir = chk.checked;
@@ -8989,12 +9092,73 @@ auth.onAuthStateChanged(async function(user){
           resumen: { ejercido_anual_proyectado: dSave.opexAnnualProjected, ahorro_proyectado: dSave.ahorroProyectado, capex_pendiente: dSave.capexPendiente }
         });
         if(data.historial.length > 30) data.historial.length = 30;
-        descripcionActualizacion = `Edición manual — Budget IT ${anio}`;
+        descripcionActualizacion = `Edición manual — Budget IT ${anio}` + (biCambios.notas.concat(cambiosDesm).length ? ` (${biCambios.notas.concat(cambiosDesm).map(n=>escEsv(n)).join('; ')})` : '');
+        biReiniciarCambios();
         editing = false;
         save();
       };
+      if(puedeAgregarBI){
+        const nombreLibre = (nom, lista) => !lista.some(x => String(x.proveedor).trim().toLowerCase() === nom.toLowerCase());
+        const repintar = () => { biGuardarBorrador(data); render(); };
+        const btnAddProv = document.getElementById('btnBiAddProv');
+        if(btnAddProv) btnAddProv.onclick = ()=>{ biGuardarBorrador(data); biFormProv = true; render(); setTimeout(()=>{ const i = document.getElementById('biNuevoProv'); if(i) i.focus(); }, 0); };
+        const btnNoProv = document.getElementById('btnBiProvNo');
+        if(btnNoProv) btnNoProv.onclick = ()=>{ biFormProv = false; repintar(); };
+        const btnOkProv = document.getElementById('btnBiProvOk');
+        if(btnOkProv) btnOkProv.onclick = ()=>{
+          const nom = document.getElementById('biNuevoProv').value.trim().replace(/\s+/g,' ');
+          const cat = document.getElementById('biNuevaCat').value.trim().replace(/\s+/g,' ');
+          const presRaw = document.getElementById('biNuevoPresup').value.trim();
+          const pres = presRaw==='' ? 0 : Number(presRaw);
+          if(!nom){ toast('Escribe el nombre del proveedor.', 'error'); return; }
+          if(!cat){ toast('Escribe la categoría (puedes elegir una existente de la lista).', 'error'); return; }
+          if(!isFinite(pres) || pres < 0){ toast('El presupuesto mensual debe ser un número mayor o igual a 0.', 'error'); return; }
+          if(!nombreLibre(nom, data.opex)){ toast('Ese proveedor ya existe en la tabla.', 'error'); return; }
+          biCambios.opex.push({ proveedor:nom, categoria:cat, presupuesto_mes:pres, meses:new Array(12).fill(null),
+            usd: document.getElementById('biNuevaMoneda').value==='USD', doble: document.getElementById('biNuevaDoble').checked, agregado:true });
+          biCambios.notas.push(`Agregó proveedor ${nom}`);
+          biFormProv = false;
+          repintar();
+        };
+        const btnAddCapex = document.getElementById('btnBiAddCapex');
+        if(btnAddCapex) btnAddCapex.onclick = ()=>{ biGuardarBorrador(data); biFormCapex = true; render(); setTimeout(()=>{ const i = document.getElementById('biNuevoCapexNom'); if(i) i.focus(); }, 0); };
+        const btnNoCapex = document.getElementById('btnBiCapexNo');
+        if(btnNoCapex) btnNoCapex.onclick = ()=>{ biFormCapex = false; repintar(); };
+        const btnOkCapex = document.getElementById('btnBiCapexOk');
+        if(btnOkCapex) btnOkCapex.onclick = ()=>{
+          const nom = document.getElementById('biNuevoCapexNom').value.trim().replace(/\s+/g,' ');
+          const presRaw = document.getElementById('biNuevoCapexPresup').value.trim();
+          const pres = presRaw==='' ? 0 : Number(presRaw);
+          if(!nom){ toast('Escribe el nombre del gasto o proyecto.', 'error'); return; }
+          if(!isFinite(pres) || pres < 0){ toast('El presupuesto debe ser un número mayor o igual a 0.', 'error'); return; }
+          if(!nombreLibre(nom, data.capex)){ toast('Ese gasto ya existe en CAPEX.', 'error'); return; }
+          biCambios.capex.push({ proveedor:nom, presupuesto:pres, ejecutado:0, mes_ejecucion:null,
+            mes_plan: document.getElementById('biNuevoCapexMes').value, incluir:true, agregado:true });
+          biCambios.notas.push(`Agregó CAPEX ${nom}`);
+          biFormCapex = false;
+          repintar();
+        };
+        // Quitar un renglón agregado desde la pantalla (los de siempre no tienen este botón).
+        const quitar = (rec, lista, etiqueta, tieneDatos) => {
+          const aviso = `¿Quitar ${etiqueta} "${rec.proveedor}"?` + (tieneDatos ? ' Tiene datos capturados que se perderán al guardar.' : '') + ' Se aplica hasta que des "Guardar cambios".';
+          if(!confirm(aviso)) return;
+          biGuardarBorrador(data);
+          const iNuevo = lista.indexOf(rec);
+          const nota = `Agregó ${etiqueta === 'el proveedor' ? 'proveedor' : 'CAPEX'} ${rec.proveedor}`;
+          if(iNuevo >= 0){ lista.splice(iNuevo, 1); const n = biCambios.notas.indexOf(nota); if(n >= 0) biCambios.notas.splice(n, 1); }
+          else { biCambios.quitar.add(rec); biCambios.notas.push(`Quitó ${etiqueta === 'el proveedor' ? 'proveedor' : 'CAPEX'} ${rec.proveedor}`); }
+          render();
+        };
+        document.querySelectorAll('[data-bi-del-opex]').forEach(b=>{
+          b.onclick = ()=>{ const rec = data.opex[Number(b.dataset.biDelOpex)]; quitar(rec, biCambios.opex, 'el proveedor', rec.meses.some(m=>m!==null && m!==undefined && m!==0)); };
+        });
+        document.querySelectorAll('[data-bi-del-capex]').forEach(b=>{
+          b.onclick = ()=>{ const rec = data.capex[Number(b.dataset.biDelCapex)]; quitar(rec, biCambios.capex, 'el gasto CAPEX', Number(rec.ejecutado||0) > 0); };
+        });
+        biRestaurarBorrador(data);
+      }
     } else if(puedeEditar){
-      document.getElementById('btnEditBI').onclick = ()=>{ editing=true; render(); };
+      document.getElementById('btnEditBI').onclick = ()=>{ biReiniciarCambios(); editing=true; render(); };
     }
     document.querySelectorAll('[data-bi-anio]').forEach(btn=>{
       btn.onclick = ()=>{
