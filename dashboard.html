@@ -5472,13 +5472,14 @@ auth.onAuthStateChanged(async function(user){
   // Javier Marafic salió de IT (27-nov-2026, pedido de amartinez): la rotación sigue en ciclo de 4 sin él, saltando
   // su turno. Los sábados ANTERIORES a GUARDIA_CORTE_TS se calculan con el orden anterior de 5 (historia intacta, para
   // que Checador y reportes de semanas pasadas sigan leyendo a quien realmente tuvo la guardia). Desde el sábado
-  // 12-dic-2026 (el primero que le tocaba a Javier) corre el ciclo de 4 empezando por Daniel Aguilar:
-  // 12-dic Daniel, 19-dic Alfredo, 26-dic Ariadna, 2-ene Eder, 9-ene Daniel…; 28-nov Ariadna y 5-dic Eder no cambian.
+  // 28-nov-2026 corre el ciclo de 4 en este orden (definido por amartinez): Eder → Daniel → Ariadna → Alfredo:
+  // 21-nov Alfredo (último del orden anterior), 28-nov Eder, 5-dic Daniel, 12-dic Ariadna, 19-dic Alfredo,
+  // 26-dic Eder, 2-ene Daniel, 9-ene Ariadna, 16-ene Alfredo, 23-ene Eder…
   const GUARDIA_ORDEN_ANTERIOR = ['Daniel Aguilar','Alfredo Martinez','Ariadna Sanchez','Eder Castillo','Javier Marafic'];
-  const GUARDIA_ORDEN = ['Daniel Aguilar','Alfredo Martinez','Ariadna Sanchez','Eder Castillo'];
+  const GUARDIA_ORDEN = ['Eder Castillo','Daniel Aguilar','Ariadna Sanchez','Alfredo Martinez'];
   const GUARDIA_PALETA = ['#2563EB','#7C3AED','#0D9488','#D97706','#DB2777'];
   const GUARDIA_ANCLA_TS = Date.UTC(2026,7,1); // sábado 1 de agosto de 2026 (ancla del orden anterior)
-  const GUARDIA_CORTE_TS = Date.UTC(2026,11,12); // sábado 12 de diciembre de 2026: arranca el ciclo de 4 (Daniel)
+  const GUARDIA_CORTE_TS = Date.UTC(2026,10,28); // sábado 28 de noviembre de 2026: arranca el ciclo de 4 (Eder)
   // Colores: se arman con el orden anterior para que Javier conserve el suyo en las semanas pasadas.
   const GUARDIA_COLOR = {}; GUARDIA_ORDEN_ANTERIOR.forEach((nombre,i)=>{ GUARDIA_COLOR[nombre] = GUARDIA_PALETA[i % GUARDIA_PALETA.length]; });
   function guardiaHoyUTC(){
@@ -5597,8 +5598,8 @@ auth.onAuthStateChanged(async function(user){
   //   la de la PC, para que no se pueda adelantar/atrasar el reloj. Un documento por persona por día:
   //   checador_registros/{usuario}_{YYYY-MM-DD}.
   // - Sábado y domingo = guardia: solo checa quien tiene la guardia según la rotación de la pestaña
-  //   Guardias (GUARDIA_ORDEN). Javier Marafic ya no está (27-nov-2026): desde el 12-dic-2026 nadie checa en su lugar; su
-  //   mapeo a lalzaga en CHK_GUARDIA_USER se conserva solo para leer las guardias pasadas (antes del 12-dic).
+  //   Guardias (GUARDIA_ORDEN). Javier Marafic ya no está (27-nov-2026): desde el 28-nov-2026 nadie checa en su lugar; su
+  //   mapeo a lalzaga en CHK_GUARDIA_USER se conserva solo para leer las guardias pasadas (antes del 28-nov).
   // - "Operaciones" (antes "Mi pago"): salario diario privado (checador_salarios/{u}, solo lo lee su dueño — ni supervisores).
   //   Reglas del Excel: cuota hora = salario/8; sábado es día normal; extra = lo que pase de 8 h en el
   //   día (lun-sáb); al DOBLE hasta 9 h por semana (lun-dom), al TRIPLE lo que exceda; domingo = descanso
