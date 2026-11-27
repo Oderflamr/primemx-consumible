@@ -5469,10 +5469,18 @@ auth.onAuthStateChanged(async function(user){
   // ciclo de 5, para siempre — no hay que tocar nada mes a mes. GUARDIA_ANCLA_TS es el primer sábado del
   // archivo (1 de agosto 2026 = Daniel Aguilar, índice 0); cualquier otro sábado se ubica contando cuántas
   // semanas de 7 días lo separan de esa ancla.
-  const GUARDIA_ORDEN = ['Daniel Aguilar','Alfredo Martinez','Ariadna Sanchez','Eder Castillo','Javier Marafic'];
+  // Javier Marafic salió de IT (27-nov-2026, pedido de amartinez): la rotación sigue en ciclo de 4 sin él, saltando
+  // su turno. Los sábados ANTERIORES a GUARDIA_CORTE_TS se calculan con el orden anterior de 5 (historia intacta, para
+  // que Checador y reportes de semanas pasadas sigan leyendo a quien realmente tuvo la guardia). Desde el sábado
+  // 12-dic-2026 (el primero que le tocaba a Javier) corre el ciclo de 4 empezando por Daniel Aguilar:
+  // 12-dic Daniel, 19-dic Alfredo, 26-dic Ariadna, 2-ene Eder, 9-ene Daniel…; 28-nov Ariadna y 5-dic Eder no cambian.
+  const GUARDIA_ORDEN_ANTERIOR = ['Daniel Aguilar','Alfredo Martinez','Ariadna Sanchez','Eder Castillo','Javier Marafic'];
+  const GUARDIA_ORDEN = ['Daniel Aguilar','Alfredo Martinez','Ariadna Sanchez','Eder Castillo'];
   const GUARDIA_PALETA = ['#2563EB','#7C3AED','#0D9488','#D97706','#DB2777'];
-  const GUARDIA_ANCLA_TS = Date.UTC(2026,7,1); // sábado 1 de agosto de 2026
-  const GUARDIA_COLOR = {}; GUARDIA_ORDEN.forEach((nombre,i)=>{ GUARDIA_COLOR[nombre] = GUARDIA_PALETA[i % GUARDIA_PALETA.length]; });
+  const GUARDIA_ANCLA_TS = Date.UTC(2026,7,1); // sábado 1 de agosto de 2026 (ancla del orden anterior)
+  const GUARDIA_CORTE_TS = Date.UTC(2026,11,12); // sábado 12 de diciembre de 2026: arranca el ciclo de 4 (Daniel)
+  // Colores: se arman con el orden anterior para que Javier conserve el suyo en las semanas pasadas.
+  const GUARDIA_COLOR = {}; GUARDIA_ORDEN_ANTERIOR.forEach((nombre,i)=>{ GUARDIA_COLOR[nombre] = GUARDIA_PALETA[i % GUARDIA_PALETA.length]; });
   function guardiaHoyUTC(){
     const n = new Date();
     return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate());
@@ -5484,9 +5492,11 @@ auth.onAuthStateChanged(async function(user){
   }
   // Ingeniero que le toca en el sábado cuyo timestamp (UTC, medianoche) es sabTs.
   function guardiaIngenieroEn(sabTs){
-    const semanas = Math.round((sabTs - GUARDIA_ANCLA_TS) / (7*86400000));
-    const idx = ((semanas % GUARDIA_ORDEN.length) + GUARDIA_ORDEN.length) % GUARDIA_ORDEN.length;
-    return GUARDIA_ORDEN[idx];
+    const desde = sabTs < GUARDIA_CORTE_TS ? GUARDIA_ANCLA_TS : GUARDIA_CORTE_TS;
+    const orden = sabTs < GUARDIA_CORTE_TS ? GUARDIA_ORDEN_ANTERIOR : GUARDIA_ORDEN;
+    const semanas = Math.round((sabTs - desde) / (7*86400000));
+    const idx = ((semanas % orden.length) + orden.length) % orden.length;
+    return orden[idx];
   }
   // Genera la ventana de sábados a mostrar: 2 fines de semana hacia atrás (contexto reciente) y 22 hacia
   // adelante (~5 meses) contados desde el sábado de esta semana — así conforme avanzan los meses, la
@@ -5587,7 +5597,8 @@ auth.onAuthStateChanged(async function(user){
   //   la de la PC, para que no se pueda adelantar/atrasar el reloj. Un documento por persona por día:
   //   checador_registros/{usuario}_{YYYY-MM-DD}.
   // - Sábado y domingo = guardia: solo checa quien tiene la guardia según la rotación de la pestaña
-  //   Guardias (GUARDIA_ORDEN). La guardia de Javier Marafic la checa Luis Alzaga.
+  //   Guardias (GUARDIA_ORDEN). Javier Marafic ya no está (27-nov-2026): desde el 12-dic-2026 nadie checa en su lugar; su
+  //   mapeo a lalzaga en CHK_GUARDIA_USER se conserva solo para leer las guardias pasadas (antes del 12-dic).
   // - "Operaciones" (antes "Mi pago"): salario diario privado (checador_salarios/{u}, solo lo lee su dueño — ni supervisores).
   //   Reglas del Excel: cuota hora = salario/8; sábado es día normal; extra = lo que pase de 8 h en el
   //   día (lun-sáb); al DOBLE hasta 9 h por semana (lun-dom), al TRIPLE lo que exceda; domingo = descanso
